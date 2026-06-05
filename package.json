@@ -1,0 +1,11 @@
+{
+  "name": "reclamo-de-terceros",
+  "version": "1.0.0",
+  "description": "Landing page para gestión de reclamos a compañías de seguros",
+  "scripts": {
+    "start": "serve . -l $PORT"
+  },
+  "dependencies": {
+    "serve": "^14.2.3"
+  }
+}

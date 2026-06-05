@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ReclamaJusto — Tu Reclamo, Nuestro Compromiso</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --blue-900: #1e3a8a;
+      --blue-800: #1e40af;
+      --blue-700: #1d4ed8;
+      --blue-600: #2563eb;
+      --blue-100: #dbeafe;
+      --blue-50:  #eff6ff;
+      --gray-900: #111827;
+      --gray-800: #1f2937;
+      --gray-700: #374151;
+      --gray-600: #4b5563;
+      --gray-400: #9ca3af;
+      --gray-200: #e5e7eb;
+      --gray-100: #f3f4f6;
+      --gray-50:  #f9fafb;
+      --white:    #ffffff;
+      --surface:  #f0f4f8;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
+      --shadow-md: 0 4px 16px rgba(0,0,0,.10);
+      --shadow-lg: 0 10px 40px rgba(0,0,0,.12);
+      --radius:   12px;
+      --radius-lg: 20px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      color: var(--gray-800);
+      background: var(--white);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── NAVBAR ── */
+    .nav {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(255,255,255,.92);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--gray-200);
+      padding: 0 2rem;
+    }
+    .nav-inner {
+      max-width: 1200px; margin: 0 auto;
+      display: flex; align-items: center; justify-content: space-between;
+      height: 68px;
+    }
+    .logo {
+      display: flex; align-items: center; gap: .6rem;
+      font-weight: 800; font-size: 1.25rem; color: var(--blue-800);
+      text-decoration: none;
+    }
+    .logo-icon {
+      width: 36px; height: 36px; background: var(--blue-800);
+      border-radius: 8px; display: grid; place-items: center;
+    }
+    .logo-icon svg { width: 20px; height: 20px; fill: none; stroke: white; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+    .nav-links { display: flex; gap: 2rem; list-style: none; }
+    .nav-links a { text-decoration: none; color: var(--gray-600); font-size: .95rem; font-weight: 500; transition: color .2s; }
+    .nav-links a:hover { color: var(--blue-800); }
+    .nav-cta {
+      background: var(--blue-800); color: white;
+      padding: .55rem 1.3rem; border-radius: 8px;
+      font-size: .9rem; font-weight: 600; text-decoration: none;
+      transition: background .2s, transform .15s;
+    }
+    .nav-cta:hover { background: var(--blue-700); transform: translateY(-1px); }
+
+    /* ── HERO ── */
+    .hero {
+      background: linear-gradient(135deg, #f0f4f8 0%, #e8f0fe 50%, #f0f4f8 100%);
+      padding: 100px 2rem 80px;
+      position: relative; overflow: hidden;
+    }
+    .hero::before {
+      content: '';
+      position: absolute; top: -120px; right: -120px;
+      width: 600px; height: 600px;
+      background: radial-gradient(circle, rgba(37,99,235,.12) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .hero::after {
+      content: '';
+      position: absolute; bottom: -80px; left: -80px;
+      width: 400px; height: 400px;
+      background: radial-gradient(circle, rgba(30,64,175,.08) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .hero-inner {
+      max-width: 1200px; margin: 0 auto;
+      display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; align-items: center;
+    }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: .5rem;
+      background: var(--blue-50); border: 1px solid var(--blue-100);
+      color: var(--blue-800); font-size: .8rem; font-weight: 600;
+      padding: .35rem .85rem; border-radius: 999px; margin-bottom: 1.5rem;
+    }
+    .hero-badge span { width: 7px; height: 7px; background: var(--blue-600); border-radius: 50%; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{ opacity:1; transform:scale(1); } 50%{ opacity:.5; transform:scale(1.4); } }
+
+    h1 {
+      font-size: clamp(2.2rem, 4vw, 3.4rem);
+      font-weight: 900; line-height: 1.12;
+      color: var(--gray-900); margin-bottom: 1.2rem;
+      letter-spacing: -.03em;
+    }
+    h1 em { font-style: normal; color: var(--blue-800); }
+    .hero-sub {
+      font-size: 1.1rem; color: var(--gray-600);
+      max-width: 480px; margin-bottom: 2.2rem; line-height: 1.7;
+    }
+    .hero-actions { display: flex; gap: 1rem; flex-wrap: wrap; }
+    .btn-primary {
+      background: var(--blue-800); color: white;
+      padding: .85rem 1.8rem; border-radius: 10px;
+      font-size: 1rem; font-weight: 700; text-decoration: none;
+      box-shadow: 0 4px 14px rgba(30,64,175,.35);
+      transition: all .2s; display: inline-flex; align-items: center; gap: .5rem;
+    }
+    .btn-primary:hover { background: var(--blue-700); transform: translateY(-2px); box-shadow: 0 6px 20px rgba(30,64,175,.4); }
+    .btn-secondary {
+      background: white; color: var(--gray-800);
+      padding: .85rem 1.8rem; border-radius: 10px;
+      font-size: 1rem; font-weight: 600; text-decoration: none;
+      border: 1.5px solid var(--gray-200); transition: all .2s;
+      display: inline-flex; align-items: center; gap: .5rem;
+    }
+    .btn-secondary:hover { border-color: var(--blue-800); color: var(--blue-800); transform: translateY(-2px); }
+
+    .hero-stats {
+      display: flex; gap: 2rem; margin-top: 2.5rem; flex-wrap: wrap;
+    }
+    .stat { }
+    .stat-num { font-size: 1.7rem; font-weight: 800; color: var(--gray-900); }
+    .stat-label { font-size: .8rem; color: var(--gray-500); font-weight: 500; }
+
+    /* hero card */
+    .hero-card {
+      background: white; border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-lg); padding: 2rem;
+      border: 1px solid var(--gray-100);
+    }
+    .hero-card-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 1.5rem;
+    }
+    .hero-card-title { font-weight: 700; font-size: 1rem; color: var(--gray-900); }
+    .status-badge {
+      font-size: .75rem; font-weight: 600; padding: .3rem .75rem;
+      border-radius: 999px;
+    }
+    .status-green { background: #dcfce7; color: #16a34a; }
+    .status-yellow { background: #fef9c3; color: #ca8a04; }
+    .status-blue { background: var(--blue-50); color: var(--blue-800); }
+
+    .claim-list { display: flex; flex-direction: column; gap: .85rem; }
+    .claim-item {
+      display: flex; align-items: center; gap: 1rem;
+      padding: .85rem 1rem; border-radius: 10px;
+      background: var(--gray-50); border: 1px solid var(--gray-100);
+    }
+    .claim-icon {
+      width: 40px; height: 40px; border-radius: 10px;
+      display: grid; place-items: center; flex-shrink: 0;
+    }
+    .claim-icon svg { width: 20px; height: 20px; }
+    .ci-blue { background: var(--blue-50); }
+    .ci-orange { background: #fff7ed; }
+    .ci-green { background: #f0fdf4; }
+    .claim-info { flex: 1; }
+    .claim-name { font-size: .88rem; font-weight: 600; color: var(--gray-800); }
+    .claim-date { font-size: .75rem; color: var(--gray-400); margin-top: .1rem; }
+    .claim-amount { font-size: .9rem; font-weight: 700; color: var(--gray-900); }
+
+    .hero-card-footer {
+      margin-top: 1.2rem; padding-top: 1.2rem;
+      border-top: 1px solid var(--gray-100);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .progress-bar { flex: 1; height: 6px; background: var(--gray-100); border-radius: 999px; overflow: hidden; margin: 0 1rem; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, var(--blue-600), var(--blue-800)); border-radius: 999px; width: 72%; }
+    .progress-pct { font-size: .8rem; font-weight: 700; color: var(--blue-800); }
+
+    /* ── TRUST BAR ── */
+    .trust-bar {
+      background: var(--gray-900); padding: 1.5rem 2rem;
+    }
+    .trust-bar-inner {
+      max-width: 1200px; margin: 0 auto;
+      display: flex; align-items: center; gap: 3rem; flex-wrap: wrap; justify-content: center;
+    }
+    .trust-item {
+      display: flex; align-items: center; gap: .6rem;
+      color: var(--gray-400); font-size: .88rem; font-weight: 500;
+    }
+    .trust-item svg { width: 18px; height: 18px; flex-shrink: 0; }
+    .trust-item strong { color: white; }
+
+    /* ── SECTIONS ── */
+    section { padding: 90px 2rem; }
+    .section-inner { max-width: 1200px; margin: 0 auto; }
+    .section-tag {
+      display: inline-block;
+      background: var(--blue-50); color: var(--blue-800);
+      font-size: .78rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+      padding: .3rem .85rem; border-radius: 999px; margin-bottom: 1rem;
+    }
+    .section-title {
+      font-size: clamp(1.7rem, 3vw, 2.4rem); font-weight: 800;
+      color: var(--gray-900); line-height: 1.2; letter-spacing: -.025em;
+    }
+    .section-title em { font-style: normal; color: var(--blue-800); }
+    .section-sub {
+      font-size: 1.05rem; color: var(--gray-600);
+      margin-top: .75rem; max-width: 560px; line-height: 1.7;
+    }
+    .section-header { margin-bottom: 3.5rem; }
+    .text-center { text-align: center; }
+    .text-center .section-sub { margin: .75rem auto 0; }
+
+    /* ── SERVICES ── */
+    .services-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1.5rem;
+    }
+    .service-card {
+      background: white; border-radius: var(--radius-lg);
+      border: 1.5px solid var(--gray-100);
+      padding: 2rem; transition: all .25s;
+      position: relative; overflow: hidden;
+    }
+    .service-card:hover {
+      border-color: var(--blue-100);
+      box-shadow: var(--shadow-lg);
+      transform: translateY(-4px);
+    }
+    .service-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0;
+      height: 3px; background: linear-gradient(90deg, var(--blue-600), var(--blue-800));
+      opacity: 0; transition: opacity .25s;
+    }
+    .service-card:hover::before { opacity: 1; }
+    .service-icon {
+      width: 56px; height: 56px; background: var(--blue-50);
+      border-radius: 14px; display: grid; place-items: center;
+      margin-bottom: 1.2rem;
+    }
+    .service-icon svg { width: 28px; height: 28px; stroke: var(--blue-800); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .service-title { font-size: 1.15rem; font-weight: 700; color: var(--gray-900); margin-bottom: .6rem; }
+    .service-desc { font-size: .93rem; color: var(--gray-600); line-height: 1.65; }
+    .service-list { margin-top: 1.2rem; display: flex; flex-direction: column; gap: .5rem; }
+    .service-list li {
+      display: flex; align-items: center; gap: .5rem;
+      font-size: .88rem; color: var(--gray-700); list-style: none;
+    }
+    .service-list li::before {
+      content: '✓'; color: var(--blue-600); font-weight: 700; font-size: .9rem; flex-shrink: 0;
+    }
+
+    /* ── HOW IT WORKS ── */
+    .steps { background: var(--surface); }
+    .steps-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 2rem; position: relative;
+    }
+    .step {
+      text-align: center; position: relative;
+    }
+    .step-num {
+      width: 60px; height: 60px; background: var(--blue-800);
+      border-radius: 50%; display: grid; place-items: center;
+      margin: 0 auto 1.2rem;
+      font-size: 1.3rem; font-weight: 800; color: white;
+      box-shadow: 0 4px 14px rgba(30,64,175,.3);
+    }
+    .step-title { font-size: 1.05rem; font-weight: 700; color: var(--gray-900); margin-bottom: .5rem; }
+    .step-desc { font-size: .9rem; color: var(--gray-600); line-height: 1.6; }
+    .step-connector {
+      position: absolute; top: 30px; right: -1rem;
+      width: 2rem; height: 2px; background: var(--blue-100);
+    }
+
+    /* ── WHY US ── */
+    .why-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; align-items: center;
+    }
+    .why-features { display: flex; flex-direction: column; gap: 1.5rem; }
+    .why-feature {
+      display: flex; gap: 1rem; align-items: flex-start;
+    }
+    .why-feature-icon {
+      width: 44px; height: 44px; background: var(--blue-50);
+      border-radius: 10px; display: grid; place-items: center; flex-shrink: 0;
+    }
+    .why-feature-icon svg { width: 22px; height: 22px; stroke: var(--blue-800); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .why-feature-title { font-size: 1rem; font-weight: 700; color: var(--gray-900); margin-bottom: .3rem; }
+    .why-feature-desc { font-size: .9rem; color: var(--gray-600); line-height: 1.6; }
+
+    .why-visual {
+      background: white; border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-lg); padding: 2rem;
+      border: 1px solid var(--gray-100);
+    }
+    .gauge-title { font-size: .85rem; font-weight: 600; color: var(--gray-600); margin-bottom: 1.5rem; }
+    .gauge-row { display: flex; flex-direction: column; gap: 1rem; }
+    .gauge-item { }
+    .gauge-label { display: flex; justify-content: space-between; font-size: .85rem; font-weight: 600; color: var(--gray-700); margin-bottom: .4rem; }
+    .gauge-track { height: 8px; background: var(--gray-100); border-radius: 999px; overflow: hidden; }
+    .gauge-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--blue-600), var(--blue-800)); }
+
+    /* ── TESTIMONIALS ── */
+    .testimonials { background: var(--surface); }
+    .testi-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1.5rem;
+    }
+    .testi-card {
+      background: white; border-radius: var(--radius-lg);
+      padding: 1.8rem; border: 1.5px solid var(--gray-100);
+      box-shadow: var(--shadow-sm);
+    }
+    .stars { color: #f59e0b; font-size: 1rem; margin-bottom: 1rem; letter-spacing: .1em; }
+    .testi-text { font-size: .95rem; color: var(--gray-700); line-height: 1.7; font-style: italic; margin-bottom: 1.3rem; }
+    .testi-author { display: flex; align-items: center; gap: .75rem; }
+    .testi-avatar {
+      width: 42px; height: 42px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--blue-600), var(--blue-800));
+      display: grid; place-items: center; color: white; font-weight: 700; font-size: .9rem;
+      flex-shrink: 0;
+    }
+    .testi-name { font-weight: 700; font-size: .9rem; color: var(--gray-900); }
+    .testi-info { font-size: .78rem; color: var(--gray-400); margin-top: .1rem; }
+
+    /* ── FORM ── */
+    .form-section { background: white; }
+    .form-wrapper {
+      display: grid; grid-template-columns: 1fr 1.2fr; gap: 4rem; align-items: start;
+    }
+    .form-info { }
+    .form-benefits { display: flex; flex-direction: column; gap: 1rem; margin-top: 2rem; }
+    .form-benefit { display: flex; align-items: center; gap: .75rem; font-size: .93rem; color: var(--gray-700); font-weight: 500; }
+    .form-benefit::before { content: '✓'; color: var(--blue-600); font-weight: 800; font-size: 1rem; flex-shrink: 0; }
+
+    form { display: flex; flex-direction: column; gap: 1.1rem; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .field { display: flex; flex-direction: column; gap: .4rem; }
+    label { font-size: .85rem; font-weight: 600; color: var(--gray-700); }
+    input, select, textarea {
+      padding: .75rem 1rem; border-radius: 8px;
+      border: 1.5px solid var(--gray-200); font-family: inherit;
+      font-size: .93rem; color: var(--gray-800);
+      background: var(--gray-50); transition: border .2s, box-shadow .2s;
+      outline: none; width: 100%;
+    }
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--blue-600);
+      box-shadow: 0 0 0 3px rgba(37,99,235,.12);
+      background: white;
+    }
+    textarea { resize: vertical; min-height: 110px; }
+    select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%234b5563' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right .9rem center; padding-right: 2.5rem; }
+    .submit-btn {
+      background: var(--blue-800); color: white;
+      padding: 1rem; border-radius: 10px; border: none;
+      font-size: 1rem; font-weight: 700; cursor: pointer;
+      box-shadow: 0 4px 14px rgba(30,64,175,.35);
+      transition: all .2s; display: flex; align-items: center; justify-content: center; gap: .6rem;
+    }
+    .submit-btn:hover { background: var(--blue-700); transform: translateY(-2px); box-shadow: 0 6px 20px rgba(30,64,175,.4); }
+    .form-note { font-size: .78rem; color: var(--gray-400); text-align: center; margin-top: .25rem; }
+
+    /* ── CTA BANNER ── */
+    .cta-banner {
+      background: linear-gradient(135deg, var(--blue-900) 0%, var(--blue-800) 100%);
+      padding: 80px 2rem; text-align: center;
+    }
+    .cta-banner h2 { font-size: clamp(1.8rem, 3vw, 2.6rem); font-weight: 800; color: white; margin-bottom: .75rem; letter-spacing: -.02em; }
+    .cta-banner p { color: rgba(255,255,255,.75); font-size: 1.05rem; max-width: 520px; margin: 0 auto 2.2rem; }
+    .cta-banner .btn-primary { background: white; color: var(--blue-900); box-shadow: 0 4px 14px rgba(0,0,0,.2); }
+    .cta-banner .btn-primary:hover { background: var(--gray-50); }
+
+    /* ── FOOTER ── */
+    footer {
+      background: var(--gray-900); color: var(--gray-400);
+      padding: 60px 2rem 30px;
+    }
+    .footer-inner { max-width: 1200px; margin: 0 auto; }
+    .footer-top {
+      display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 3rem;
+      padding-bottom: 2.5rem; border-bottom: 1px solid rgba(255,255,255,.08);
+    }
+    .footer-logo {
+      display: flex; align-items: center; gap: .6rem;
+      font-weight: 800; font-size: 1.15rem; color: white; margin-bottom: 1rem;
+      text-decoration: none;
+    }
+    .footer-logo .logo-icon { background: var(--blue-600); }
+    .footer-desc { font-size: .88rem; line-height: 1.7; max-width: 260px; }
+    .footer-col h4 { color: white; font-size: .88rem; font-weight: 700; margin-bottom: 1rem; }
+    .footer-col ul { list-style: none; display: flex; flex-direction: column; gap: .55rem; }
+    .footer-col a { text-decoration: none; color: var(--gray-400); font-size: .88rem; transition: color .2s; }
+    .footer-col a:hover { color: white; }
+    .footer-bottom {
+      padding-top: 1.5rem;
+      display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;
+      font-size: .82rem;
+    }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 900px) {
+      .hero-inner, .why-grid, .form-wrapper { grid-template-columns: 1fr; }
+      .hero-card { display: none; }
+      .footer-top { grid-template-columns: 1fr 1fr; }
+      .nav-links { display: none; }
+    }
+    @media (max-width: 600px) {
+      section { padding: 60px 1.25rem; }
+      .form-row { grid-template-columns: 1fr; }
+      .footer-top { grid-template-columns: 1fr; }
+      .hero { padding: 70px 1.25rem 50px; }
+      .trust-bar-inner { gap: 1.2rem; }
+      .hero-stats { gap: 1.2rem; }
+    }
+
+    /* ── SCROLL ANIMATIONS ── */
+    .fade-up {
+      opacity: 0; transform: translateY(28px);
+      transition: opacity .55s ease, transform .55s ease;
+    }
+    .fade-up.visible { opacity: 1; transform: translateY(0); }
+  </style>
+</head>
+<body>
+
+  <!-- NAVBAR -->
+  <nav class="nav">
+    <div class="nav-inner">
+      <a href="#" class="logo">
+        <div class="logo-icon">
+          <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        ReclamaJusto
+      </a>
+      <ul class="nav-links">
+        <li><a href="#servicios">Servicios</a></li>
+        <li><a href="#como-funciona">Cómo Funciona</a></li>
+        <li><a href="#por-que-nosotros">Por Qué Nosotros</a></li>
+        <li><a href="#testimonios">Testimonios</a></li>
+      </ul>
+      <a href="#contacto" class="nav-cta">Iniciar Reclamo</a>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-inner">
+      <div>
+        <div class="hero-badge">
+          <span></span> Especialistas en reclamos de seguros · 2026
+        </div>
+        <h1>Tu seguro debe <em>pagarte</em> lo que te corresponde</h1>
+        <p class="hero-sub">
+          Gestionamos tu reclamo ante la compañía aseguradora de principio a fin. Sin costos anticipados, sin burocracia, sin excusas.
+        </p>
+        <div class="hero-actions">
+          <a href="#contacto" class="btn-primary">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81 19.79 19.79 0 01.06 1.18 2 2 0 012.03 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 14.92z"/></svg>
+            Consulta Gratuita
+          </a>
+          <a href="#como-funciona" class="btn-secondary">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
+            Ver cómo funciona
+          </a>
+        </div>
+        <div class="hero-stats">
+          <div class="stat">
+            <div class="stat-num">+3.200</div>
+            <div class="stat-label">Reclamos exitosos</div>
+          </div>
+          <div class="stat">
+            <div class="stat-num">94%</div>
+            <div class="stat-label">Tasa de éxito</div>
+          </div>
+          <div class="stat">
+            <div class="stat-num">$0</div>
+            <div class="stat-label">Costo inicial</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="hero-card fade-up">
+        <div class="hero-card-header">
+          <span class="hero-card-title">Panel de Reclamos</span>
+          <span class="status-badge status-green">● En Proceso</span>
+        </div>
+        <div class="claim-list">
+          <div class="claim-item">
+            <div class="claim-icon ci-blue">
+              <svg viewBox="0 0 24 24" stroke="#2563eb" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13" rx="2"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+            </div>
+            <div class="claim-info">
+              <div class="claim-name">Daños por colisión — Toyota</div>
+              <div class="claim-date">Presentado: 12 May 2026</div>
+            </div>
+            <div>
+              <span class="status-badge status-yellow">En revisión</span>
+            </div>
+            <div class="claim-amount">$8.400</div>
+          </div>
+          <div class="claim-item">
+            <div class="claim-icon ci-orange">
+              <svg viewBox="0 0 24 24" stroke="#ea580c" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            </div>
+            <div class="claim-info">
+              <div class="claim-name">Daños en vivienda — inundación</div>
+              <div class="claim-date">Presentado: 28 Abr 2026</div>
+            </div>
+            <div>
+              <span class="status-badge status-green">Aprobado</span>
+            </div>
+            <div class="claim-amount">$24.200</div>
+          </div>
+          <div class="claim-item">
+            <div class="claim-icon ci-blue">
+              <svg viewBox="0 0 24 24" stroke="#2563eb" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+            </div>
+            <div class="claim-info">
+              <div class="claim-name">Robo de contenido del hogar</div>
+              <div class="claim-date">Presentado: 5 Jun 2026</div>
+            </div>
+            <div>
+              <span class="status-badge status-blue">Nuevo</span>
+            </div>
+            <div class="claim-amount">$6.750</div>
+          </div>
+        </div>
+        <div class="hero-card-footer">
+          <span style="font-size:.8rem;font-weight:600;color:var(--gray-600)">Progreso global</span>
+          <div class="progress-bar"><div class="progress-fill"></div></div>
+          <span class="progress-pct">72%</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TRUST BAR -->
+  <div class="trust-bar">
+    <div class="trust-bar-inner">
+      <div class="trust-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        <span><strong>Sin costo inicial</strong> — cobro solo si ganamos</span>
+      </div>
+      <div class="trust-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <span>Respuesta en <strong>menos de 24 hs</strong></span>
+      </div>
+      <div class="trust-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+        <span><strong>+40 peritos</strong> y abogados especializados</span>
+      </div>
+      <div class="trust-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        <span><strong>94% de éxito</strong> en reclamos gestionados</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- SERVICIOS -->
+  <section id="servicios">
+    <div class="section-inner">
+      <div class="section-header text-center fade-up">
+        <span class="section-tag">Nuestros Servicios</span>
+        <h2 class="section-title">Cubrimos los reclamos que las<br/><em>aseguradoras intentan rechazar</em></h2>
+        <p class="section-sub">Especializados en los dos tipos de siniestro con mayor índice de disputas y subestimación de daños.</p>
+      </div>
+      <div class="services-grid">
+        <div class="service-card fade-up">
+          <div class="service-icon">
+            <svg viewBox="0 0 24 24"><rect x="1" y="3" width="15" height="13" rx="2"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+          </div>
+          <div class="service-title">Accidentes de Automóvil</div>
+          <div class="service-desc">Gestionamos todo tipo de reclamo vehicular: colisiones, choques, daños parciales y totales ante tu aseguradora o la del tercero.</div>
+          <ul class="service-list">
+            <li>Tasación independiente del vehículo</li>
+            <li>Negociación con la liquidadora</li>
+            <li>Cobertura de gastos médicos y lucro cesante</li>
+            <li>Reclamo por pérdida total injustificada</li>
+            <li>Defensa ante demoras y rechazos arbitrarios</li>
+          </ul>
+        </div>
+        <div class="service-card fade-up" style="transition-delay:.1s">
+          <div class="service-icon">
+            <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          </div>
+          <div class="service-title">Propiedad y Hogar</div>
+          <div class="service-desc">Defendemos tu hogar frente a daños por agua, incendio, robo, temporal o catástrofe. Nos encargamos de que la valuación sea justa.</div>
+          <ul class="service-list">
+            <li>Peritaje independiente de daños estructurales</li>
+            <li>Reclamo por daños por inundación o tormenta</li>
+            <li>Inventario y valuación de bienes robados</li>
+            <li>Impugnación de peritos de la aseguradora</li>
+            <li>Gestión de gastos de alojamiento transitorio</li>
+          </ul>
+        </div>
+        <div class="service-card fade-up" style="transition-delay:.2s">
+          <div class="service-icon">
+            <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          </div>
+          <div class="service-title">Asesoría y Revisión de Póliza</div>
+          <div class="service-desc">¿Tu aseguradora ofrece menos de lo que mereces? Revisamos tu póliza y determinamos si tienes derecho a una indemnización mayor.</div>
+          <ul class="service-list">
+            <li>Análisis gratuito de tu póliza vigente</li>
+            <li>Detección de cláusulas abusivas</li>
+            <li>Segunda opinión sobre liquidaciones recibidas</li>
+            <li>Orientación legal preventiva</li>
+          </ul>
+        </div>
+        <div class="service-card fade-up" style="transition-delay:.3s">
+          <div class="service-icon">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          </div>
+          <div class="service-title">Reclamos Rechazados</div>
+          <div class="service-desc">Si la aseguradora ya rechazó tu reclamo, no es el final. Estudiamos el expediente y apelamos con fundamentos técnicos y legales sólidos.</div>
+          <ul class="service-list">
+            <li>Revisión del expediente de rechazo</li>
+            <li>Apelación administrativa ante la aseguradora</li>
+            <li>Mediación prejudicial y judicial</li>
+            <li>Sin honorarios si no revertimos el fallo</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CÓMO FUNCIONA -->
+  <section id="como-funciona" class="steps">
+    <div class="section-inner">
+      <div class="section-header text-center fade-up">
+        <span class="section-tag">Proceso</span>
+        <h2 class="section-title">Así gestionamos tu reclamo,<br/><em>paso a paso</em></h2>
+        <p class="section-sub">Un proceso claro y transparente. Tú nos cuéntanos qué pasó, nosotros nos encargamos del resto.</p>
+      </div>
+      <div class="steps-grid">
+        <div class="step fade-up">
+          <div class="step-num">1</div>
+          <div class="step-title">Consulta gratuita</div>
+          <div class="step-desc">Completás el formulario o nos llamás. En menos de 24 hs un asesor analiza tu caso sin costo.</div>
+          <div class="step-connector"></div>
+        </div>
+        <div class="step fade-up" style="transition-delay:.1s">
+          <div class="step-num">2</div>
+          <div class="step-title">Revisamos tu póliza</div>
+          <div class="step-desc">Analizamos tu contrato y el siniestro para determinar el monto real que te corresponde.</div>
+          <div class="step-connector"></div>
+        </div>
+        <div class="step fade-up" style="transition-delay:.2s">
+          <div class="step-num">3</div>
+          <div class="step-title">Presentamos el reclamo</div>
+          <div class="step-desc">Armamos la documentación completa y la presentamos ante la aseguradora de forma profesional.</div>
+          <div class="step-connector"></div>
+        </div>
+        <div class="step fade-up" style="transition-delay:.3s">
+          <div class="step-num">4</div>
+          <div class="step-title">Negociamos por vos</div>
+          <div class="step-desc">Nuestros peritos y abogados negocian directamente para maximizar tu indemnización.</div>
+          <div class="step-connector"></div>
+        </div>
+        <div class="step fade-up" style="transition-delay:.4s">
+          <div class="step-num">5</div>
+          <div class="step-title">Cobrás tu dinero</div>
+          <div class="step-desc">Una vez aprobado, recibís el pago. Nosotros cobramos solo un porcentaje del monto obtenido.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- POR QUÉ NOSOTROS -->
+  <section id="por-que-nosotros">
+    <div class="section-inner">
+      <div class="why-grid">
+        <div>
+          <div class="section-header fade-up">
+            <span class="section-tag">Por Qué Elegirnos</span>
+            <h2 class="section-title">Estamos de tu lado,<br/><em>no del de la aseguradora</em></h2>
+            <p class="section-sub">Las aseguradoras tienen equipos de abogados y peritos trabajando para pagar lo menos posible. Vos también merecés ese nivel de defensa.</p>
+          </div>
+          <div class="why-features">
+            <div class="why-feature fade-up">
+              <div class="why-feature-icon">
+                <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              </div>
+              <div>
+                <div class="why-feature-title">Sin riesgo económico para vos</div>
+                <div class="why-feature-desc">No cobramos honorarios anticipados. Solo ganamos cuando vos ganás. Sin victoria, sin cobro.</div>
+              </div>
+            </div>
+            <div class="why-feature fade-up" style="transition-delay:.1s">
+              <div class="why-feature-icon">
+                <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+              </div>
+              <div>
+                <div class="why-feature-title">Equipo multidisciplinario</div>
+                <div class="why-feature-desc">Contamos con peritos valuadores, ingenieros, abogados especializados en seguros y negociadores.</div>
+              </div>
+            </div>
+            <div class="why-feature fade-up" style="transition-delay:.2s">
+              <div class="why-feature-icon">
+                <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+              </div>
+              <div>
+                <div class="why-feature-title">Seguimiento en tiempo real</div>
+                <div class="why-feature-desc">Accedés a un portal online donde ves el estado de tu reclamo actualizado en todo momento.</div>
+              </div>
+            </div>
+            <div class="why-feature fade-up" style="transition-delay:.3s">
+              <div class="why-feature-icon">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              </div>
+              <div>
+                <div class="why-feature-title">Agilidad comprobada</div>
+                <div class="why-feature-desc">El 80% de nuestros casos se resuelven en menos de 60 días. Sabemos cómo acelerar el proceso.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="why-visual fade-up">
+          <div class="gauge-title">Resultados de nuestros clientes en 2025–2026</div>
+          <div class="gauge-row">
+            <div class="gauge-item">
+              <div class="gauge-label"><span>Tasa de éxito general</span><span>94%</span></div>
+              <div class="gauge-track"><div class="gauge-fill" style="width:94%"></div></div>
+            </div>
+            <div class="gauge-item">
+              <div class="gauge-label"><span>Reclamos de auto aprobados</span><span>91%</span></div>
+              <div class="gauge-track"><div class="gauge-fill" style="width:91%"></div></div>
+            </div>
+            <div class="gauge-item">
+              <div class="gauge-label"><span>Reclamos de propiedad aprobados</span><span>89%</span></div>
+              <div class="gauge-track"><div class="gauge-fill" style="width:89%"></div></div>
+            </div>
+            <div class="gauge-item">
+              <div class="gauge-label"><span>Reclamos rechazados revertidos</span><span>76%</span></div>
+              <div class="gauge-track"><div class="gauge-fill" style="width:76%"></div></div>
+            </div>
+            <div class="gauge-item">
+              <div class="gauge-label"><span>Clientes que recomendarían el servicio</span><span>98%</span></div>
+              <div class="gauge-track"><div class="gauge-fill" style="width:98%"></div></div>
+            </div>
+          </div>
+          <div style="margin-top:1.8rem;padding:1.2rem;background:var(--blue-50);border-radius:10px;border:1px solid var(--blue-100);">
+            <div style="font-size:2rem;font-weight:900;color:var(--blue-800)">+$18M</div>
+            <div style="font-size:.88rem;color:var(--gray-600);margin-top:.2rem">recuperados para nuestros clientes en los últimos 12 meses</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TESTIMONIOS -->
+  <section id="testimonios" class="testimonials">
+    <div class="section-inner">
+      <div class="section-header text-center fade-up">
+        <span class="section-tag">Testimonios</span>
+        <h2 class="section-title">Lo que dicen quienes<br/><em>ya recuperaron su dinero</em></h2>
+      </div>
+      <div class="testi-grid">
+        <div class="testi-card fade-up">
+          <div class="stars">★★★★★</div>
+          <p class="testi-text">"La aseguradora me quería pagar solo $3.200 por el auto. ReclamaJusto apeló y obtuve $9.800. No lo podía creer. El proceso fue rapidísimo."</p>
+          <div class="testi-author">
+            <div class="testi-avatar">MG</div>
+            <div>
+              <div class="testi-name">Martín Gutiérrez</div>
+              <div class="testi-info">Reclamo vehicular · Buenos Aires</div>
+            </div>
+          </div>
+        </div>
+        <div class="testi-card fade-up" style="transition-delay:.1s">
+          <div class="stars">★★★★★</div>
+          <p class="testi-text">"Mi casa sufrió daños graves por una tormenta. La aseguradora tardaba meses en responder. Con ReclamaJusto resolvimos todo en 45 días y cobré lo justo."</p>
+          <div class="testi-author">
+            <div class="testi-avatar">SR</div>
+            <div>
+              <div class="testi-name">Sofía Rodríguez</div>
+              <div class="testi-info">Daños en propiedad · Córdoba</div>
+            </div>
+          </div>
+        </div>
+        <div class="testi-card fade-up" style="transition-delay:.2s">
+          <div class="stars">★★★★★</div>
+          <p class="testi-text">"Me habían rechazado el reclamo dos veces. Pensé que no había nada que hacer. Ellos presentaron la apelación con documentación técnica y ganamos."</p>
+          <div class="testi-author">
+            <div class="testi-avatar">LF</div>
+            <div>
+              <div class="testi-name">Luis Fernández</div>
+              <div class="testi-info">Reclamo revertido · Rosario</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FORMULARIO -->
+  <section id="contacto" class="form-section">
+    <div class="section-inner">
+      <div class="form-wrapper">
+        <div class="fade-up">
+          <span class="section-tag">Contacto</span>
+          <h2 class="section-title">Iniciá tu reclamo<br/><em>hoy mismo</em></h2>
+          <p class="section-sub">Completá el formulario y un asesor especializado se comunica contigo en menos de 24 hs. Sin compromisos.</p>
+          <div class="form-benefits">
+            <div class="form-benefit">Consulta inicial 100% gratuita</div>
+            <div class="form-benefit">Sin costos anticipados de ningún tipo</div>
+            <div class="form-benefit">Confidencialidad absoluta de tus datos</div>
+            <div class="form-benefit">Respuesta garantizada en menos de 24 horas</div>
+            <div class="form-benefit">Asesor asignado exclusivo para tu caso</div>
+          </div>
+        </div>
+
+        <form class="fade-up" style="transition-delay:.15s" onsubmit="handleSubmit(event)">
+          <div class="form-row">
+            <div class="field">
+              <label for="nombre">Nombre</label>
+              <input type="text" id="nombre" placeholder="Juan" required />
+            </div>
+            <div class="field">
+              <label for="apellido">Apellido</label>
+              <input type="text" id="apellido" placeholder="García" required />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="field">
+              <label for="email">Correo electrónico</label>
+              <input type="email" id="email" placeholder="juan@email.com" required />
+            </div>
+            <div class="field">
+              <label for="telefono">Teléfono / WhatsApp</label>
+              <input type="tel" id="telefono" placeholder="+54 9 11 1234-5678" required />
+            </div>
+          </div>
+          <div class="field">
+            <label for="tipo">Tipo de siniestro</label>
+            <select id="tipo" required>
+              <option value="" disabled selected>Seleccioná una opción</option>
+              <option>Accidente de automóvil</option>
+              <option>Daños en propiedad / hogar</option>
+              <option>Reclamo rechazado — quiero apelar</option>
+              <option>Revisión de póliza y liquidación</option>
+              <option>Robo de vehículo</option>
+              <option>Robo de contenido del hogar</option>
+              <option>Otro</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="aseguradora">Compañía aseguradora</label>
+            <input type="text" id="aseguradora" placeholder="Nombre de tu aseguradora" />
+          </div>
+          <div class="field">
+            <label for="descripcion">Descripción del siniestro</label>
+            <textarea id="descripcion" placeholder="Contanos brevemente qué ocurrió, cuándo y qué respuesta te dió la aseguradora hasta ahora..."></textarea>
+          </div>
+          <button type="submit" class="submit-btn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            Enviar y solicitar asesoría gratuita
+          </button>
+          <p class="form-note">🔒 Tus datos están protegidos y nunca son compartidos con terceros.</p>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA BANNER -->
+  <div class="cta-banner">
+    <h2>¿Tu reclamo fue rechazado o subestimado?</h2>
+    <p>No firmes nada ni aceptes ninguna oferta sin antes hablar con nosotros. Puede costarte miles de pesos.</p>
+    <a href="#contacto" class="btn-primary">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81 19.79 19.79 0 01.06 1.18 2 2 0 012.03 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 14.92z"/></svg>
+      Consulta gratuita ahora
+    </a>
+  </div>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="footer-inner">
+      <div class="footer-top">
+        <div>
+          <a href="#" class="footer-logo">
+            <div class="logo-icon">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            </div>
+            ReclamaJusto
+          </a>
+          <p class="footer-desc">Especialistas en reclamos de seguros. Trabajamos para que recibas la indemnización que realmente merecés.</p>
+        </div>
+        <div class="footer-col">
+          <h4>Servicios</h4>
+          <ul>
+            <li><a href="#">Accidentes de auto</a></li>
+            <li><a href="#">Daños en propiedad</a></li>
+            <li><a href="#">Reclamos rechazados</a></li>
+            <li><a href="#">Revisión de póliza</a></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <h4>Empresa</h4>
+          <ul>
+            <li><a href="#">Quiénes somos</a></li>
+            <li><a href="#">Nuestro equipo</a></li>
+            <li><a href="#">Casos de éxito</a></li>
+            <li><a href="#">Blog</a></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <h4>Contacto</h4>
+          <ul>
+            <li><a href="#">info@reclamajusto.com</a></li>
+            <li><a href="#">+54 11 4000-0000</a></li>
+            <li><a href="#">WhatsApp</a></li>
+            <li><a href="#">Oficinas</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 ReclamaJusto. Todos los derechos reservados.</span>
+        <div style="display:flex;gap:1.5rem">
+          <a href="#" style="color:var(--gray-400);text-decoration:none;font-size:.82rem;transition:color .2s" onmouseover="this.style.color='white'" onmouseout="this.style.color=''">Privacidad</a>
+          <a href="#" style="color:var(--gray-400);text-decoration:none;font-size:.82rem;transition:color .2s" onmouseover="this.style.color='white'" onmouseout="this.style.color=''">Términos</a>
+          <a href="#" style="color:var(--gray-400);text-decoration:none;font-size:.82rem;transition:color .2s" onmouseover="this.style.color='white'" onmouseout="this.style.color=''">Cookies</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // Scroll animations
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+    }, { threshold: 0.12 });
+    document.querySelectorAll('.fade-up').forEach(el => observer.observe(el));
+
+    // Form submission
+    function handleSubmit(e) {
+      e.preventDefault();
+      const btn = e.target.querySelector('.submit-btn');
+      btn.textContent = '✓ ¡Mensaje enviado! Te contactamos en menos de 24 hs.';
+      btn.style.background = '#16a34a';
+      btn.disabled = true;
+    }
+  </script>
+
+</body>
+</html>
