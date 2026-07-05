@@ -112,4 +112,3 @@ src/
 **Pendiente (próximos pasos):**
 - Invitación/activación del damnificado y reset de contraseña (resto de REC-17).
 - Resto de pantallas (ficha, nuevo caso, flujos del damnificado) reemplazando cada `Placeholder`.
-- Quitar o proteger el hub de desarrollo `/mapa` antes del lanzamiento público (hoy es una ruta abierta de andamiaje).
