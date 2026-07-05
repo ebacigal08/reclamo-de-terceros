@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang='es'>
+<head>
+
+<meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'>
+<title>Carga de documentos — Nuevo prototipo Reclamos</title>
+<link rel='preconnect' href='https://fonts.googleapis.com'>
+<link rel='preconnect' href='https://fonts.gstatic.com' crossorigin>
+<link rel='stylesheet' href='https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap'>
+<link rel='stylesheet' href='./styles.css'>
+<link rel='stylesheet' href='./proto.css'>
+<script crossorigin src='https://unpkg.com/react@18.3.1/umd/react.development.js' integrity='sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L'></script>
+<script crossorigin src='https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js' integrity='sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm'></script>
+<script src='https://unpkg.com/@babel/standalone@7.29.0/babel.min.js' integrity='sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y' crossorigin='anonymous'></script>
+<script src='./_ds_bundle.js'></script>
+<script src='./_ds_bundle_ext.js'></script>
+<script src='./_boot.js'></script>
+</head>
+<body>
+<div id='root'></div>
+<script type='text/babel'>
+const DS = window.AmparoDesignSystem_70b626;
+const { FileUpload, Alert, Button, ProgressBar, Header, EmptyState } = DS;
+const { Icon, PhoneFrame, Canvas, mount } = window.Proto;
+
+const DOCS = [
+  { name: 'Foto del daño - frente.jpg', tipo: 'img', fecha: '28/06/2026', by: 'Yo' },
+  { name: 'Foto del daño - lateral.jpg', tipo: 'img', fecha: '28/06/2026', by: 'Yo' },
+  { name: 'Presupuesto del taller.pdf', tipo: 'pdf', fecha: '29/06/2026', by: 'Yo' },
+  { name: 'Denuncia policial.pdf', tipo: 'pdf', fecha: '30/06/2026', by: 'agente' }
+];
+
+function TypeChip({ tipo, ok }) {
+  const map = { img: { c: 'var(--teal-600)', bg: 'var(--teal-50)' }, pdf: { c: 'var(--danger-600)', bg: 'var(--danger-50)' }, doc: { c: 'var(--primary-600)', bg: 'var(--primary-50)' } };
+  const m = map[tipo] || map.doc;
+  return <span style={{ width: 40, height: 40, borderRadius: 'var(--radius-md)', background: m.bg, color: m.c, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Icon name={tipo === 'pdf' ? 'doc' : 'file'} size={19} /></span>;
+}
+
+function DocItem({ d, fresh }) {
+  return <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '11px 12px', background: fresh ? 'var(--success-50)' : 'var(--bg-surface)', border: '1px solid ' + (fresh ? 'var(--success-200)' : 'var(--border)'), borderRadius: 'var(--radius-md)' }}>
+    <TypeChip tipo={d.tipo} />
+    <div style={{ flex: 1, minWidth: 0 }}>
+      <div style={{ fontFamily: 'var(--font-sans)', fontSize: 'var(--text-body-sm-size)', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{d.name}</div>
+      <div style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '1px' }}>{d.fecha} · {d.by === 'Yo' ? 'Subido por vos' : 'Subido por tu agente'}</div>
+    </div>
+    {fresh ? <span style={{ color: 'var(--success-600)', display: 'flex', flexShrink: 0 }}><Icon name='checkCircle' size={20} /></span> : <span style={{ color: 'var(--text-tertiary)', display: 'flex', flexShrink: 0 }}><Icon name='chevronRight' size={16} /></span>}
+  </div>;
+}
+
+function ListTitle({ n }) {
+  return <div style={{ fontFamily: 'var(--font-sans)', fontSize: 'var(--text-body-sm-size)', fontWeight: 700, color: 'var(--text-primary)', margin: '4px 0 2px' }}>Documentos cargados <span style={{ color: 'var(--text-tertiary)', fontWeight: 500 }}>({n})</span></div>;
+}
+
+function Uploader() {
+  return <FileUpload multiple helperText='Tocá para elegir una foto o un archivo' subText='Fotos, PDFs o documentos · hasta 10 MB por archivo' />;
+}
+
+function Docs({ state }) {
+  return <div style={{ minHeight: '100%', background: 'var(--bg-page)', display: 'flex', flexDirection: 'column' }}>
+    <Header title='Mis documentos' subtitle='Todo lo que suba tu caso, en un solo lugar' onBack={() => {}} />
+    <div style={{ padding: '18px 16px 26px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      {state === 'acuse' && <Alert variant='success' title='¡Listo! Tu archivo llegó'>Foto del daño - trasero.jpg fue recibido correctamente y ya está guardado en tu caso.</Alert>}
+      {state === 'error' && <Alert variant='error' title='No se pudo subir el archivo'>Este archivo no pudo subirse. Fijate que pese menos de 10 MB, intentá de nuevo o avisá a tu agente.</Alert>}
+      <Uploader />
+      {state === 'subiendo' && <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '13px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '11px' }}>
+          <TypeChip tipo='img' />
+          <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontFamily: 'var(--font-sans)', fontSize: 'var(--text-body-sm-size)', fontWeight: 600, color: 'var(--text-primary)' }}>Foto del daño - trasero.jpg</div><div style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-tertiary)' }}>Subiendo… 1.8 MB</div></div>
+        </div>
+        <ProgressBar value={62} showValue size='sm' />
+      </div>}
+      {state === 'error' && <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '11px 12px', background: 'var(--danger-50)', border: '1px solid var(--danger-200)', borderRadius: 'var(--radius-md)' }}>
+        <TypeChip tipo='img' />
+        <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontFamily: 'var(--font-sans)', fontSize: 'var(--text-body-sm-size)', fontWeight: 600, color: 'var(--text-primary)' }}>Video del choque.mov</div><div style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--danger-600)' }}>Error · 24 MB (supera el límite)</div></div>
+        <Button variant='secondary' size='sm'>Reintentar</Button>
+      </div>}
+      {state === 'vacio'
+        ? <EmptyState icon={<Icon name='folder' size={26} />} title='Todavía no subiste documentos' description='Podés empezar por las fotos del daño o cualquier papel relacionado con el siniestro.' />
+        : <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <ListTitle n={state === 'acuse' ? 5 : 4} />
+            {state === 'acuse' && <DocItem d={{ name: 'Foto del daño - trasero.jpg', tipo: 'img', fecha: 'Recién', by: 'Yo' }} fresh />}
+            {DOCS.map((d, i) => <DocItem key={i} d={d} />)}
+          </div>}
+    </div>
+  </div>;
+}
+
+function App() {
+  return <Canvas eyebrow='REC-63 · Damnificado' title='Carga de documentos y evidencias' sub='El damnificado sube fotos del daño, facturas y papeles desde el celular. El acuse de recibo inmediato — con Alert de éxito que no desaparece solo — elimina la ansiedad de “¿llegó bien?”. Errores claros con qué hacer.'>
+    <PhoneFrame label='Vacío'><Docs state='vacio' /></PhoneFrame>
+    <PhoneFrame label='Con documentos'><Docs state='docs' /></PhoneFrame>
+    <PhoneFrame label='Subiendo (progreso)'><Docs state='subiendo' /></PhoneFrame>
+    <PhoneFrame label='Acuse de recibo'><Docs state='acuse' /></PhoneFrame>
+    <PhoneFrame label='Error al subir'><Docs state='error' /></PhoneFrame>
+    <div className='proto-item' style={{ width: '1280px', alignItems: 'stretch' }}>
+      <div className='proto-label'>Desktop — con documentos<span className='tag'>1280</span></div>
+      <div className='browser'>
+        <div className='browser-bar'><span className='browser-dot' style={{ background: '#E5695B' }}></span><span className='browser-dot' style={{ background: '#E8B84B' }}></span><span className='browser-dot' style={{ background: '#5FBE7E' }}></span><span className='browser-url'>app.amparo.ar/documentos</span></div>
+        <div className='browser-screen' style={{ height: '820px' }}><div style={{ maxWidth: '620px', margin: '0 auto', minHeight: '100%', boxShadow: 'var(--shadow-sm)' }}><Docs state='docs' /></div></div>
+      </div>
+    </div>
+  </Canvas>;
+}
+
+mount(<App />);
+</script>
+</body>
+</html>

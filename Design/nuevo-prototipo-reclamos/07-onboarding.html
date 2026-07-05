@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang='es'>
+<head>
+
+<meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'>
+<title>Onboarding — Nuevo prototipo Reclamos</title>
+<link rel='preconnect' href='https://fonts.googleapis.com'>
+<link rel='preconnect' href='https://fonts.gstatic.com' crossorigin>
+<link rel='stylesheet' href='https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap'>
+<link rel='stylesheet' href='./styles.css'>
+<link rel='stylesheet' href='./proto.css'>
+<script crossorigin src='https://unpkg.com/react@18.3.1/umd/react.development.js' integrity='sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L'></script>
+<script crossorigin src='https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js' integrity='sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm'></script>
+<script src='https://unpkg.com/@babel/standalone@7.29.0/babel.min.js' integrity='sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y' crossorigin='anonymous'></script>
+<script src='./_ds_bundle.js'></script>
+<script src='./_ds_bundle_ext.js'></script>
+<script src='./_boot.js'></script>
+</head>
+<body>
+<div id='root'></div>
+<script type='text/babel'>
+const DS = window.AmparoDesignSystem_70b626;
+const { Button } = DS;
+const { Icon, Brand, PhoneFrame, Canvas, mount } = window.Proto;
+
+const STEPS = [
+  { icon: 'shield', title: 'Tu caso ya tiene un agente', body: 'Hola, María. Tu caso ya está en manos de un agente especializado. Va a guiarte en todo el proceso, paso a paso.', cta: 'Siguiente' },
+  { icon: 'doc', title: 'Vamos a pedirte información', body: 'Te vamos a pedir que cuentes lo que pasó y que subas algunos documentos. No tiene que ser perfecto — tu agente te va a ayudar.', cta: 'Siguiente' },
+  { icon: 'clock', title: 'Siempre vas a saber qué pasa', body: 'En todo momento podés ver en qué etapa está tu reclamo y qué tenés pendiente. Sin llamadas ni consultas.', cta: 'Siguiente' },
+  { icon: 'checkCircle', title: 'Empecemos', body: 'Todo listo. Tu agente ya tiene tu caso. Ahora te toca contar lo que pasó, con tus palabras.', cta: 'Empezar' }
+];
+
+function Dots({ active }) {
+  return <div style={{ display: 'flex', gap: '7px', justifyContent: 'center' }}>
+    {[0, 1, 2, 3].map((i) => <span key={i} style={{ height: '6px', borderRadius: '999px', width: i === active ? '26px' : '6px', background: i === active ? 'var(--primary-600)' : i < active ? 'var(--primary-300)' : 'var(--neutral-300)', transition: 'all 0.2s' }} />)}
+  </div>;
+}
+
+function StepView({ i }) {
+  const s = STEPS[i];
+  const isLast = i === 3;
+  return <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
+    <div style={{ flex: '0 0 44%', background: 'var(--primary-900)', color: '#FFFFFF', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '24px', position: 'relative', padding: '24px' }}>
+      <div style={{ position: 'absolute', top: '18px', left: '20px' }}><Brand size='sm' onDark /></div>
+      {!isLast && <a style={{ position: 'absolute', top: '20px', right: '20px', fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 500, color: 'rgba(255,255,255,0.65)', textDecoration: 'none', cursor: 'pointer' }}>Saltar</a>}
+      <span style={{ width: 96, height: 96, borderRadius: '50%', background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.16)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FFFFFF' }}><Icon name={s.icon} size={42} /></span>
+    </div>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '26px 26px 30px', gap: '20px' }}>
+      <Dots active={i} />
+      <div style={{ textAlign: 'center' }}>
+        <h1 style={{ margin: 0, fontFamily: 'var(--font-sans)', fontSize: 'var(--text-h2-size)', fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text-primary)', lineHeight: 1.2 }}>{s.title}</h1>
+        <p style={{ margin: '12px 0 0', fontFamily: 'var(--font-sans)', fontSize: 'var(--text-body-lg-size)', color: 'var(--text-secondary)', lineHeight: 1.6 }}>{s.body}</p>
+      </div>
+      <div style={{ flex: 1 }} />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center' }}>
+        <Button variant='primary' size='lg' rounded='pill' fullWidth iconRight={isLast ? null : <Icon name='chevronRight' size={18} />}>{s.cta}</Button>
+        {!isLast && <a style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 500, color: 'var(--text-tertiary)', textDecoration: 'none', cursor: 'pointer', padding: '4px' }}>Saltar introducción</a>}
+      </div>
+    </div>
+  </div>;
+}
+
+function DesktopFrame({ label, i }) {
+  return <div className='proto-item' style={{ width: '1280px', alignItems: 'stretch' }}>
+    <div className='proto-label'>{label}<span className='tag'>1280</span></div>
+    <div className='browser'>
+      <div className='browser-bar'><span className='browser-dot' style={{ background: '#E5695B' }}></span><span className='browser-dot' style={{ background: '#E8B84B' }}></span><span className='browser-dot' style={{ background: '#5FBE7E' }}></span><span className='browser-url'>app.amparo.ar/onboarding</span></div>
+      <div className='browser-screen' style={{ height: '760px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px' }}>
+        <div style={{ width: '440px', height: '660px', borderRadius: 'var(--radius-2xl)', overflow: 'hidden', boxShadow: 'var(--shadow-lift)', border: '1px solid var(--border)' }}><StepView i={i} /></div>
+      </div>
+    </div>
+  </div>;
+}
+
+function App() {
+  return <Canvas eyebrow='REC-60 · Damnificado' title='Onboarding (primera vez)' sub='Wizard de bienvenida que se muestra la primera vez que entra el damnificado. Cuatro pasos en lenguaje simple y humano que explican qué va a pasar, para reducir la ansiedad del primer contacto. Registro Damnificado: cálido, mobile-first, hero navy, botón pill.'>
+    <PhoneFrame label='Paso 1 — Tu agente'><StepView i={0} /></PhoneFrame>
+    <PhoneFrame label='Paso 2 — Información'><StepView i={1} /></PhoneFrame>
+    <PhoneFrame label='Paso 3 — Seguimiento'><StepView i={2} /></PhoneFrame>
+    <PhoneFrame label='Paso 4 — Empezar'><StepView i={3} /></PhoneFrame>
+    <DesktopFrame label='Desktop — Paso 1' i={0} />
+  </Canvas>;
+}
+
+mount(<App />);
+</script>
+</body>
+</html>

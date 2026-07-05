@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang='es'>
+<head>
+
+<meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'>
+<title>Cerrar caso — Nuevo prototipo Reclamos</title>
+<link rel='preconnect' href='https://fonts.googleapis.com'>
+<link rel='preconnect' href='https://fonts.gstatic.com' crossorigin>
+<link rel='stylesheet' href='https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap'>
+<link rel='stylesheet' href='./styles.css'>
+<link rel='stylesheet' href='./proto.css'>
+<script crossorigin src='https://unpkg.com/react@18.3.1/umd/react.development.js' integrity='sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L'></script>
+<script crossorigin src='https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js' integrity='sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm'></script>
+<script src='https://unpkg.com/@babel/standalone@7.29.0/babel.min.js' integrity='sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y' crossorigin='anonymous'></script>
+<script src='./_ds_bundle.js'></script>
+<script src='./_ds_bundle_ext.js'></script>
+<script src='./_boot.js'></script>
+<script src='./_appkit.js'></script>
+</head>
+<body>
+<div id='root'></div>
+<script type='text/babel'>
+const DS = window.AmparoDesignSystem_70b626;
+const { Modal, Button, Badge } = DS;
+const { Icon, AgentShell, Canvas, mount } = window.Proto;
+
+const CASO = { name: 'Mónica Alsina', id: 'SIN-2026-00142', tipo: 'Accidente', etapa: 'En negociación', etapaBadge: 'negociacion' };
+const RESULTS = [
+  { v: 'resuelto', title: 'Resuelto', desc: 'El reclamo fue aceptado y el damnificado cobró lo que correspondía.', color: 'var(--success-500)', bg: 'var(--success-50)', ic: 'checkCircle', icColor: 'var(--success-600)', badge: 'resuelto' },
+  { v: 'rechazado', title: 'Rechazado', desc: 'La aseguradora rechazó el reclamo definitivamente.', color: 'var(--danger-400)', bg: 'var(--danger-50)', ic: 'x', icColor: 'var(--danger-600)', badge: 'rechazado' },
+  { v: 'apelacion', title: 'En apelación', desc: 'El caso sigue abierto en una instancia de apelación o recurso.', color: 'var(--orange-500)', bg: 'var(--orange-50)', ic: 'clock', icColor: 'var(--orange-600)', badge: 'apelacion' }
+];
+
+function PlaceholderCard({ h }) { return <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)', height: h }} />; }
+function BackdropFicha() {
+  return <AgentShell activeId='casos' title='Ficha del caso'>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '18px' }}>
+      <h2 style={{ margin: 0, fontFamily: 'var(--font-sans)', fontSize: 'var(--text-h2-size)', fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text-primary)' }}>{CASO.name}</h2>
+      <Badge variant={CASO.etapaBadge} />
+    </div>
+    <div style={{ marginBottom: '20px' }}><PlaceholderCard h='96px' /></div>
+    <div style={{ display: 'grid', gridTemplateColumns: '1.9fr 1fr', gap: '20px' }}><div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}><PlaceholderCard h='150px' /><PlaceholderCard h='150px' /></div><PlaceholderCard h='220px' /></div>
+  </AgentShell>;
+}
+
+function Option({ r, sel }) {
+  return <div style={{ display: 'flex', gap: '13px', alignItems: 'center', padding: '14px', border: '1.5px solid ' + (sel ? r.color : 'var(--border-strong)'), background: sel ? r.bg : 'var(--bg-inset)', borderRadius: 'var(--radius-md)', cursor: 'pointer', boxShadow: sel ? 'var(--focus-ring-shadow)' : 'none', transition: 'border-color 0.15s, background 0.15s' }}>
+    <span style={{ width: 20, height: 20, borderRadius: '50%', border: '2px solid ' + (sel ? r.color : 'var(--border-strong)'), display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{sel && <span style={{ width: 10, height: 10, borderRadius: '50%', background: r.color }} />}</span>
+    <span style={{ width: 38, height: 38, borderRadius: 'var(--radius-md)', background: 'var(--bg-surface)', border: '1px solid var(--border)', color: r.icColor, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Icon name={r.ic} size={19} /></span>
+    <div style={{ minWidth: 0 }}>
+      <div style={{ fontFamily: 'var(--font-sans)', fontSize: 'var(--text-body-size)', fontWeight: 600, color: 'var(--text-primary)' }}>{r.title}</div>
+      <div style={{ fontFamily: 'var(--font-sans)', fontSize: 'var(--text-body-sm-size)', color: 'var(--text-secondary)', lineHeight: 1.4, marginTop: '2px' }}>{r.desc}</div>
+    </div>
+  </div>;
+}
+
+function ModalInner({ state }) {
+  const selected = state === 'sin' ? null : 'resuelto';
+  if (state === 'confirmacion') {
+    return <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '15px', padding: '20px 4px 8px' }}>
+      <span style={{ width: 60, height: 60, borderRadius: '50%', background: 'var(--success-50)', color: 'var(--success-600)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon name='checkCircle' size={32} /></span>
+      <div>
+        <h3 style={{ margin: 0, fontFamily: 'var(--font-sans)', fontSize: 'var(--text-h3-size)', fontWeight: 700, color: 'var(--text-primary)' }}>Caso cerrado</h3>
+        <p style={{ margin: '8px 0 0', fontFamily: 'var(--font-sans)', fontSize: 'var(--text-body-size)', color: 'var(--text-secondary)', lineHeight: 1.55 }}>El caso de {CASO.name} se cerró con resultado <strong style={{ color: 'var(--text-primary)' }}>Resuelto</strong> y ya no aparece en tu lista activa. Quedó registrado para tus métricas.</p>
+      </div>
+      <div style={{ marginTop: '2px' }}><Badge variant='resuelto' /></div>
+    </div>;
+  }
+  return <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', paddingBottom: '14px', borderBottom: '1px solid var(--divider)' }}>
+      <div><div style={{ fontFamily: 'var(--font-sans)', fontSize: 'var(--text-body-size)', fontWeight: 600, color: 'var(--text-primary)' }}>{CASO.name}</div><div style={{ fontFamily: 'var(--font-sans)', fontSize: 'var(--text-body-sm-size)', color: 'var(--text-secondary)', marginTop: '2px' }}>{CASO.tipo} · {CASO.id}</div></div>
+      <Badge variant={CASO.etapaBadge} />
+    </div>
+    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '9px', padding: '11px 13px', background: 'var(--bg-subtle)', borderRadius: 'var(--radius-md)' }}>
+      <span style={{ color: 'var(--text-tertiary)', display: 'flex', flexShrink: 0, marginTop: '1px' }}><Icon name='alert' size={16} /></span>
+      <span style={{ fontFamily: 'var(--font-sans)', fontSize: 'var(--text-body-sm-size)', color: 'var(--text-secondary)', lineHeight: 1.45 }}>Es una acción definitiva. Una vez cerrado, el caso va a dejar de aparecer en tu lista activa.</span>
+    </div>
+    <div>
+      <div style={{ fontFamily: 'var(--font-sans)', fontSize: 'var(--text-body-sm-size)', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '10px' }}>Elegí el resultado del reclamo</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>{RESULTS.map((r) => <Option key={r.v} r={r} sel={selected === r.v} />)}</div>
+    </div>
+  </div>;
+}
+
+function closeModal(state) {
+  const loading = state === 'cargando';
+  const disabled = state === 'sin';
+  const title = state === 'confirmacion' ? 'Caso cerrado' : 'Cerrar caso';
+  const footer = state === 'confirmacion'
+    ? <Button variant='primary' iconLeft={<Icon name='arrowLeft' size={15} />}>Volver a la lista de casos</Button>
+    : <React.Fragment><Button variant='ghost'>Cancelar</Button><Button variant='primary' disabled={disabled} loading={loading}>{loading ? 'Cerrando caso…' : 'Cerrar caso'}</Button></React.Fragment>;
+  return { title, footer };
+}
+
+function DesktopScene({ state, label }) {
+  const m = closeModal(state);
+  return <div className='proto-item' style={{ width: '1280px', alignItems: 'stretch' }}>
+    <div className='proto-label'>{label}<span className='tag'>modal</span></div>
+    <div className='browser'>
+      <div className='browser-bar'><span className='browser-dot' style={{ background: '#E5695B' }}></span><span className='browser-dot' style={{ background: '#E8B84B' }}></span><span className='browser-dot' style={{ background: '#5FBE7E' }}></span><span className='browser-url'>app.amparo.ar/agente/casos/{CASO.id}/cerrar</span></div>
+      <div className='browser-screen' style={{ height: '720px' }}>
+        <div style={{ position: 'relative', height: '100%', overflow: 'hidden' }}>
+          <BackdropFicha />
+          <Modal inline open title={m.title} onClose={() => {}} footer={m.footer} size='md'><ModalInner state={state} /></Modal>
+        </div>
+      </div>
+    </div>
+  </div>;
+}
+
+function PhoneScene({ state, label }) {
+  const m = closeModal(state);
+  return <div className='proto-item'>
+    <div className='proto-label'>{label}<span className='tag'>375</span></div>
+    <div className='phone'><div className='phone-screen'>
+      <div style={{ position: 'relative', minHeight: '100%', height: '100%', overflow: 'hidden', background: 'var(--bg-page)' }}>
+        <div style={{ height: 56, borderBottom: '1px solid var(--border)', background: 'var(--bg-surface)', display: 'flex', alignItems: 'center', padding: '0 16px', fontFamily: 'var(--font-sans)', fontWeight: 600, color: 'var(--text-primary)' }}>Mi caso</div>
+        <div style={{ padding: '16px' }}><PlaceholderCard h='120px' /></div>
+        <Modal inline open title={m.title} onClose={() => {}} footer={m.footer} size='md'><ModalInner state={state} /></Modal>
+      </div>
+    </div></div>
+  </div>;
+}
+
+function App() {
+  return <Canvas eyebrow='REC-59 · Agente' title='Cerrar caso' sub='Última acción del ciclo del reclamo: el agente elige el resultado final (resuelto, rechazado o en apelación) y confirma. Acción irreversible, comunicada con calma; las 3 opciones con igual peso visual. Modal sobre la ficha.'>
+    <DesktopScene state='sin' label='Sin opción seleccionada (botón deshabilitado)' />
+    <DesktopScene state='resuelto' label='“Resuelto” seleccionada' />
+    <DesktopScene state='cargando' label='Cargando' />
+    <DesktopScene state='confirmacion' label='Confirmación' />
+    <PhoneScene state='resuelto' label='Mobile — Resuelto seleccionada' />
+  </Canvas>;
+}
+
+mount(<App />);
+</script>
+</body>
+</html>

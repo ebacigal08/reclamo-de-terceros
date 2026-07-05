@@ -1,0 +1,21 @@
+/* ══════════════════════════════════════════════════════════════
+   AMPARO · Elevación — sombras cálidas
+   Tinte rgba(45,38,30,…) (tono del neutral-900 cálido) para que las
+   sombras sean suaves y templadas, nunca frías/azuladas. Susurro
+   estilo Starbucks: la card blanca reposa sobre el lienzo papel.
+   ══════════════════════════════════════════════════════════════ */
+:root {
+  --shadow-xs: 0 1px 2px rgba(45,38,30,0.05);
+  --shadow-sm: 0 1px 2px rgba(45,38,30,0.05), 0 2px 4px rgba(45,38,30,0.06);
+  --shadow-md: 0 4px 8px rgba(45,38,30,0.06), 0 10px 20px rgba(45,38,30,0.08);
+  --shadow-lg: 0 12px 24px rgba(45,38,30,0.08), 0 24px 40px rgba(45,38,30,0.10);
+  --shadow-xl: 0 24px 48px rgba(45,38,30,0.10), 0 40px 64px rgba(45,38,30,0.12);
+
+  /* firma: "card levantada" del damnificado — reposo del producto
+     sobre superficie (guiño al drop-shadow único de Apple) */
+  --shadow-lift: 0 2px 4px rgba(45,38,30,0.04), 0 18px 32px rgba(45,38,30,0.10);
+
+  /* anillo de foco accesible */
+  --focus-ring-shadow: 0 0 0 3px rgba(58,106,228,0.22);
+  --focus-ring-shadow-danger: 0 0 0 3px rgba(214,74,58,0.20);
+}

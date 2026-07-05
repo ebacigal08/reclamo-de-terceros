@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang='es'>
+<head>
+
+<meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'>
+<title>Nuevo caso — Nuevo prototipo Reclamos</title>
+<link rel='preconnect' href='https://fonts.googleapis.com'>
+<link rel='preconnect' href='https://fonts.gstatic.com' crossorigin>
+<link rel='stylesheet' href='https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap'>
+<link rel='stylesheet' href='./styles.css'>
+<link rel='stylesheet' href='./proto.css'>
+<script crossorigin src='https://unpkg.com/react@18.3.1/umd/react.development.js' integrity='sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L'></script>
+<script crossorigin src='https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js' integrity='sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm'></script>
+<script src='https://unpkg.com/@babel/standalone@7.29.0/babel.min.js' integrity='sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y' crossorigin='anonymous'></script>
+<script src='./_ds_bundle.js'></script>
+<script src='./_ds_bundle_ext.js'></script>
+<script src='./_boot.js'></script>
+<script src='./_appkit.js'></script>
+</head>
+<body>
+<div id='root'></div>
+<script type='text/babel'>
+const DS = window.AmparoDesignSystem_70b626;
+const { Input, Select, Button, Badge, Alert } = DS;
+const { Icon, AgentShell, Canvas, mount } = window.Proto;
+
+const TIPOS = [{ value: 'accidente', label: 'Accidente' }, { value: 'robo', label: 'Robo' }, { value: 'incendio', label: 'Incendio' }, { value: 'inundacion', label: 'Inundación' }, { value: 'otro', label: 'Otro' }];
+
+const V = {
+  vacio: { nombre: '', email: '', tel: '', tipo: '', aseg: '', prioridad: 'media', errors: {} },
+  errores: { nombre: 'Mónica Alsina', email: 'monica.gomez@', tel: '', tipo: '', aseg: '', prioridad: 'media', topError: true, errors: { email: 'Ingresá un email válido (ej: nombre@dominio.com).', tel: 'Ingresá un teléfono de contacto.', tipo: 'Elegí el tipo de siniestro.', aseg: 'Indicá la aseguradora involucrada.' } },
+  cargando: { nombre: 'Mónica Alsina', email: 'monica.alsina@gmail.com', tel: '+54 11 5678-1234', tipo: 'accidente', aseg: 'La Segunda', prioridad: 'alta', loading: true, errors: {} },
+  exito: { success: true, email: 'monica.alsina@gmail.com', nombre: 'Mónica Alsina' }
+};
+
+const labelStyle = { fontFamily: 'var(--font-sans)', fontSize: 'var(--text-body-sm-size)', fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '3px' };
+
+function PrioritySelector({ value, disabled }) {
+  const opts = [{ v: 'alta', variant: 'alta' }, { v: 'media', variant: 'media' }, { v: 'baja', variant: 'baja' }];
+  return <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
+    <span style={labelStyle}>Prioridad <span style={{ color: 'var(--danger-500)' }}>*</span></span>
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+      {opts.map((o) => {
+        const sel = value === o.v;
+        return <div key={o.v} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '9px', border: '1.5px solid ' + (sel ? 'var(--primary-500)' : 'var(--border-strong)'), background: sel ? 'var(--primary-50)' : 'var(--bg-inset)', borderRadius: 'var(--radius-md)', padding: '13px', cursor: disabled ? 'default' : 'pointer', boxShadow: sel ? 'var(--focus-ring-shadow)' : 'none', transition: 'border-color 0.15s, background 0.15s' }}>
+          <span style={{ width: 16, height: 16, borderRadius: '50%', border: '2px solid ' + (sel ? 'var(--primary-600)' : 'var(--border-strong)'), display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{sel && <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--primary-600)' }}></span>}</span>
+          <Badge variant={o.variant} />
+        </div>;
+      })}
+    </div>
+  </div>;
+}
+
+function FormSection({ title, children }) {
+  return <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+    <h3 style={{ margin: 0, fontFamily: 'var(--font-sans)', fontSize: 'var(--text-h4-size)', fontWeight: 700, color: 'var(--text-primary)' }}>{title}</h3>
+    {children}
+  </div>;
+}
+
+function Divider() { return <div style={{ height: '1px', background: 'var(--divider)', margin: '24px 0' }}></div>; }
+
+function NewCase({ d }) {
+  const dis = d.loading;
+  const actions = null;
+  const content = d.success
+    ? <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '560px' }}>
+        <div style={{ width: '100%', maxWidth: '440px', textAlign: 'center', background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-lift)', padding: '40px 36px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+          <span style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--success-50)', color: 'var(--success-600)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon name='checkCircle' size={34} /></span>
+          <div>
+            <h2 style={{ margin: 0, fontFamily: 'var(--font-sans)', fontSize: 'var(--text-h3-size)', fontWeight: 700, color: 'var(--text-primary)' }}>Caso creado con éxito</h2>
+            <p style={{ margin: '8px 0 0', fontFamily: 'var(--font-sans)', fontSize: 'var(--text-body-size)', color: 'var(--text-secondary)', lineHeight: 1.55 }}>Se dio de alta el caso de <strong style={{ color: 'var(--text-primary)' }}>{d.nombre}</strong> y se envió un email de invitación a <strong style={{ color: 'var(--text-primary)' }}>{d.email}</strong> para que acceda al sistema.</p>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '9px', color: 'var(--text-tertiary)', fontSize: 'var(--text-body-sm-size)', marginTop: '4px' }}>
+            <span style={{ width: 15, height: 15, border: '2px solid var(--primary-400)', borderTopColor: 'transparent', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.6s linear infinite' }}></span>
+            Redirigiendo a la ficha del caso…
+          </div>
+        </div>
+      </div>
+    : <div style={{ maxWidth: '680px', margin: '0 auto' }}>
+        <a style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: 'var(--text-body-sm-size)', fontWeight: 600, color: 'var(--text-secondary)', textDecoration: 'none', cursor: 'pointer', marginBottom: '16px' }}><Icon name='arrowLeft' size={16} />Volver</a>
+        {d.topError && <div style={{ marginBottom: '18px' }}><Alert variant='error' title='No pudimos crear el caso'>Revisá los campos marcados en rojo y volvé a intentar.</Alert></div>}
+        <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)', padding: '28px 28px 4px' }}>
+          <FormSection title='Datos del damnificado'>
+            <Input label='Nombre completo' required placeholder='Nombre y apellido' defaultValue={d.nombre} disabled={dis} error={d.errors.nombre} />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              <Input label='Email' required type='email' placeholder='nombre@dominio.com' defaultValue={d.email} disabled={dis} error={d.errors.email} hint={d.errors.email ? undefined : 'Es su acceso al sistema y donde llegan las notificaciones.'} />
+              <Input label='Teléfono' required placeholder='+54 11 0000-0000' defaultValue={d.tel} disabled={dis} error={d.errors.tel} />
+            </div>
+          </FormSection>
+          <Divider />
+          <FormSection title='Datos del siniestro'>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              <Select label='Tipo de siniestro' required options={TIPOS} value={d.tipo} disabled={dis} error={d.errors.tipo} placeholder='Elegí una opción…' />
+              <Input label='Aseguradora' required placeholder='Ej: La Segunda' defaultValue={d.aseg} disabled={dis} error={d.errors.aseg} />
+            </div>
+          </FormSection>
+          <Divider />
+          <FormSection title='Configuración'>
+            <PrioritySelector value={d.prioridad} disabled={dis} />
+          </FormSection>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '22px 0 24px', padding: '12px 14px', background: 'var(--primary-50)', border: '1px solid var(--primary-100)', borderRadius: 'var(--radius-md)' }}>
+            <span style={{ color: 'var(--primary-600)', display: 'flex', flexShrink: 0 }}><Icon name='mail' size={17} /></span>
+            <span style={{ fontFamily: 'var(--font-sans)', fontSize: 'var(--text-body-sm-size)', color: 'var(--primary-700)', lineHeight: 1.45 }}>Al crear el caso, el damnificado va a recibir un email para acceder al sistema.</span>
+          </div>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '18px' }}>
+          <Button variant='ghost' disabled={dis}>Cancelar</Button>
+          <Button variant='primary' size='lg' loading={dis} iconLeft={dis ? null : <Icon name='plus' size={17} />}>{dis ? 'Creando caso…' : 'Crear caso'}</Button>
+        </div>
+      </div>;
+  return <AgentShell activeId='casos' title='Nuevo caso' subtitle='Alta de un reclamo'>{content}</AgentShell>;
+}
+
+function Frame({ label, url, height, w, children }) {
+  const width = w || '1280px';
+  return <div className='proto-item' style={{ width: width, alignItems: 'stretch' }}>
+    <div className='proto-label'>{label}<span className='tag'>{w ? '768' : '1280'}</span></div>
+    <div className='browser' style={{ width: width }}>
+      <div className='browser-bar'><span className='browser-dot' style={{ background: '#E5695B' }}></span><span className='browser-dot' style={{ background: '#E8B84B' }}></span><span className='browser-dot' style={{ background: '#5FBE7E' }}></span><span className='browser-url'>{url}</span></div>
+      <div className='browser-screen' style={{ height: height }}>{children}</div>
+    </div>
+  </div>;
+}
+
+function App() {
+  return <Canvas eyebrow='REC-57 · Agente' title='Nuevo caso' sub='Formulario lineal para dar de alta un reclamo: datos del damnificado, datos del siniestro y prioridad. Validación inline al enviar; al crear, se invita al damnificado por email y se redirige a la ficha.'>
+    <Frame label='Vacío' url='app.amparo.ar/agente/casos/nuevo' height='880px'><NewCase d={V.vacio} /></Frame>
+    <Frame label='Errores de validación' url='app.amparo.ar/agente/casos/nuevo' height='940px'><NewCase d={V.errores} /></Frame>
+    <Frame label='Cargando (creando)' url='app.amparo.ar/agente/casos/nuevo' height='880px'><NewCase d={V.cargando} /></Frame>
+    <Frame label='Confirmación de éxito' url='app.amparo.ar/agente/casos/nuevo' height='680px'><NewCase d={V.exito} /></Frame>
+    <Frame label='Tablet — vacío' url='app.amparo.ar/agente/casos/nuevo' height='1020px' w='768px'><NewCase d={V.vacio} /></Frame>
+  </Canvas>;
+}
+
+mount(<App />);
+</script>
+</body>
+</html>

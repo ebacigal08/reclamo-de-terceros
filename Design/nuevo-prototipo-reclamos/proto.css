@@ -1,0 +1,72 @@
+/* ══════════════════════════════════════════════════════════
+   proto.css — chrome de prototipo (frames + galería)
+   Nuevo prototipo Reclamos · CRM Siniestros AR · DS Amparo
+   Depende de styles.css (tokens). Solo layout de presentación.
+   ══════════════════════════════════════════════════════════ */
+
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--neutral-100);
+  font-family: var(--font-sans);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* ── Lienzo y encabezado del deliverable ─────────────────── */
+.proto-canvas { padding: 44px 40px 64px; min-height: 100vh; }
+.proto-head { max-width: 1280px; margin: 0 auto 36px; }
+.proto-eyebrow {
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.04em;
+  text-transform: uppercase; color: var(--primary-600);
+  background: var(--primary-50); border: 1px solid var(--primary-100);
+  padding: 3px 9px; border-radius: var(--radius-full); display: inline-block;
+}
+.proto-title { font-size: var(--text-h2-size); font-weight: 700; margin: 14px 0 6px; letter-spacing: -0.02em; color: var(--text-primary); }
+.proto-sub { font-size: var(--text-body-size); color: var(--text-secondary); margin: 0; max-width: 720px; line-height: 1.55; }
+
+/* ── Galería de estados ──────────────────────────────────── */
+.proto-gallery { display: flex; flex-wrap: wrap; gap: 44px 40px; align-items: flex-start; justify-content: center; }
+.proto-gallery.left { justify-content: flex-start; }
+.proto-item { display: flex; flex-direction: column; gap: 14px; align-items: center; }
+.proto-label { font-size: var(--text-body-sm-size); font-weight: 600; color: var(--text-secondary); display: flex; align-items: center; gap: 8px; text-align: center; }
+.proto-label .tag {
+  font-family: var(--font-mono); font-size: 10px; color: var(--text-tertiary);
+  background: var(--bg-surface); border: 1px solid var(--border);
+  padding: 2px 7px; border-radius: var(--radius-full); text-transform: none; letter-spacing: 0;
+}
+
+/* ── Frame de teléfono (Damnificado · mobile 375) ────────── */
+.phone {
+  width: 375px; flex-shrink: 0;
+  background: #0F0D0B; border-radius: 44px; padding: 11px;
+  box-shadow: var(--shadow-lg);
+}
+.phone-screen {
+  width: 100%; height: 780px; overflow-y: auto; overflow-x: hidden;
+  border-radius: 33px; background: var(--bg-page); position: relative;
+}
+.phone-screen::-webkit-scrollbar { width: 0; height: 0; }
+
+/* ── Frame de navegador (Agente · desktop 1280) ──────────── */
+.browser {
+  width: 1280px; max-width: 100%; flex-shrink: 0;
+  border-radius: 14px; overflow: hidden;
+  box-shadow: var(--shadow-lg); border: 1px solid var(--neutral-300);
+  background: var(--bg-surface);
+}
+.browser-bar { height: 42px; background: var(--neutral-100); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 7px; padding: 0 15px; }
+.browser-dot { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; }
+.browser-url {
+  margin-left: 12px; flex: 1; height: 24px; max-width: 420px;
+  background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-full);
+  display: flex; align-items: center; padding: 0 12px;
+  font-family: var(--font-mono); font-size: 11px; color: var(--text-tertiary);
+}
+.browser-screen { height: 760px; overflow: auto; background: var(--bg-page); }
+.browser-screen.tall { height: 860px; }
+
+/* Utilidad: fila de meta bajo el título */
+.proto-meta { max-width: 1280px; margin: 0 auto 28px; display: flex; flex-wrap: wrap; gap: 8px; }
+.proto-chip { font-size: 12px; color: var(--text-secondary); background: var(--bg-surface); border: 1px solid var(--border); padding: 4px 11px; border-radius: var(--radius-full); }

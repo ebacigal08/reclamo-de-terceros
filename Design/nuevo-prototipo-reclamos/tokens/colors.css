@@ -1,0 +1,83 @@
+:root {
+  /* ══════════════════════════════════════════════════════════════
+     AMPARO · Paleta base
+     Azul confianza + neutros cálidos "papel/arena".
+     La calidez vive en los neutros, no en el acento: el azul
+     aporta confianza institucional; el lienzo templado aporta
+     cercanía humana. (Blend Starbucks × Apple)
+     ══════════════════════════════════════════════════════════════ */
+
+  /* ── Primary · Azul confianza ─────────────────────────── */
+  --primary-50:  #EEF3FE;
+  --primary-100: #DCE7FD;
+  --primary-200: #BBD0FB;
+  --primary-300: #90B0F6;
+  --primary-400: #5E8AEE;
+  --primary-500: #3A6AE4;  /* acento base */
+  --primary-600: #2551C8;  /* CTA reposo */
+  --primary-700: #1E42A3;  /* CTA hover / activo */
+  --primary-800: #1B3980;
+  --primary-900: #182F63;  /* autoridad · sidebar del agente */
+  --primary-950: #101E40;
+
+  /* ── Neutral · Cálido (papel / arena) ─────────────────── */
+  --neutral-50:  #F8F6F1;  /* lienzo de página */
+  --neutral-100: #F1EDE4;  /* superficie sutil / filas alternas / hover */
+  --neutral-200: #E6E0D5;  /* borde */
+  --neutral-300: #D5CCBD;  /* borde fuerte */
+  --neutral-400: #B0A692;  /* texto terciario / placeholder */
+  --neutral-500: #857B69;  /* texto tenue */
+  --neutral-600: #625A4C;  /* texto secundario */
+  --neutral-700: #464038;
+  --neutral-800: #2F2A24;
+  --neutral-900: #211D18;  /* texto principal · negro cálido */
+  --neutral-950: #14110E;
+
+  /* ── Success · Verde resolución ───────────────────────── */
+  --success-50:  #ECF7EF;
+  --success-100: #D2ECD8;
+  --success-200: #A9DAB5;
+  --success-500: #2E9E5B;
+  --success-600: #227D48;
+  --success-700: #1B6139;
+
+  /* ── Warning · Ámbar (atención / negociación) ─────────── */
+  --warning-50:  #FDF4E7;
+  --warning-100: #FAE6C6;
+  --warning-200: #F3CE8C;
+  --warning-500: #E1912B;
+  --warning-600: #C0741A;
+  --warning-700: #965816;
+
+  /* ── Danger · Rojo (vencido / rechazado / destructivo) ── */
+  --danger-50:  #FCEEEC;
+  --danger-100: #F8D7D2;
+  --danger-200: #F0B4AB;
+  --danger-500: #D64A3A;
+  --danger-600: #B5372A;
+  --danger-700: #8F2A20;
+
+  /* ── Orange · Terracota (próximo a vencer / presentado) ─ */
+  --orange-50:  #FDF0E8;
+  --orange-100: #FADBC7;
+  --orange-200: #F3BC97;
+  --orange-500: #DB6B32;
+  --orange-600: #BC5321;
+  --orange-700: #93401A;
+
+  /* ── Plum · Violeta calmo (expediente en armado) ──────── */
+  --plum-50:  #F3EEF8;
+  --plum-100: #E4D6EF;
+  --plum-200: #CBB2E0;
+  --plum-500: #7E57A6;
+  --plum-600: #653F8A;
+  --plum-700: #4F2F6E;
+
+  /* ── Teal · Verdeazulado (expediente completo) ────────── */
+  --teal-50:  #E8F6F3;
+  --teal-100: #C7E9E1;
+  --teal-200: #97D5C8;
+  --teal-500: #23968A;
+  --teal-600: #197A70;
+  --teal-700: #145E57;
+}

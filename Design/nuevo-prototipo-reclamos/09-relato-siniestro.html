@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang='es'>
+<head>
+
+<meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'>
+<title>Relato del siniestro — Nuevo prototipo Reclamos</title>
+<link rel='preconnect' href='https://fonts.googleapis.com'>
+<link rel='preconnect' href='https://fonts.gstatic.com' crossorigin>
+<link rel='stylesheet' href='https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap'>
+<link rel='stylesheet' href='./styles.css'>
+<link rel='stylesheet' href='./proto.css'>
+<script crossorigin src='https://unpkg.com/react@18.3.1/umd/react.development.js' integrity='sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L'></script>
+<script crossorigin src='https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js' integrity='sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm'></script>
+<script src='https://unpkg.com/@babel/standalone@7.29.0/babel.min.js' integrity='sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y' crossorigin='anonymous'></script>
+<script src='./_ds_bundle.js'></script>
+<script src='./_ds_bundle_ext.js'></script>
+<script src='./_boot.js'></script>
+</head>
+<body>
+<div id='root'></div>
+<script type='text/babel'>
+const DS = window.AmparoDesignSystem_70b626;
+const { Textarea, DatePicker, RadioGroup, Button, ProgressBar, Input } = DS;
+const { Icon, PhoneFrame, Canvas, mount } = window.Proto;
+
+const QPASO = 'Venía manejando por Av. Rivadavia cuando otro auto cruzó con el semáforo en rojo y me chocó del lado del acompañante. Frené pero no llegué a esquivarlo. Paré en la esquina y esperé a la policía.';
+const RESUMEN = [
+  { q: '¿Cuándo ocurrió?', a: '24/06/2026' },
+  { q: '¿Dónde ocurrió?', a: 'Av. Rivadavia 4500, CABA' },
+  { q: '¿Qué pasó?', a: QPASO },
+  { q: '¿Cuál fue el daño o la pérdida?', a: 'Puerta y guardabarros del lado derecho abollados, se activó el airbag.' },
+  { q: '¿Ya hiciste alguna denuncia o contacto?', a: 'Sí — Hice la denuncia policial el mismo día en la comisaría 12.' },
+  { q: '¿Tenés documentos relacionados?', a: 'Sí, ya subí algunos.' },
+  { q: '¿Algo más que el agente debería saber?', a: 'El otro conductor se dio a la fuga; un testigo me dejó su teléfono.' }
+];
+
+function Chrome({ step, showBack, primaryLabel, primaryIcon, children }) {
+  return <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '15px 16px', background: 'var(--bg-surface)', borderBottom: '1px solid var(--border)' }}>
+      {showBack ? <button aria-label='Atrás' style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: 2, lineHeight: 0, flexShrink: 0 }}><Icon name='arrowLeft' size={22} /></button> : <span style={{ width: 22, flexShrink: 0 }} />}
+      <div style={{ flex: 1 }}><ProgressBar value={step} max={7} size='sm' /></div>
+      <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--text-tertiary)', flexShrink: 0 }}>{step}/7</span>
+    </div>
+    <div style={{ flex: 1, overflow: 'auto', padding: '24px 22px' }}>
+      <div style={{ fontFamily: 'var(--font-sans)', fontSize: 'var(--text-body-sm-size)', fontWeight: 600, color: 'var(--primary-600)', marginBottom: '8px' }}>Ya vas por el paso {step} de 7</div>
+      {children}
+    </div>
+    <div style={{ padding: '14px 16px 18px', borderTop: '1px solid var(--border)', background: 'var(--bg-surface)', display: 'flex', flexDirection: 'column', gap: '11px' }}>
+      <div style={{ display: 'flex', gap: '10px' }}>
+        {showBack && <Button variant='secondary' size='lg' rounded='pill'>Atrás</Button>}
+        <div style={{ flex: 1 }}><Button variant='primary' size='lg' rounded='pill' fullWidth iconRight={primaryIcon}>{primaryLabel}</Button></div>
+      </div>
+      <a style={{ textAlign: 'center', fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 500, color: 'var(--text-tertiary)', textDecoration: 'none', cursor: 'pointer' }}>Guardar y continuar después</a>
+    </div>
+  </div>;
+}
+
+function Q({ title, helper }) {
+  return <div style={{ marginBottom: '20px' }}>
+    <h1 style={{ margin: 0, fontFamily: 'var(--font-sans)', fontSize: 'var(--text-h2-size)', fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text-primary)', lineHeight: 1.22 }}>{title}</h1>
+    {helper && <p style={{ margin: '10px 0 0', fontFamily: 'var(--font-sans)', fontSize: 'var(--text-body-size)', color: 'var(--text-secondary)', lineHeight: 1.55 }}>{helper}</p>}
+  </div>;
+}
+
+const chev = <Icon name='chevronRight' size={18} />;
+
+function Scene({ name }) {
+  if (name === 'paso1') {
+    return <Chrome step={1} showBack={false} primaryLabel='Siguiente' primaryIcon={chev}>
+      <Q title='¿Cuándo ocurrió el siniestro?' helper='Si no recordás el día exacto, poné el más aproximado. Después lo podés corregir.' />
+      <DatePicker label='Fecha del siniestro' value='2026-06-24' size='lg' />
+    </Chrome>;
+  }
+  if (name === 'paso3') {
+    return <Chrome step={3} showBack primaryLabel='Siguiente' primaryIcon={chev}>
+      <Q title='¿Qué pasó?' helper='Contanos con tus palabras cómo fue. No hace falta que sea perfecto ni que uses términos técnicos.' />
+      <Textarea label='Contá lo que pasó' rows={7} maxLength={1200} showCount defaultValue={QPASO} placeholder='Ese día…' />
+    </Chrome>;
+  }
+  if (name === 'paso5') {
+    return <Chrome step={5} showBack primaryLabel='Siguiente' primaryIcon={chev}>
+      <Q title='¿Ya hiciste alguna denuncia o contacto con la aseguradora?' helper='Si ya llamaste, escribiste o presentaste algo, contános.' />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+        <RadioGroup name='denuncia' value='si' direction='horizontal' options={[{ value: 'si', label: 'Sí' }, { value: 'no', label: 'No' }]} />
+        <Textarea label='¿Con quién y cuándo?' rows={3} defaultValue='Hice la denuncia policial el mismo día en la comisaría 12.' placeholder='Ej: Llamé a la aseguradora el lunes siguiente…' />
+      </div>
+    </Chrome>;
+  }
+  if (name === 'resumen') {
+    return <Chrome step={7} showBack primaryLabel='Enviar relato' primaryIcon={<Icon name='send' size={16} />}>
+      <Q title='Revisá tu relato' helper='Estas son tus respuestas. Podés editar cualquiera antes de enviárselo a tu agente.' />
+      <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '4px 16px', boxShadow: 'var(--shadow-xs)' }}>
+        {RESUMEN.map((r, i) => <div key={i} style={{ padding: '14px 0', borderBottom: i === RESUMEN.length - 1 ? 'none' : '1px solid var(--divider)' }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '12px' }}>
+            <div style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-tertiary)', fontWeight: 600 }}>{r.q}</div>
+            <a style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 600, color: 'var(--text-link)', textDecoration: 'none', cursor: 'pointer', flexShrink: 0 }}>Editar</a>
+          </div>
+          <div style={{ fontFamily: 'var(--font-sans)', fontSize: 'var(--text-body-sm-size)', color: 'var(--text-primary)', marginTop: '4px', lineHeight: 1.5 }}>{r.a}</div>
+        </div>)}
+      </div>
+    </Chrome>;
+  }
+  return <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', gap: '20px', padding: '32px 28px', background: 'var(--bg-page)' }}>
+    <span style={{ width: 84, height: 84, borderRadius: '50%', background: 'var(--success-50)', color: 'var(--success-600)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon name='checkCircle' size={46} /></span>
+    <div>
+      <h1 style={{ margin: 0, fontFamily: 'var(--font-sans)', fontSize: 'var(--text-h2-size)', fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text-primary)' }}>Tu relato fue recibido</h1>
+      <p style={{ margin: '12px 0 0', fontFamily: 'var(--font-sans)', fontSize: 'var(--text-body-lg-size)', color: 'var(--text-secondary)', lineHeight: 1.6 }}>Tu agente ya puede leerlo. Si necesita algo más, te va a avisar. Gracias por tomarte el tiempo.</p>
+    </div>
+    <div style={{ width: '100%', marginTop: '8px' }}><Button variant='primary' size='lg' rounded='pill' fullWidth iconLeft={<Icon name='arrowLeft' size={17} />}>Volver a mi caso</Button></div>
+  </div>;
+}
+
+function App() {
+  return <Canvas eyebrow='REC-62 · Damnificado' title='Relato del siniestro (wizard)' sub='Una pregunta por pantalla, en lenguaje humano y en primera persona, para que cualquier persona pueda dejar los hechos por escrito de forma ordenada. Progreso positivo, textarea grande para “¿qué pasó?”, resumen editable y confirmación.'>
+    <PhoneFrame label='Paso 1 — ¿Cuándo?'><Scene name='paso1' /></PhoneFrame>
+    <PhoneFrame label='Paso 3 — ¿Qué pasó?'><Scene name='paso3' /></PhoneFrame>
+    <PhoneFrame label='Paso 5 — Sí/No condicional'><Scene name='paso5' /></PhoneFrame>
+    <PhoneFrame label='Resumen (editable)'><Scene name='resumen' /></PhoneFrame>
+    <PhoneFrame label='Confirmación de envío'><Scene name='confirm' /></PhoneFrame>
+    <div className='proto-item' style={{ width: '1280px', alignItems: 'stretch' }}>
+      <div className='proto-label'>Desktop — Paso 3<span className='tag'>1280</span></div>
+      <div className='browser'>
+        <div className='browser-bar'><span className='browser-dot' style={{ background: '#E5695B' }}></span><span className='browser-dot' style={{ background: '#E8B84B' }}></span><span className='browser-dot' style={{ background: '#5FBE7E' }}></span><span className='browser-url'>app.amparo.ar/relato</span></div>
+        <div className='browser-screen' style={{ height: '760px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px' }}>
+          <div style={{ width: '460px', height: '660px', borderRadius: 'var(--radius-2xl)', overflow: 'hidden', boxShadow: 'var(--shadow-lift)', border: '1px solid var(--border)' }}><Scene name='paso3' /></div>
+        </div>
+      </div>
+    </div>
+  </Canvas>;
+}
+
+mount(<App />);
+</script>
+</body>
+</html>

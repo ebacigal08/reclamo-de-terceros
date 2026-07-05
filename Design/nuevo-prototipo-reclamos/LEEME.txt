@@ -1,0 +1,28 @@
+Nuevo prototipo Reclamos — CRM Siniestros AR
+Design System: Amparo (cálido + claro, azul confianza, Inter, dos registros)
+Milestone Linear: Fase 0.1 — Diseño
+
+CÓMO VERLO
+- Abrí index.html en un navegador (doble clic). Es el índice navegable de las 11 pantallas.
+- Requiere conexión a internet: React, Babel y las fuentes (Inter / JetBrains Mono)
+  se cargan por CDN. El resto (componentes del DS, tokens, estilos) es local.
+
+CONTENIDO
+  index.html ................... índice / hub navegable
+  01-login.html ................ REC-54  Login (compartida)
+  02-lista-casos.html .......... REC-55  Agente · Lista de casos
+  03-ficha-caso.html ........... REC-56  Agente · Ficha del caso
+  04-nuevo-caso.html ........... REC-57  Agente · Nuevo caso
+  05-solicitar-documentacion ... REC-58  Agente · Solicitar documentación
+  06-cerrar-caso.html .......... REC-59  Agente · Cerrar caso
+  07-onboarding.html ........... REC-60  Damnificado · Onboarding
+  08-mi-caso.html .............. REC-61  Damnificado · Mi caso (hub)
+  09-relato-siniestro.html ..... REC-62  Damnificado · Relato del siniestro
+  10-carga-documentos.html ..... REC-63  Damnificado · Carga de documentos
+  11-responder-pedido.html ..... REC-64  Damnificado · Responder pedido
+
+  _ds_bundle.js / _ds_bundle_ext.js .. 22 componentes Amparo (window.AmparoDesignSystem_70b626)
+  styles.css + tokens/ ............... tokens del design system (entry: styles.css)
+  _boot.js ........................... helpers de prototipo (frames, marca, íconos)
+  _appkit.js ......................... shell del Agente (sidebar + avatar)
+  proto.css .......................... chrome de presentación (frames de teléfono/navegador)

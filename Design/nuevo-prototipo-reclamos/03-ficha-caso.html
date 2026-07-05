@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang='es'>
+<head>
+
+<meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'>
+<title>Ficha del caso — Nuevo prototipo Reclamos</title>
+<link rel='preconnect' href='https://fonts.googleapis.com'>
+<link rel='preconnect' href='https://fonts.gstatic.com' crossorigin>
+<link rel='stylesheet' href='https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap'>
+<link rel='stylesheet' href='./styles.css'>
+<link rel='stylesheet' href='./proto.css'>
+<script crossorigin src='https://unpkg.com/react@18.3.1/umd/react.development.js' integrity='sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L'></script>
+<script crossorigin src='https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js' integrity='sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm'></script>
+<script src='https://unpkg.com/@babel/standalone@7.29.0/babel.min.js' integrity='sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y' crossorigin='anonymous'></script>
+<script src='./_ds_bundle.js'></script>
+<script src='./_ds_bundle_ext.js'></script>
+<script src='./_boot.js'></script>
+<script src='./_appkit.js'></script>
+</head>
+<body>
+<div id='root'></div>
+<script type='text/babel'>
+const DS = window.AmparoDesignSystem_70b626;
+const { Badge, Button, Select, Stepper, Alert, EmptyState } = DS;
+const { Icon, AgentShell, Canvas, mount } = window.Proto;
+
+const STEPS = [{ label: 'Nuevo' }, { label: 'En armado' }, { label: 'Completo' }, { label: 'Presentado' }, { label: 'Negociación' }, { label: 'Resuelto' }];
+
+const DATA = {
+  completo: {
+    name: 'Mónica Alsina', id: 'SIN-2026-00142', tipo: 'Accidente', aseguradora: 'La Segunda', prioridad: 'alta', etapaBadge: 'expediente-armado', step: 1,
+    email: 'monica.alsina@gmail.com', tel: '+54 11 5678-1234',
+    relato: { done: true, fecha: '28/06/2026' }, expedienteCompleto: true,
+    docs: [
+      { name: 'DNI - frente y dorso.pdf', fecha: '28/06/2026', by: 'Mónica Alsina' },
+      { name: 'Fotos del vehículo.zip', fecha: '28/06/2026', by: 'Mónica Alsina' },
+      { name: 'Presupuesto del taller.pdf', fecha: '29/06/2026', by: 'Mónica Alsina' },
+      { name: 'Denuncia policial.pdf', fecha: '30/06/2026', by: 'Lucía Fernández' }
+    ],
+    pedidos: [
+      { text: 'Presupuesto del taller oficial', fecha: '27/06/2026', estado: 'respondido' },
+      { text: 'Constancia de cobertura vigente', fecha: '01/07/2026', estado: 'pendiente' }
+    ],
+    plazos: [{ desc: 'Presentación a la aseguradora', fecha: '20/07/2026', estado: 'ok' }],
+    alert: null
+  },
+  urgente: {
+    name: 'Claudia Bogado', id: 'SIN-2026-00129', tipo: 'Incendio', aseguradora: 'Federación Patronal', prioridad: 'alta', etapaBadge: 'presentado', step: 3,
+    email: 'claudia.bogado@gmail.com', tel: '+54 11 4432-9087',
+    relato: { done: true, fecha: '12/06/2026' }, expedienteCompleto: true,
+    docs: [
+      { name: 'Informe pericial.pdf', fecha: '14/06/2026', by: 'Lucía Fernández' },
+      { name: 'Fotos del inmueble.zip', fecha: '13/06/2026', by: 'Claudia Bogado' },
+      { name: 'Póliza de incendio.pdf', fecha: '12/06/2026', by: 'Claudia Bogado' }
+    ],
+    pedidos: [{ text: 'Informe del cuartel de bomberos', fecha: '02/07/2026', estado: 'pendiente' }],
+    plazos: [
+      { desc: 'Respuesta a la oferta de la aseguradora', fecha: '06/07/2026', estado: 'proximo' },
+      { desc: 'Ampliación de daños declarados', fecha: '01/07/2026', estado: 'vencido' }
+    ],
+    alert: { variant: 'error', title: 'Plazo próximo a vencer', body: 'La respuesta a la oferta de la aseguradora vence en 2 días (06/07/2026). Además hay un plazo ya vencido. Revisá los plazos del caso.' }
+  },
+  nuevo: {
+    name: 'Diego Sosa', id: 'SIN-2026-00144', tipo: 'Inundación', aseguradora: 'Sancor Seguros', prioridad: 'media', etapaBadge: 'nuevo', step: 0,
+    email: 'diego.sosa@gmail.com', tel: '+54 342 655-2210',
+    relato: { done: false }, expedienteCompleto: false,
+    docs: [], pedidos: [], plazos: [],
+    alert: { variant: 'info', title: 'Caso recién creado', body: 'Todavía falta el relato del siniestro y la documentación. Pedile al damnificado lo que necesitás para empezar a armar el expediente.' }
+  }
+};
+
+function SectionCard({ title, right, children, pad }) {
+  return <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '13px 18px', borderBottom: '1px solid var(--divider)' }}>
+      <h3 style={{ margin: 0, fontFamily: 'var(--font-sans)', fontSize: 'var(--text-h4-size)', fontWeight: 700, color: 'var(--text-primary)' }}>{title}</h3>
+      {right}
+    </div>
+    <div style={{ padding: pad || '16px 18px' }}>{children}</div>
+  </div>;
+}
+
+function DataRow({ icon, label, value, mono, last }) {
+  return <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 0', borderBottom: last ? 'none' : '1px solid var(--divider)' }}>
+    <span style={{ color: 'var(--text-tertiary)', display: 'flex', flexShrink: 0 }}><Icon name={icon} size={17} /></span>
+    <div style={{ flex: 1, minWidth: 0 }}>
+      <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-tertiary)', fontWeight: 600 }}>{label}</div>
+      <div style={{ fontSize: 'var(--text-body-sm-size)', color: 'var(--text-primary)', fontFamily: mono ? 'var(--font-mono)' : 'var(--font-sans)', marginTop: '2px', wordBreak: 'break-word' }}>{value}</div>
+    </div>
+  </div>;
+}
+
+function DocRow({ name, fecha, by }) {
+  return <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 0', borderBottom: '1px solid var(--divider)' }}>
+    <span style={{ width: 34, height: 34, borderRadius: 'var(--radius-md)', background: 'var(--primary-50)', color: 'var(--primary-600)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Icon name='doc' size={17} /></span>
+    <div style={{ flex: 1, minWidth: 0 }}>
+      <div style={{ fontSize: 'var(--text-body-sm-size)', fontWeight: 600, color: 'var(--text-primary)' }}>{name}</div>
+      <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>{fecha} · Subido por {by}</div>
+    </div>
+    <span style={{ color: 'var(--text-tertiary)', display: 'flex' }}><Icon name='chevronRight' size={16} /></span>
+  </div>;
+}
+
+function PedidoRow({ text, fecha, estado }) {
+  return <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', padding: '11px 0', borderBottom: '1px solid var(--divider)' }}>
+    <div style={{ minWidth: 0 }}>
+      <div style={{ fontSize: 'var(--text-body-sm-size)', fontWeight: 600, color: 'var(--text-primary)' }}>{text}</div>
+      <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '1px' }}>Enviado {fecha}</div>
+    </div>
+    <Badge variant={estado === 'respondido' ? 'respondido' : 'pendiente'} />
+  </div>;
+}
+
+function PlazoRow({ desc, fecha, estado }) {
+  const badge = estado === 'vencido' ? <Badge variant='venc-vencido' /> : estado === 'proximo' ? <Badge variant='venc-proximo' /> : <span style={{ fontSize: '12px', color: 'var(--success-700)', fontWeight: 600, display: 'inline-flex', gap: '4px', alignItems: 'center', whiteSpace: 'nowrap' }}><Icon name='check' size={13} />En fecha</span>;
+  const border = estado === 'vencido' ? 'var(--danger-500)' : estado === 'proximo' ? 'var(--warning-400)' : 'var(--border)';
+  const bg = estado === 'vencido' ? 'var(--danger-50)' : estado === 'proximo' ? 'var(--warning-50)' : 'var(--bg-inset)';
+  return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', padding: '11px 12px', borderLeft: '3px solid ' + border, background: bg, borderRadius: 'var(--radius-md)' }}>
+    <div style={{ minWidth: 0 }}>
+      <div style={{ fontSize: 'var(--text-body-sm-size)', fontWeight: 600, color: 'var(--text-primary)' }}>{desc}</div>
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '1px' }}>Vence {fecha}</div>
+    </div>
+    {badge}
+  </div>;
+}
+
+function CaseFile({ d }) {
+  const nextLabel = STEPS[Math.min(d.step + 1, STEPS.length - 1)].label;
+  const actions = <React.Fragment>
+    <Button variant='secondary' iconLeft={<Icon name='send' size={15} />}>Solicitar documentación</Button>
+    <Button variant='secondary' iconLeft={<Icon name='checkCircle' size={15} />}>Cerrar caso</Button>
+  </React.Fragment>;
+  return <AgentShell activeId='casos' title='Ficha del caso' actions={actions}>
+    <a style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: 'var(--text-body-sm-size)', fontWeight: 600, color: 'var(--text-secondary)', textDecoration: 'none', cursor: 'pointer', marginBottom: '16px' }}><Icon name='arrowLeft' size={16} />Volver a casos</a>
+    <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: '20px', marginBottom: '18px' }}>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+          <h2 style={{ margin: 0, fontFamily: 'var(--font-sans)', fontSize: 'var(--text-h2-size)', fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text-primary)' }}>{d.name}</h2>
+          <Badge variant={d.etapaBadge} />
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '7px', fontSize: 'var(--text-body-sm-size)', color: 'var(--text-secondary)' }}>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px' }}>{d.id}</span><span>·</span><span>{d.tipo}</span><span>·</span><span>{d.aseguradora}</span>
+        </div>
+      </div>
+      <div style={{ width: '168px', flexShrink: 0 }}><Select label='Prioridad' value={d.prioridad} options={[{ value: 'alta', label: 'Alta' }, { value: 'media', label: 'Media' }, { value: 'baja', label: 'Baja' }]} /></div>
+    </div>
+
+    {d.alert && <div style={{ marginBottom: '18px' }}><Alert variant={d.alert.variant} title={d.alert.title}>{d.alert.body}</Alert></div>}
+
+    <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)', overflow: 'hidden', marginBottom: '20px' }}>
+      <div style={{ padding: '20px 22px 18px' }}><Stepper steps={STEPS} currentStep={d.step} variant='horizontal' /></div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', padding: '12px 20px', borderTop: '1px solid var(--divider)', background: 'var(--bg-subtle)' }}>
+        <span style={{ fontSize: 'var(--text-body-sm-size)', color: 'var(--text-secondary)' }}>Etapa actual: <strong style={{ color: 'var(--text-primary)' }}>{STEPS[d.step].label}</strong></span>
+        <Button variant='primary' disabled={d.step >= 5} iconRight={<Icon name='chevronRight' size={16} />}>Mover a: {nextLabel}</Button>
+      </div>
+    </div>
+
+    <div style={{ display: 'grid', gridTemplateColumns: '1.9fr 1fr', gap: '20px', alignItems: 'start' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <SectionCard title='Relato del siniestro' right={d.relato.done ? <Button variant='ghost' size='sm'>Ver relato</Button> : null}>
+          {d.relato.done
+            ? <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span style={{ width: 36, height: 36, borderRadius: 'var(--radius-full)', background: 'var(--success-50)', color: 'var(--success-600)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Icon name='checkCircle' size={18} /></span>
+                <div><div style={{ fontSize: 'var(--text-body-size)', fontWeight: 600, color: 'var(--text-primary)' }}>Relato completado</div><div style={{ fontSize: 'var(--text-body-sm-size)', color: 'var(--text-secondary)' }}>El damnificado describió el siniestro · {d.relato.fecha}</div></div>
+              </div>
+            : <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span style={{ width: 36, height: 36, borderRadius: 'var(--radius-full)', background: 'var(--warning-50)', color: 'var(--warning-600)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Icon name='clock' size={18} /></span>
+                <div><div style={{ fontSize: 'var(--text-body-size)', fontWeight: 600, color: 'var(--text-primary)' }}>Relato pendiente</div><div style={{ fontSize: 'var(--text-body-sm-size)', color: 'var(--text-secondary)' }}>El damnificado todavía no completó el relato del siniestro.</div></div>
+              </div>}
+        </SectionCard>
+
+        <SectionCard title='Documentos y evidencias' right={<span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--text-tertiary)' }}>{d.docs.length} archivo{d.docs.length === 1 ? '' : 's'}</span>}>
+          {d.docs.length
+            ? <div>
+                {d.docs.map((doc, i) => <DocRow key={i} name={doc.name} fecha={doc.fecha} by={doc.by} />)}
+                {d.expedienteCompleto && <div style={{ display: 'flex', alignItems: 'center', gap: '9px', marginTop: '14px', padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--success-50)', border: '1px solid var(--success-200)', color: 'var(--success-700)', fontSize: 'var(--text-body-sm-size)', fontWeight: 600 }}><Icon name='checkCircle' size={16} />Expediente completo — listo para presentar</div>}
+              </div>
+            : <EmptyState compact icon={<Icon name='folder' size={24} />} title='Sin documentos todavía' description='Cuando el damnificado suba archivos o vos los cargues, van a aparecer acá.' />}
+        </SectionCard>
+
+        <SectionCard title='Pedidos de documentación' right={<Button variant='ghost' size='sm' iconLeft={<Icon name='plus' size={14} />}>Nuevo pedido</Button>}>
+          {d.pedidos.length
+            ? <div>{d.pedidos.map((p, i) => <PedidoRow key={i} text={p.text} fecha={p.fecha} estado={p.estado} />)}</div>
+            : <EmptyState compact icon={<Icon name='send' size={22} />} title='Sin pedidos activos' description='Cuando le pidas documentación al damnificado, el estado del pedido va a aparecer acá.' />}
+        </SectionCard>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <SectionCard title='Damnificado' pad='6px 18px 10px'>
+          <DataRow icon='users' label='Nombre completo' value={d.name} />
+          <DataRow icon='mail' label='Email' value={d.email} />
+          <DataRow icon='phone' label='Teléfono' value={d.tel} mono last />
+        </SectionCard>
+        <SectionCard title='Plazos del caso'>
+          {d.plazos.length
+            ? <div style={{ display: 'flex', flexDirection: 'column', gap: '9px' }}>{d.plazos.map((p, i) => <PlazoRow key={i} desc={p.desc} fecha={p.fecha} estado={p.estado} />)}</div>
+            : <EmptyState compact icon={<Icon name='calendar' size={22} />} title='Sin plazos cargados' description='Los vencimientos críticos del reclamo van a aparecer acá.' />}
+        </SectionCard>
+      </div>
+    </div>
+  </AgentShell>;
+}
+
+function Frame({ label, url, height, children }) {
+  return <div className='proto-item' style={{ width: '1280px', alignItems: 'stretch' }}>
+    <div className='proto-label'>{label}<span className='tag'>1280</span></div>
+    <div className='browser'>
+      <div className='browser-bar'><span className='browser-dot' style={{ background: '#E5695B' }}></span><span className='browser-dot' style={{ background: '#E8B84B' }}></span><span className='browser-dot' style={{ background: '#5FBE7E' }}></span><span className='browser-url'>{url}</span></div>
+      <div className='browser-screen' style={{ height: height }}>{children}</div>
+    </div>
+  </div>;
+}
+
+function App() {
+  return <Canvas eyebrow='REC-56 · Agente' title='Ficha del caso' sub='Pantalla central de trabajo del agente: toda la información del caso y las acciones para gestionarlo. Pipeline de etapas, expediente (relato + documentos), pedidos y plazos. Los vencimientos urgentes destacan con color inmediato.'>
+    <Frame label='Caso completo' url='app.amparo.ar/agente/casos/SIN-2026-00142' height='1160px'><CaseFile d={DATA.completo} /></Frame>
+    <Frame label='Vencimiento inminente (plazo en rojo)' url='app.amparo.ar/agente/casos/SIN-2026-00129' height='1200px'><CaseFile d={DATA.urgente} /></Frame>
+    <Frame label='Caso recién creado (sin docs ni pedidos)' url='app.amparo.ar/agente/casos/SIN-2026-00144' height='1120px'><CaseFile d={DATA.nuevo} /></Frame>
+  </Canvas>;
+}
+
+mount(<App />);
+</script>
+</body>
+</html>

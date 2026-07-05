@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang='es'>
+<head>
+
+<meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'>
+<title>Login — Nuevo prototipo Reclamos</title>
+<link rel='preconnect' href='https://fonts.googleapis.com'>
+<link rel='preconnect' href='https://fonts.gstatic.com' crossorigin>
+<link rel='stylesheet' href='https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap'>
+<link rel='stylesheet' href='./styles.css'>
+<link rel='stylesheet' href='./proto.css'>
+<script crossorigin src='https://unpkg.com/react@18.3.1/umd/react.development.js' integrity='sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L'></script>
+<script crossorigin src='https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js' integrity='sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm'></script>
+<script src='https://unpkg.com/@babel/standalone@7.29.0/babel.min.js' integrity='sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y' crossorigin='anonymous'></script>
+<script src='./_ds_bundle.js'></script>
+<script src='./_ds_bundle_ext.js'></script>
+<script src='./_boot.js'></script>
+</head>
+<body>
+<div id='root'></div>
+<script type='text/babel'>
+const DS = window.AmparoDesignSystem_70b626;
+const { Input, Button, Alert } = DS;
+const { Icon, Brand, PhoneFrame, BrowserFrame, Canvas, mount } = window.Proto;
+const { useState } = React;
+
+const linkStyle = { fontFamily: 'var(--font-sans)', fontSize: 'var(--text-body-sm-size)', fontWeight: 600, color: 'var(--text-link)', textDecoration: 'none', cursor: 'pointer' };
+
+function LoginForm({ variant }) {
+  const [shown, setShown] = useState(variant === 'filled');
+  const filled = variant !== 'empty';
+  const isError = variant === 'error';
+  const isLoading = variant === 'loading';
+  const eye = (
+    <span onClick={() => setShown((s) => !s)} style={{ cursor: 'pointer', display: 'flex', color: 'var(--text-secondary)' }}>
+      <Icon name={shown ? 'eyeOff' : 'eye'} size={18} />
+    </span>
+  );
+  return (
+    <form style={{ display: 'flex', flexDirection: 'column', gap: '18px', width: '100%' }} onSubmit={(e) => e.preventDefault()}>
+      {isError && <Alert variant='error' title='No pudimos ingresar'>Email o contraseña incorrectos. Revisá tus datos e intentá de nuevo.</Alert>}
+      <Input label='Email' type='email' placeholder='tu@email.com' size='lg' defaultValue={filled ? 'maria.gomez@gmail.com' : undefined} error={isError ? ' ' : undefined} />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '9px', width: '100%' }}>
+        <Input label='Contraseña' type={shown ? 'text' : 'password'} placeholder='Tu contraseña' size='lg' defaultValue={filled ? 'reclamo2026' : undefined} suffix={eye} error={isError ? ' ' : undefined} />
+        <a style={{ ...linkStyle, alignSelf: 'flex-end' }}>¿Olvidaste tu contraseña?</a>
+      </div>
+      <Button variant='primary' size='lg' fullWidth loading={isLoading} type='submit'>{isLoading ? 'Ingresando…' : 'Ingresar'}</Button>
+    </form>
+  );
+}
+
+function MobileLogin({ variant }) {
+  return (
+    <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '36px 26px', gap: '30px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '18px', textAlign: 'center' }}>
+        <Brand size='lg' />
+        <div>
+          <h1 style={{ margin: 0, fontFamily: 'var(--font-sans)', fontSize: 'var(--text-h2-size)', fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text-primary)' }}>Bienvenido de nuevo</h1>
+          <p style={{ margin: '7px 0 0', fontFamily: 'var(--font-sans)', fontSize: 'var(--text-body-size)', color: 'var(--text-secondary)' }}>Ingresá para seguir tu reclamo</p>
+        </div>
+      </div>
+      <LoginForm variant={variant} />
+      <p style={{ textAlign: 'center', margin: 0, fontFamily: 'var(--font-sans)', fontSize: 'var(--text-caption-size)', color: 'var(--text-tertiary)', lineHeight: 1.5 }}>¿Sos nuevo? Tu agente te envía la invitación por email.</p>
+    </div>
+  );
+}
+
+function DesktopLogin({ variant }) {
+  return (
+    <div style={{ display: 'flex', height: '100%' }}>
+      <div style={{ flex: '0 0 45%', background: 'var(--primary-900)', color: '#FFFFFF', padding: '52px 46px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+        <Brand size='lg' onDark />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+          <h2 style={{ margin: 0, fontFamily: 'var(--font-sans)', fontSize: '30px', fontWeight: 700, lineHeight: 1.25, letterSpacing: '-0.02em' }}>Estás acompañado en cada paso de tu reclamo.</h2>
+          <p style={{ margin: 0, fontFamily: 'var(--font-sans)', fontSize: 'var(--text-body-lg-size)', lineHeight: 1.6, color: 'rgba(255,255,255,0.72)' }}>Amparo centraliza tu caso, te dice qué falta y te avisa cuando hay novedades. Del lado del agente, todo el portafolio bajo control.</p>
+        </div>
+        <p style={{ margin: 0, fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>© 2026 Amparo · Siniestros AR</p>
+      </div>
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px', background: 'var(--bg-page)' }}>
+        <div style={{ width: '100%', maxWidth: '380px', display: 'flex', flexDirection: 'column', gap: '26px' }}>
+          <div>
+            <h1 style={{ margin: 0, fontFamily: 'var(--font-sans)', fontSize: 'var(--text-h2-size)', fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text-primary)' }}>Ingresar</h1>
+            <p style={{ margin: '7px 0 0', fontFamily: 'var(--font-sans)', fontSize: 'var(--text-body-size)', color: 'var(--text-secondary)' }}>Accedé a tu cuenta de Amparo</p>
+          </div>
+          <LoginForm variant={variant} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  return (
+    <Canvas eyebrow='REC-54 · Pantalla compartida' title='Login / Autenticación' sub='Punto de entrada único para Agente y Damnificado. El sistema detecta el rol al autenticar y redirige a la vista correcta. Mobile-first para el damnificado; cómodo en desktop para el agente.'>
+      <PhoneFrame label='Por defecto (vacío)'><MobileLogin variant='empty' /></PhoneFrame>
+      <PhoneFrame label='Campos completados'><MobileLogin variant='filled' /></PhoneFrame>
+      <PhoneFrame label='Cargando (validando)'><MobileLogin variant='loading' /></PhoneFrame>
+      <PhoneFrame label='Error de credenciales'><MobileLogin variant='error' /></PhoneFrame>
+      <BrowserFrame label='Escritorio — por defecto' url='app.amparo.ar/login'><DesktopLogin variant='empty' /></BrowserFrame>
+      <BrowserFrame label='Escritorio — error' url='app.amparo.ar/login'><DesktopLogin variant='error' /></BrowserFrame>
+    </Canvas>
+  );
+}
+
+mount(<App />);
+</script>
+</body>
+</html>

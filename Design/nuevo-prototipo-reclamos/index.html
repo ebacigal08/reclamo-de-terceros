@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang='es'>
+<head>
+
+<meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'>
+<title>Nuevo prototipo Reclamos — Amparo</title>
+<link rel='preconnect' href='https://fonts.googleapis.com'>
+<link rel='preconnect' href='https://fonts.gstatic.com' crossorigin>
+<link rel='stylesheet' href='https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap'>
+<link rel='stylesheet' href='./styles.css'>
+<link rel='stylesheet' href='./proto.css'>
+<style>
+.wrap { max-width: 1120px; margin: 0 auto; padding: 56px 40px 72px; }
+.hero { display: flex; flex-direction: column; gap: 16px; padding-bottom: 40px; border-bottom: 1px solid var(--border); margin-bottom: 40px; }
+.brand-row { display: flex; align-items: center; gap: 12px; }
+.brand-mark { width: 42px; height: 42px; border-radius: 13px; background: var(--primary-600); color: #fff; display: flex; align-items: center; justify-content: center; box-shadow: var(--shadow-sm); }
+.h1 { font-size: var(--text-display-size); font-weight: 800; letter-spacing: -0.03em; margin: 6px 0 0; color: var(--text-primary); line-height: 1.05; }
+.lead { font-size: var(--text-body-lg-size); color: var(--text-secondary); line-height: 1.6; max-width: 680px; margin: 0; }
+.metarow { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.chip { font-size: 12px; color: var(--text-secondary); background: var(--bg-surface); border: 1px solid var(--border); padding: 5px 12px; border-radius: var(--radius-full); }
+.chip.mono { font-family: var(--font-mono); }
+.section-h { font-size: var(--text-h4-size); font-weight: 700; color: var(--text-primary); margin: 36px 0 4px; display: flex; align-items: center; gap: 10px; }
+.section-sub { font-size: var(--text-body-sm-size); color: var(--text-tertiary); margin: 0 0 18px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+.scard { display: flex; flex-direction: column; gap: 10px; padding: 20px; background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-xs); text-decoration: none; transition: box-shadow .18s var(--ease-standard), transform .18s var(--ease-standard), border-color .18s; }
+.scard:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); border-color: var(--border-strong); }
+.scard-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.rec { font-family: var(--font-mono); font-size: 11px; font-weight: 600; color: var(--primary-600); background: var(--primary-50); border: 1px solid var(--primary-100); padding: 2px 8px; border-radius: var(--radius-full); }
+.scard-title { font-size: var(--text-h4-size); font-weight: 700; color: var(--text-primary); margin: 2px 0 0; }
+.scard-desc { font-size: var(--text-body-sm-size); color: var(--text-secondary); line-height: 1.5; margin: 0; flex: 1; }
+.scard-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 4px; }
+.states { font-family: var(--font-mono); font-size: 11px; color: var(--text-tertiary); }
+.go { color: var(--primary-600); display: flex; }
+.chev { width: 18px; height: 18px; }
+.foot { margin-top: 48px; padding-top: 24px; border-top: 1px solid var(--border); font-size: var(--text-body-sm-size); color: var(--text-tertiary); line-height: 1.6; }
+</style>
+</head>
+<body>
+<div class='wrap'>
+  <div class='hero'>
+    <div class='brand-row'>
+      <span class='brand-mark'><svg width='22' height='22' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'><path d='M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z'></path></svg></span>
+      <span style='font-size:19px;font-weight:700;letter-spacing:-0.02em;color:var(--text-primary)'>Amparo</span>
+    </div>
+    <div>
+      <div class='proto-eyebrow'>Prototipo · Fase 0.1 · Design System Amparo</div>
+      <h1 class='h1'>Nuevo prototipo Reclamos</h1>
+    </div>
+    <p class='lead'>Las 11 pantallas del MVP del CRM “Siniestros AR”, rediseñadas sobre el Design System <strong>Amparo</strong> (cálido + claro, azul confianza, Inter, dos registros). Un solo set de tokens, calibrado para el <strong>Agente</strong> (denso, desktop) y el <strong>Damnificado</strong> (cálido, mobile).</p>
+    <div class='metarow'>
+      <span class='chip mono'>11 pantallas</span>
+      <span class='chip mono'>22 componentes</span>
+      <span class='chip'>Agente · desktop</span>
+      <span class='chip'>Damnificado · mobile</span>
+    </div>
+  </div>
+
+  <div class='section-h'>Acceso compartido</div>
+  <p class='section-sub'>Punto de entrada para los dos roles.</p>
+  <div class='grid'>
+    <a class='scard' href='./01-login.html'>
+      <div class='scard-top'><span class='rec'>REC-54</span></div>
+      <div class='scard-title'>Login / Autenticación</div>
+      <p class='scard-desc'>Entrada única; el sistema detecta el rol y redirige. Mobile-first y desktop.</p>
+      <div class='scard-foot'><span class='states'>4 estados · 375 + 1280</span><span class='go'><svg class='chev' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='9 18 15 12 9 6'></polyline></svg></span></div>
+    </a>
+  </div>
+
+  <div class='section-h'>Agente <span style='font-family:var(--font-mono);font-size:12px;color:var(--text-tertiary);font-weight:500'>denso · desktop · sidebar navy</span></div>
+  <p class='section-sub'>Gestión de la cartera de reclamos.</p>
+  <div class='grid'>
+    <a class='scard' href='./02-lista-casos.html'><div class='scard-top'><span class='rec'>REC-55</span></div><div class='scard-title'>Lista de casos</div><p class='scard-desc'>Todos los casos activos, ordenados por prioridad y vencimiento.</p><div class='scard-foot'><span class='states'>Lista · vacío · skeleton · tablet</span><span class='go'><svg class='chev' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='9 18 15 12 9 6'></polyline></svg></span></div></a>
+    <a class='scard' href='./03-ficha-caso.html'><div class='scard-top'><span class='rec'>REC-56</span></div><div class='scard-title'>Ficha del caso</div><p class='scard-desc'>Pipeline, expediente, pedidos y plazos. La pantalla central de trabajo.</p><div class='scard-foot'><span class='states'>Completo · urgente · nuevo</span><span class='go'><svg class='chev' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='9 18 15 12 9 6'></polyline></svg></span></div></a>
+    <a class='scard' href='./04-nuevo-caso.html'><div class='scard-top'><span class='rec'>REC-57</span></div><div class='scard-title'>Nuevo caso</div><p class='scard-desc'>Alta de un reclamo con validación inline y confirmación.</p><div class='scard-foot'><span class='states'>Vacío · error · carga · éxito · tablet</span><span class='go'><svg class='chev' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='9 18 15 12 9 6'></polyline></svg></span></div></a>
+    <a class='scard' href='./05-solicitar-documentacion.html'><div class='scard-top'><span class='rec'>REC-58</span></div><div class='scard-title'>Solicitar documentación</div><p class='scard-desc'>Drawer para pedirle documentación al damnificado desde el sistema.</p><div class='scard-foot'><span class='states'>Primer pedido · historial · envío</span><span class='go'><svg class='chev' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='9 18 15 12 9 6'></polyline></svg></span></div></a>
+    <a class='scard' href='./06-cerrar-caso.html'><div class='scard-top'><span class='rec'>REC-59</span></div><div class='scard-title'>Cerrar caso</div><p class='scard-desc'>Resultado final (resuelto / rechazado / apelación). Acción irreversible.</p><div class='scard-foot'><span class='states'>4 estados · modal + mobile</span><span class='go'><svg class='chev' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='9 18 15 12 9 6'></polyline></svg></span></div></a>
+  </div>
+
+  <div class='section-h'>Damnificado <span style='font-family:var(--font-mono);font-size:12px;color:var(--text-tertiary);font-weight:500'>cálido · mobile · pill</span></div>
+  <p class='section-sub'>Acompañamiento paso a paso, sin jerga.</p>
+  <div class='grid'>
+    <a class='scard' href='./07-onboarding.html'><div class='scard-top'><span class='rec'>REC-60</span></div><div class='scard-title'>Onboarding</div><p class='scard-desc'>Bienvenida en 4 pasos para reducir la ansiedad del primer contacto.</p><div class='scard-foot'><span class='states'>4 pasos · 375 + 1280</span><span class='go'><svg class='chev' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='9 18 15 12 9 6'></polyline></svg></span></div></a>
+    <a class='scard' href='./08-mi-caso.html'><div class='scard-top'><span class='rec'>REC-61</span></div><div class='scard-title'>Mi caso (hub)</div><p class='scard-desc'>Estado del reclamo en lenguaje humano y qué tiene pendiente.</p><div class='scard-foot'><span class='states'>Relato · pedido · al día · resuelto</span><span class='go'><svg class='chev' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='9 18 15 12 9 6'></polyline></svg></span></div></a>
+    <a class='scard' href='./09-relato-siniestro.html'><div class='scard-top'><span class='rec'>REC-62</span></div><div class='scard-title'>Relato del siniestro</div><p class='scard-desc'>Wizard guiado de 7 preguntas, una por vez, con resumen y envío.</p><div class='scard-foot'><span class='states'>Pasos 1/3/5 · resumen · envío</span><span class='go'><svg class='chev' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='9 18 15 12 9 6'></polyline></svg></span></div></a>
+    <a class='scard' href='./10-carga-documentos.html'><div class='scard-top'><span class='rec'>REC-63</span></div><div class='scard-title'>Carga de documentos</div><p class='scard-desc'>Subir evidencias con acuse de recibo inmediato y manejo de errores.</p><div class='scard-foot'><span class='states'>Vacío · lista · subida · acuse · error</span><span class='go'><svg class='chev' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='9 18 15 12 9 6'></polyline></svg></span></div></a>
+    <a class='scard' href='./11-responder-pedido.html'><div class='scard-top'><span class='rec'>REC-64</span></div><div class='scard-title'>Responder pedido</div><p class='scard-desc'>Ver el pedido del agente, subir lo pedido y recibir confirmación.</p><div class='scard-foot'><span class='states'>Pendiente · subida · enviado · leído</span><span class='go'><svg class='chev' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='9 18 15 12 9 6'></polyline></svg></span></div></a>
+  </div>
+
+  <div class='foot'>Milestone <strong>Fase 0.1 — Diseño</strong> · CRM Siniestros AR. Construido con el Design System Amparo (tokens + 22 componentes). Cada pantalla muestra sus estados y breakpoints según el PRD.</div>
+</div>
+</body>
+</html>

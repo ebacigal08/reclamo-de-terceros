@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang='es'>
+<head>
+
+<meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'>
+<title>Responder pedido — Nuevo prototipo Reclamos</title>
+<link rel='preconnect' href='https://fonts.googleapis.com'>
+<link rel='preconnect' href='https://fonts.gstatic.com' crossorigin>
+<link rel='stylesheet' href='https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap'>
+<link rel='stylesheet' href='./styles.css'>
+<link rel='stylesheet' href='./proto.css'>
+<script crossorigin src='https://unpkg.com/react@18.3.1/umd/react.development.js' integrity='sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L'></script>
+<script crossorigin src='https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js' integrity='sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm'></script>
+<script src='https://unpkg.com/@babel/standalone@7.29.0/babel.min.js' integrity='sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y' crossorigin='anonymous'></script>
+<script src='./_ds_bundle.js'></script>
+<script src='./_ds_bundle_ext.js'></script>
+<script src='./_boot.js'></script>
+</head>
+<body>
+<div id='root'></div>
+<script type='text/babel'>
+const DS = window.AmparoDesignSystem_70b626;
+const { FileUpload, Alert, Button, ProgressBar, Badge, Header } = DS;
+const { Icon, PhoneFrame, Canvas, mount } = window.Proto;
+
+const PEDIDO = 'Necesito el acta policial de la denuncia por robo y dos fotos del vehículo afectado (frente y lateral).';
+const SENT = [{ name: 'Acta policial.pdf', tipo: 'pdf' }, { name: 'Foto del vehículo - frente.jpg', tipo: 'img' }, { name: 'Foto del vehículo - lateral.jpg', tipo: 'img' }];
+
+function TypeChip({ tipo }) {
+  const map = { img: { c: 'var(--teal-600)', bg: 'var(--teal-50)' }, pdf: { c: 'var(--danger-600)', bg: 'var(--danger-50)' } };
+  const m = map[tipo] || map.pdf;
+  return <span style={{ width: 38, height: 38, borderRadius: 'var(--radius-md)', background: m.bg, color: m.c, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Icon name={tipo === 'pdf' ? 'doc' : 'file'} size={18} /></span>;
+}
+
+function FileRow({ f, fresh }) {
+  return <div style={{ display: 'flex', alignItems: 'center', gap: '11px', padding: '10px 12px', background: fresh ? 'var(--success-50)' : 'var(--bg-surface)', border: '1px solid ' + (fresh ? 'var(--success-200)' : 'var(--border)'), borderRadius: 'var(--radius-md)' }}>
+    <TypeChip tipo={f.tipo} />
+    <div style={{ flex: 1, minWidth: 0, fontFamily: 'var(--font-sans)', fontSize: 'var(--text-body-sm-size)', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.name}</div>
+    <span style={{ color: 'var(--success-600)', display: 'flex', flexShrink: 0 }}><Icon name='checkCircle' size={18} /></span>
+  </div>;
+}
+
+function PedidoBox({ badge }) {
+  return <div style={{ background: 'var(--primary-50)', border: '1px solid var(--primary-100)', borderRadius: 'var(--radius-xl)', padding: '18px' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '11px' }}>
+      <span style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--primary-600)', color: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '15px', fontFamily: 'var(--font-sans)', flexShrink: 0 }}>LF</span>
+      <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontFamily: 'var(--font-sans)', fontSize: 'var(--text-body-size)', fontWeight: 700, color: 'var(--text-primary)' }}>Lucía Fernández</div><div style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-secondary)' }}>Tu agente · 01/07/2026</div></div>
+      <Badge variant={badge} />
+    </div>
+    <div style={{ display: 'flex', gap: '10px', marginTop: '15px' }}>
+      <span style={{ color: 'var(--primary-400)', flexShrink: 0, marginTop: '2px', display: 'flex' }}><Icon name='message' size={18} /></span>
+      <p style={{ margin: 0, fontFamily: 'var(--font-sans)', fontSize: 'var(--text-body-lg-size)', fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.5 }}>{PEDIDO}</p>
+    </div>
+  </div>;
+}
+
+function Section({ children }) { return <div style={{ fontFamily: 'var(--font-sans)', fontSize: 'var(--text-body-sm-size)', fontWeight: 700, color: 'var(--text-primary)' }}>{children}</div>; }
+
+function Responder({ state }) {
+  const responded = state === 'enviada' || state === 'respondido';
+  return <div style={{ minHeight: '100%', background: 'var(--bg-page)', display: 'flex', flexDirection: 'column' }}>
+    <Header title='Pedido de tu agente' onBack={() => {}} />
+    <div style={{ padding: '18px 16px 26px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
+      <PedidoBox badge={responded ? 'respondido' : 'pendiente'} />
+
+      {state === 'enviada' && <Alert variant='success' title='¡Tu respuesta fue enviada!'>Tu agente va a recibir una notificación. No hace falta que hagas nada más por ahora.</Alert>}
+
+      {state === 'respondido' && <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px', background: 'var(--success-50)', border: '1px solid var(--success-200)', borderRadius: 'var(--radius-lg)' }}>
+        <span style={{ color: 'var(--success-600)', display: 'flex', flexShrink: 0 }}><Icon name='checkCircle' size={24} /></span>
+        <div><div style={{ fontFamily: 'var(--font-sans)', fontSize: 'var(--text-body-size)', fontWeight: 700, color: 'var(--success-700)' }}>Ya respondiste este pedido</div><div style={{ fontFamily: 'var(--font-sans)', fontSize: 'var(--text-body-sm-size)', color: 'var(--success-700)', opacity: 0.9 }}>Enviaste tu respuesta el 02/07/2026.</div></div>
+      </div>}
+
+      {!responded && <React.Fragment>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <Section>Tu respuesta</Section>
+          <FileUpload multiple helperText='Subí el documento o la foto que te pidió tu agente' subText='Fotos, PDFs o documentos · hasta 10 MB por archivo' />
+        </div>
+        {state === 'subiendo' && <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '13px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '11px', marginBottom: '11px' }}><TypeChip tipo='pdf' /><div style={{ flex: 1, minWidth: 0 }}><div style={{ fontFamily: 'var(--font-sans)', fontSize: 'var(--text-body-sm-size)', fontWeight: 600, color: 'var(--text-primary)' }}>Acta policial.pdf</div><div style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-tertiary)' }}>Subiendo… 0.9 MB</div></div></div>
+          <ProgressBar value={45} showValue size='sm' />
+        </div>}
+        <Button variant='primary' size='lg' rounded='pill' fullWidth disabled={state === 'pendiente'} loading={state === 'subiendo'} iconRight={state === 'pendiente' ? <Icon name='send' size={16} /> : null}>{state === 'subiendo' ? 'Enviando…' : 'Enviar respuesta'}</Button>
+      </React.Fragment>}
+
+      {responded && <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        <Section>Lo que enviaste</Section>
+        {SENT.map((f, i) => <FileRow key={i} f={f} fresh={state === 'enviada'} />)}
+        <div style={{ marginTop: '8px' }}><Button variant='primary' size='lg' rounded='pill' fullWidth iconLeft={<Icon name='arrowLeft' size={17} />}>Volver a mi caso</Button></div>
+      </div>}
+    </div>
+  </div>;
+}
+
+function App() {
+  return <Canvas eyebrow='REC-64 · Damnificado' title='Responder pedido del agente' sub='El pedido del agente es lo primero y más visible. El damnificado entiende qué le piden, sube lo que corresponde y recibe un acuse claro. El estado “ya respondido” evita duplicados y da tranquilidad.'>
+    <PhoneFrame label='Pendiente'><Responder state='pendiente' /></PhoneFrame>
+    <PhoneFrame label='Subiendo archivo'><Responder state='subiendo' /></PhoneFrame>
+    <PhoneFrame label='Respuesta enviada'><Responder state='enviada' /></PhoneFrame>
+    <PhoneFrame label='Ya respondido (solo lectura)'><Responder state='respondido' /></PhoneFrame>
+    <div className='proto-item' style={{ width: '1280px', alignItems: 'stretch' }}>
+      <div className='proto-label'>Desktop — pendiente<span className='tag'>1280</span></div>
+      <div className='browser'>
+        <div className='browser-bar'><span className='browser-dot' style={{ background: '#E5695B' }}></span><span className='browser-dot' style={{ background: '#E8B84B' }}></span><span className='browser-dot' style={{ background: '#5FBE7E' }}></span><span className='browser-url'>app.amparo.ar/pedido/PED-2026-0043</span></div>
+        <div className='browser-screen' style={{ height: '760px', padding: '32px 0' }}><div style={{ maxWidth: '560px', margin: '0 auto', background: 'var(--bg-surface)', minHeight: '100%', borderRadius: 'var(--radius-lg)', overflow: 'hidden', boxShadow: 'var(--shadow-sm)', border: '1px solid var(--border)' }}><Responder state='pendiente' /></div></div>
+      </div>
+    </div>
+  </Canvas>;
+}
+
+mount(<App />);
+</script>
+</body>
+</html>

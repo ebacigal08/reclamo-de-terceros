@@ -1,0 +1,15 @@
+/* ══════════════════════════════════════════════════════════════
+   AMPARO · Radios de esquina
+   Ligeramente más redondeados que un CRM frío típico: la geometría
+   amable es parte de la calidez (influencia Starbucks). Los botones
+   del damnificado pueden ir en pill; el agente usa md por eficiencia.
+   ══════════════════════════════════════════════════════════════ */
+:root {
+  --radius-none: 0px;
+  --radius-sm:   6px;    /* badges, chips */
+  --radius-md:   10px;   /* inputs, botones (agente) */
+  --radius-lg:   14px;   /* cards */
+  --radius-xl:   20px;   /* cards destacadas, contenedores del damnificado */
+  --radius-2xl:  28px;   /* superficies hero */
+  --radius-full: 9999px; /* pills, avatares, botón primario del damnificado */
+}

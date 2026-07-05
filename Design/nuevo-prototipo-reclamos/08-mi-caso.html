@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang='es'>
+<head>
+
+<meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'>
+<title>Mi caso — Nuevo prototipo Reclamos</title>
+<link rel='preconnect' href='https://fonts.googleapis.com'>
+<link rel='preconnect' href='https://fonts.gstatic.com' crossorigin>
+<link rel='stylesheet' href='https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap'>
+<link rel='stylesheet' href='./styles.css'>
+<link rel='stylesheet' href='./proto.css'>
+<script crossorigin src='https://unpkg.com/react@18.3.1/umd/react.development.js' integrity='sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L'></script>
+<script crossorigin src='https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js' integrity='sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm'></script>
+<script src='https://unpkg.com/@babel/standalone@7.29.0/babel.min.js' integrity='sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y' crossorigin='anonymous'></script>
+<script src='./_ds_bundle.js'></script>
+<script src='./_ds_bundle_ext.js'></script>
+<script src='./_boot.js'></script>
+</head>
+<body>
+<div id='root'></div>
+<script type='text/babel'>
+const DS = window.AmparoDesignSystem_70b626;
+const { Button } = DS;
+const { Icon, Brand, PhoneFrame, Canvas, mount } = window.Proto;
+
+const DATA = {
+  relato: { human: 'Tu caso fue abierto', step: 1, resolved: false,
+    novedades: [{ t: 'Tu caso fue abierto por tu agente', d: 'Hoy' }] },
+  pedido: { human: 'Tu agente está revisando tu información', step: 2, resolved: false,
+    novedades: [{ t: 'Tu agente te pidió documentación', d: 'Hoy' }, { t: 'Tu caso fue abierto', d: '28/06' }] },
+  aldia: { human: 'Tu reclamo fue presentado a la aseguradora', step: 4, resolved: false,
+    novedades: [{ t: 'Tu reclamo fue presentado a la aseguradora', d: '02/07' }, { t: 'Tu agente completó tu expediente', d: '30/06' }, { t: 'Tu caso fue abierto', d: '28/06' }] },
+  resuelto: { human: 'Tu reclamo fue resuelto', step: 6, resolved: true,
+    novedades: [{ t: 'Tu reclamo fue resuelto a tu favor', d: 'Hoy' }, { t: 'Tu agente cerró la negociación', d: '03/07' }, { t: 'Tu reclamo fue presentado', d: '02/07' }] }
+};
+
+function Segments({ current, resolved }) {
+  return <div style={{ display: 'flex', gap: '5px' }}>
+    {[1, 2, 3, 4, 5, 6].map((i) => <span key={i} style={{ flex: 1, height: '6px', borderRadius: '999px', background: i <= current ? (resolved ? 'var(--success-500)' : '#FFFFFF') : 'rgba(255,255,255,0.22)' }} />)}
+  </div>;
+}
+
+function StatusHero({ d }) {
+  return <div style={{ background: 'var(--primary-900)', color: '#FFFFFF', borderRadius: 'var(--radius-xl)', padding: '22px', boxShadow: 'var(--shadow-lift)' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'rgba(255,255,255,0.6)', fontWeight: 600 }}>{d.resolved && <span style={{ color: 'var(--success-500)', display: 'flex' }}><Icon name='checkCircle' size={15} /></span>}Estado de tu reclamo</div>
+    <div style={{ fontFamily: 'var(--font-sans)', fontSize: '22px', fontWeight: 700, marginTop: '7px', lineHeight: 1.28, letterSpacing: '-0.01em' }}>{d.human}</div>
+    <div style={{ marginTop: '18px' }}><Segments current={d.step} resolved={d.resolved} /></div>
+    <div style={{ marginTop: '9px', fontSize: '12px', color: 'rgba(255,255,255,0.6)', fontFamily: 'var(--font-mono)' }}>Paso {d.step} de 6</div>
+  </div>;
+}
+
+function PendCard({ state }) {
+  if (state === 'relato') {
+    return <TaskCard accent='var(--primary-600)' bg='var(--primary-50)' brd='var(--primary-100)' icon='edit' iColor='var(--primary-600)' title='Contanos qué pasó' desc='Todavía no nos contaste cómo fue el siniestro. Es el primer paso para que tu agente pueda avanzar.' cta='Empezar el relato' />;
+  }
+  if (state === 'pedido') {
+    return <TaskCard accent='var(--warning-500)' bg='var(--warning-50)' brd='var(--warning-100)' icon='message' iColor='var(--warning-600)' title='Tu agente te pidió algo' desc='“Necesito el acta policial de la denuncia y dos fotos del daño visible del vehículo.”' cta='Responder el pedido' />;
+  }
+  if (state === 'resuelto') {
+    return <div style={{ background: 'var(--success-50)', border: '1px solid var(--success-200)', borderRadius: 'var(--radius-xl)', padding: '22px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '10px' }}>
+      <span style={{ width: 52, height: 52, borderRadius: '50%', background: 'var(--success-100)', color: 'var(--success-600)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon name='checkCircle' size={28} /></span>
+      <div style={{ fontFamily: 'var(--font-sans)', fontSize: 'var(--text-h4-size)', fontWeight: 700, color: 'var(--success-700)' }}>¡Tu reclamo se resolvió!</div>
+      <div style={{ fontFamily: 'var(--font-sans)', fontSize: 'var(--text-body-sm-size)', color: 'var(--success-700)', lineHeight: 1.5, opacity: 0.9 }}>La aseguradora aceptó tu reclamo. Tu agente se va a comunicar con los próximos pasos del cobro.</div>
+    </div>;
+  }
+  return <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xl)', padding: '20px', display: 'flex', alignItems: 'center', gap: '13px', boxShadow: 'var(--shadow-sm)' }}>
+    <span style={{ width: 46, height: 46, borderRadius: '50%', background: 'var(--success-50)', color: 'var(--success-600)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Icon name='checkCircle' size={24} /></span>
+    <div><div style={{ fontFamily: 'var(--font-sans)', fontSize: 'var(--text-body-lg-size)', fontWeight: 700, color: 'var(--text-primary)' }}>Estás al día</div><div style={{ fontFamily: 'var(--font-sans)', fontSize: 'var(--text-body-sm-size)', color: 'var(--text-secondary)', lineHeight: 1.45, marginTop: '2px' }}>No tenés nada pendiente por ahora. Tu agente te va a avisar si necesita algo.</div></div>
+  </div>;
+}
+
+function TaskCard({ accent, bg, brd, icon, iColor, title, desc, cta }) {
+  return <div style={{ background: bg, border: '1px solid ' + brd, borderLeft: '4px solid ' + accent, borderRadius: 'var(--radius-xl)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px', boxShadow: 'var(--shadow-sm)' }}>
+    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '13px' }}>
+      <span style={{ width: 44, height: 44, borderRadius: 'var(--radius-lg)', background: 'var(--bg-surface)', color: iColor, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: 'var(--shadow-xs)' }}><Icon name={icon} size={22} /></span>
+      <div><div style={{ fontFamily: 'var(--font-sans)', fontSize: 'var(--text-h4-size)', fontWeight: 700, color: 'var(--text-primary)' }}>{title}</div><div style={{ fontFamily: 'var(--font-sans)', fontSize: 'var(--text-body-sm-size)', color: 'var(--text-secondary)', lineHeight: 1.5, marginTop: '3px' }}>{desc}</div></div>
+    </div>
+    <Button variant='primary' rounded='pill' fullWidth iconRight={<Icon name='chevronRight' size={17} />}>{cta}</Button>
+  </div>;
+}
+
+function DocsRow() {
+  return <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '15px 16px', display: 'flex', alignItems: 'center', gap: '13px', cursor: 'pointer', boxShadow: 'var(--shadow-xs)' }}>
+    <span style={{ width: 40, height: 40, borderRadius: 'var(--radius-md)', background: 'var(--neutral-100)', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Icon name='folder' size={20} /></span>
+    <div style={{ flex: 1 }}><div style={{ fontFamily: 'var(--font-sans)', fontSize: 'var(--text-body-size)', fontWeight: 600, color: 'var(--text-primary)' }}>Mis documentos</div><div style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-tertiary)' }}>Ver y subir archivos de tu caso</div></div>
+    <span style={{ color: 'var(--text-tertiary)', display: 'flex' }}><Icon name='chevronRight' size={18} /></span>
+  </div>;
+}
+
+function Novedades({ items }) {
+  return <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '18px', boxShadow: 'var(--shadow-xs)' }}>
+    <div style={{ fontFamily: 'var(--font-sans)', fontSize: 'var(--text-body-size)', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '14px' }}>Últimas novedades</div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
+      {items.map((n, i) => <div key={i} style={{ display: 'flex', gap: '12px', paddingBottom: i === items.length - 1 ? '0' : '14px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <span style={{ width: 9, height: 9, borderRadius: '50%', background: i === 0 ? 'var(--primary-600)' : 'var(--neutral-300)', marginTop: '4px', flexShrink: 0 }} />
+          {i !== items.length - 1 && <span style={{ width: '2px', flex: 1, background: 'var(--divider)', marginTop: '4px' }} />}
+        </div>
+        <div style={{ paddingBottom: '2px' }}><div style={{ fontFamily: 'var(--font-sans)', fontSize: 'var(--text-body-sm-size)', color: 'var(--text-primary)', lineHeight: 1.4 }}>{n.t}</div><div style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '2px' }}>{n.d}</div></div>
+      </div>)}
+    </div>
+  </div>;
+}
+
+function MiCaso({ state }) {
+  const d = DATA[state];
+  return <div style={{ minHeight: '100%', background: 'var(--bg-page)' }}>
+    <div style={{ position: 'sticky', top: 0, zIndex: 5, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', background: 'var(--bg-surface)', borderBottom: '1px solid var(--border)' }}>
+      <Brand size='sm' />
+      <span style={{ position: 'relative', width: 38, height: 38, borderRadius: '50%', background: 'var(--neutral-100)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}><Icon name='bell' size={18} /></span>
+    </div>
+    <div style={{ padding: '20px 18px 28px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
+      <div><h1 style={{ margin: 0, fontFamily: 'var(--font-sans)', fontSize: 'var(--text-h2-size)', fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text-primary)' }}>Hola, María</h1><p style={{ margin: '4px 0 0', fontFamily: 'var(--font-sans)', fontSize: 'var(--text-body-size)', color: 'var(--text-secondary)' }}>Este es el estado de tu reclamo</p></div>
+      <StatusHero d={d} />
+      <PendCard state={state} />
+      <DocsRow />
+      <Novedades items={d.novedades} />
+    </div>
+  </div>;
+}
+
+function App() {
+  return <Canvas eyebrow='REC-61 · Damnificado' title='Mi caso (hub)' sub='Pantalla de inicio permanente del damnificado. Traduce la etapa técnica a lenguaje humano, muestra el progreso y — lo más importante — qué tiene pendiente. Nunca queda sin saber qué hacer. Sin datos técnicos ni info interna del agente.'>
+    <PhoneFrame label='Pendiente: contar el relato'><MiCaso state='relato' /></PhoneFrame>
+    <PhoneFrame label='Pendiente: responder al agente'><MiCaso state='pedido' /></PhoneFrame>
+    <PhoneFrame label='Al día (sin pendientes)'><MiCaso state='aldia' /></PhoneFrame>
+    <PhoneFrame label='Reclamo resuelto'><MiCaso state='resuelto' /></PhoneFrame>
+    <div className='proto-item' style={{ width: '1280px', alignItems: 'stretch' }}>
+      <div className='proto-label'>Desktop — pedido pendiente<span className='tag'>1280</span></div>
+      <div className='browser'>
+        <div className='browser-bar'><span className='browser-dot' style={{ background: '#E5695B' }}></span><span className='browser-dot' style={{ background: '#E8B84B' }}></span><span className='browser-dot' style={{ background: '#5FBE7E' }}></span><span className='browser-url'>app.amparo.ar/mi-caso</span></div>
+        <div className='browser-screen' style={{ height: '860px' }}><div style={{ maxWidth: '480px', margin: '0 auto', minHeight: '100%', boxShadow: 'var(--shadow-sm)' }}><MiCaso state='pedido' /></div></div>
+      </div>
+    </div>
+  </Canvas>;
+}
+
+mount(<App />);
+</script>
+</body>
+</html>

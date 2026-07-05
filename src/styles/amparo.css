@@ -1,0 +1,49 @@
+/* ═══════════════════════════════════════════════════════════════
+   AMPARO — Design System · v1.0
+   CRM Siniestros AR · Blend cálido (Starbucks) + claro (Apple),
+   acento azul confianza, tipografía Inter, dos registros.
+
+   Tokens portados del prototipo (Design/nuevo-prototipo-reclamos).
+   ───────────────────────────────────────────────── */
+@import "./tokens/colors.css";
+@import "./tokens/typography.css";
+@import "./tokens/spacing.css";
+@import "./tokens/radii.css";
+@import "./tokens/elevation.css";
+@import "./tokens/motion.css";
+@import "./tokens/breakpoints.css";
+@import "./tokens/semantic.css";
+
+/* ══ Keyframes de componentes ══════════════════════════════
+   Modal / Drawer / Toast (entrada), Skeleton (shimmer),
+   ProgressBar (indeterminada) y Button (loading). */
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes amparo-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes amparo-scale-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes amparo-slide-in-right {
+  from { opacity: 0; transform: translateX(24px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes amparo-slide-in-left {
+  from { opacity: 0; transform: translateX(-24px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes amparo-shimmer {
+  0%   { background-position: 100% 0; }
+  100% { background-position: 0 0; }
+}
+@keyframes amparo-progress {
+  0%   { transform: translateX(-120%); }
+  100% { transform: translateX(320%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

@@ -1,0 +1,98 @@
+/* ══════════════════════════════════════════════════════════════
+   AMPARO · Tokens semánticos
+   Aliases con rol. Los componentes consumen ESTOS, no los crudos.
+   ══════════════════════════════════════════════════════════════ */
+:root {
+  /* ── Superficies ──────────────────────────────────────── */
+  --bg-page:     var(--neutral-50);   /* lienzo papel cálido */
+  --bg-surface:  #FFFFFF;             /* card / modal — blanca sobre papel */
+  --bg-subtle:   var(--neutral-100);  /* filas alternas, zonas de menor jerarquía */
+  --bg-inset:    #FCFBF8;             /* campos, insets suaves */
+
+  /* ── Bordes ───────────────────────────────────────────── */
+  --border:        var(--neutral-200);
+  --border-strong: var(--neutral-300);
+  --divider:       var(--neutral-100);
+
+  /* ── Texto ────────────────────────────────────────────── */
+  --text-primary:   var(--neutral-900);  /* negro cálido */
+  --text-secondary: var(--neutral-600);
+  --text-tertiary:  var(--neutral-400);
+  --text-inverse:   #FFFFFF;
+  --text-link:      var(--primary-600);
+  --text-on-primary:#FFFFFF;
+
+  /* ── Interacción ──────────────────────────────────────── */
+  --focus-ring: var(--primary-500);
+  --accent:     var(--primary-500);
+
+  /* ══ REGISTRO · AGENTE (denso · desktop) ═══════════════ */
+  --sidebar-bg:        var(--primary-900);  /* navy autoridad */
+  --sidebar-text:      #A9BCE6;             /* azul apagado sobre navy */
+  --sidebar-text-strong:#EAF0FC;
+  --sidebar-active-bg: rgba(255,255,255,0.08);
+  --sidebar-active:    #FFFFFF;
+  --sidebar-border:    rgba(255,255,255,0.08);
+
+  /* ══ REGISTRO · DAMNIFICADO (cómodo · mobile) ══════════ */
+  --claimant-canvas:   var(--neutral-50);
+  --claimant-hero-bg:  var(--primary-900);  /* banda de contención / bienvenida */
+  --claimant-hero-text:#EAF0FC;
+  --claimant-accent:   var(--primary-600);
+
+  /* ── Badges · Etapas del caso (pipeline) ──────────────── */
+  --badge-nuevo-bg:     var(--primary-50);
+  --badge-nuevo-text:   var(--primary-700);
+  --badge-nuevo-border: var(--primary-200);
+
+  --badge-armado-bg:     var(--plum-50);
+  --badge-armado-text:   var(--plum-700);
+  --badge-armado-border: var(--plum-200);
+
+  --badge-completo-bg:     var(--teal-50);
+  --badge-completo-text:   var(--teal-700);
+  --badge-completo-border: var(--teal-200);
+
+  --badge-presentado-bg:     var(--orange-50);
+  --badge-presentado-text:   var(--orange-700);
+  --badge-presentado-border: var(--orange-200);
+
+  --badge-negociacion-bg:     var(--warning-50);
+  --badge-negociacion-text:   var(--warning-700);
+  --badge-negociacion-border: var(--warning-200);
+
+  --badge-resuelto-bg:     var(--success-50);
+  --badge-resuelto-text:   var(--success-700);
+  --badge-resuelto-border: var(--success-200);
+
+  /* ── Badges · Resultado de cierre ─────────────────────── */
+  --badge-rechazado-bg:     var(--danger-50);
+  --badge-rechazado-text:   var(--danger-700);
+  --badge-rechazado-border: var(--danger-200);
+
+  --badge-apelacion-bg:     var(--neutral-100);
+  --badge-apelacion-text:   var(--neutral-700);
+  --badge-apelacion-border: var(--neutral-300);
+
+  /* ── Badges · Prioridad ───────────────────────────────── */
+  --badge-alta-bg:   var(--danger-100);
+  --badge-alta-text: var(--danger-700);
+  --badge-media-bg:  var(--warning-100);
+  --badge-media-text:var(--warning-700);
+  --badge-baja-bg:   var(--neutral-100);
+  --badge-baja-text: var(--neutral-600);
+
+  /* ── Badges · Estado de pedido de documentación ───────── */
+  --badge-pendiente-bg:   var(--warning-50);
+  --badge-pendiente-text: var(--warning-700);
+  --badge-respondido-bg:  var(--success-50);
+  --badge-respondido-text:var(--success-700);
+
+  /* ── Alertas · Vencimiento de plazos ──────────────────── */
+  --alert-venc-proximo-bg:     var(--orange-50);
+  --alert-venc-proximo-text:   var(--orange-700);
+  --alert-venc-proximo-border: var(--orange-200);
+  --alert-venc-vencido-bg:     var(--danger-50);
+  --alert-venc-vencido-text:   var(--danger-700);
+  --alert-venc-vencido-border: var(--danger-200);
+}

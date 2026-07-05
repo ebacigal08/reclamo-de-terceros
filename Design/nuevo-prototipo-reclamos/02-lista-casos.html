@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang='es'>
+<head>
+
+<meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'>
+<title>Lista de casos — Nuevo prototipo Reclamos</title>
+<link rel='preconnect' href='https://fonts.googleapis.com'>
+<link rel='preconnect' href='https://fonts.gstatic.com' crossorigin>
+<link rel='stylesheet' href='https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap'>
+<link rel='stylesheet' href='./styles.css'>
+<link rel='stylesheet' href='./proto.css'>
+<style>
+.case-row { cursor: pointer; transition: background 0.12s var(--ease-standard); }
+.case-row:hover { background: var(--bg-subtle) !important; }
+</style>
+<script crossorigin src='https://unpkg.com/react@18.3.1/umd/react.development.js' integrity='sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L'></script>
+<script crossorigin src='https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js' integrity='sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm'></script>
+<script src='https://unpkg.com/@babel/standalone@7.29.0/babel.min.js' integrity='sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y' crossorigin='anonymous'></script>
+<script src='./_ds_bundle.js'></script>
+<script src='./_ds_bundle_ext.js'></script>
+<script src='./_boot.js'></script>
+<script src='./_appkit.js'></script>
+</head>
+<body>
+<div id='root'></div>
+<script type='text/babel'>
+const DS = window.AmparoDesignSystem_70b626;
+const { Badge, Button, Input, EmptyState, Skeleton } = DS;
+const { Icon, AgentShell, BrowserFrame, Canvas, mount } = window.Proto;
+
+const COLS = '1.7fr 1fr 1.6fr 0.9fr 1.15fr 0.85fr 28px';
+
+const CASES = [
+  { id: 'SIN-2026-00138', name: 'Marta Coledani', tipo: 'Accidente', etapa: 'negociacion', prioridad: 'alta', venc: '05/07/2026', creado: '08/06/2026' },
+  { id: 'SIN-2026-00142', name: 'Mónica Alsina', tipo: 'Accidente', etapa: 'expediente-armado', prioridad: 'alta', venc: '06/07/2026', creado: '28/06/2026' },
+  { id: 'SIN-2026-00129', name: 'Claudia Bogado', tipo: 'Incendio', etapa: 'negociacion', prioridad: 'alta', venc: '09/07/2026', creado: '12/06/2026' },
+  { id: 'SIN-2026-00135', name: 'Hernán Ríos', tipo: 'Robo', etapa: 'expediente-armado', prioridad: 'media', venc: '10/07/2026', creado: '25/06/2026' },
+  { id: 'SIN-2026-00131', name: 'Rubén Ferreyra', tipo: 'Robo', etapa: 'presentado', prioridad: 'media', venc: null, creado: '20/06/2026' },
+  { id: 'SIN-2026-00126', name: 'Patricia Vega', tipo: 'Accidente', etapa: 'expediente-completo', prioridad: 'baja', venc: null, creado: '15/06/2026' },
+  { id: 'SIN-2026-00144', name: 'Diego Sosa', tipo: 'Inundación', etapa: 'nuevo', prioridad: 'media', venc: null, creado: '02/07/2026' },
+  { id: 'SIN-2026-00145', name: 'Sofía Miranda', tipo: 'Otro', etapa: 'nuevo', prioridad: 'baja', venc: null, creado: '01/07/2026' }
+];
+
+function VencCell({ venc, vencido }) {
+  if (!venc) return <span style={{ color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)', fontSize: '12px' }}>—</span>;
+  const col = vencido ? 'var(--danger-600)' : 'var(--warning-700)';
+  return <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: col, fontWeight: 600 }}><Icon name='clock' size={14} /><span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px' }}>{venc}</span></span>;
+}
+
+const headCell = { fontFamily: 'var(--font-sans)', fontSize: 'var(--text-label-size)', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--text-tertiary)' };
+
+function HeaderRow() {
+  return <div style={{ display: 'grid', gridTemplateColumns: COLS, gap: '16px', alignItems: 'center', padding: '0 18px', height: '42px', borderBottom: '1px solid var(--border)', background: 'var(--bg-inset)' }}>
+    <span style={headCell}>Damnificado</span><span style={headCell}>Siniestro</span><span style={headCell}>Etapa</span><span style={headCell}>Prioridad</span><span style={headCell}>Vencimiento</span><span style={headCell}>Creado</span><span></span>
+  </div>;
+}
+
+function CaseRow({ c }) {
+  const accent = c.prioridad === 'alta' ? 'var(--danger-500)' : (c.venc ? 'var(--warning-400)' : 'transparent');
+  const tint = c.prioridad === 'alta' ? 'rgba(214,74,58,0.04)' : 'transparent';
+  return <div className='case-row' style={{ display: 'grid', gridTemplateColumns: COLS, gap: '16px', alignItems: 'center', padding: '0 18px', height: '62px', borderBottom: '1px solid var(--divider)', borderLeft: '3px solid ' + accent, background: tint }}>
+    <div style={{ minWidth: 0 }}>
+      <div style={{ fontFamily: 'var(--font-sans)', fontSize: 'var(--text-body-size)', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.name}</div>
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '1px' }}>{c.id}</div>
+    </div>
+    <span style={{ fontFamily: 'var(--font-sans)', fontSize: 'var(--text-body-sm-size)', color: 'var(--text-secondary)' }}>{c.tipo}</span>
+    <div><Badge variant={c.etapa} /></div>
+    <div><Badge variant={c.prioridad} /></div>
+    <VencCell venc={c.venc} vencido={c.vencido} />
+    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--text-tertiary)' }}>{c.creado}</span>
+    <span style={{ color: 'var(--text-tertiary)', display: 'flex' }}><Icon name='chevronRight' size={18} /></span>
+  </div>;
+}
+
+function Toolbar() {
+  return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', marginBottom: '18px' }}>
+    <div style={{ width: '320px', maxWidth: '45%' }}>
+      <Input placeholder='Buscar por damnificado o N° de caso' prefix={<Icon name='search' size={15} />} />
+    </div>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+      <Button variant='secondary' size='sm' iconLeft={<Icon name='filter' size={15} />}>Ordenar: Prioridad</Button>
+    </div>
+  </div>;
+}
+
+function ListCard({ children }) {
+  return <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)', overflow: 'hidden' }}>{children}</div>;
+}
+
+function SkeletonRow() {
+  const blk = (w, hh) => <Skeleton variant='block' height={hh || 12} width={w} radius='var(--radius-sm)' />;
+  return <div style={{ display: 'grid', gridTemplateColumns: COLS, gap: '16px', alignItems: 'center', padding: '0 18px', height: '62px', borderBottom: '1px solid var(--divider)' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>{blk('72%')}{blk('40%')}</div>
+    {blk('62%')}{blk('88px', 20)}{blk('54px', 20)}{blk('66%')}{blk('58%')}<span></span>
+  </div>;
+}
+
+const actions = <React.Fragment>
+  <button aria-label='Notificaciones' style={{ position: 'relative', background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-secondary)' }}><Icon name='bell' size={18} /><span style={{ position: 'absolute', top: '9px', right: '10px', width: '7px', height: '7px', borderRadius: '50%', background: 'var(--danger-500)', border: '1.5px solid var(--bg-surface)' }}></span></button>
+  <Button variant='primary' iconLeft={<Icon name='plus' size={17} />}>Nuevo caso</Button>
+</React.Fragment>;
+
+function FullList() {
+  return <AgentShell activeId='casos' casosCount={8} title='Casos' subtitle='Reclamos activos bajo tu gestión' actions={actions}>
+    <Toolbar />
+    <ListCard><HeaderRow />{CASES.map((c) => <CaseRow key={c.id} c={c} />)}</ListCard>
+  </AgentShell>;
+}
+
+function EmptyList() {
+  return <AgentShell activeId='casos' casosCount={0} title='Casos' subtitle='Reclamos activos bajo tu gestión' actions={actions}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '440px' }}>
+      <EmptyState icon={<Icon name='folder' size={26} />} title='No tenés casos activos' description='Cuando des de alta un caso o te asignen uno, va a aparecer acá. Empezá creando tu primer reclamo.' action={<Button variant='primary' iconLeft={<Icon name='plus' size={17} />}>Crear primer caso</Button>} />
+    </div>
+  </AgentShell>;
+}
+
+function SkeletonList() {
+  return <AgentShell activeId='casos' title='Casos' subtitle='Reclamos activos bajo tu gestión' actions={actions}>
+    <Toolbar />
+    <ListCard><HeaderRow />{[0, 1, 2, 3, 4, 5].map((i) => <SkeletonRow key={i} />)}</ListCard>
+  </AgentShell>;
+}
+
+function TabletFrame({ label, children }) {
+  return <div className='proto-item' style={{ width: '768px', alignItems: 'stretch' }}>
+    <div className='proto-label'>{label}<span className='tag'>768</span></div>
+    <div className='browser' style={{ width: '768px' }}>
+      <div className='browser-bar'><span className='browser-dot' style={{ background: '#E5695B' }}></span><span className='browser-dot' style={{ background: '#E8B84B' }}></span><span className='browser-dot' style={{ background: '#5FBE7E' }}></span><span className='browser-url'>app.amparo.ar/agente/casos</span></div>
+      <div className='browser-screen' style={{ height: '900px' }}>{children}</div>
+    </div>
+  </div>;
+}
+
+function App() {
+  return <Canvas eyebrow='REC-55 · Agente' title='Lista de casos' sub='Pantalla de inicio del agente: todos los casos activos de un vistazo, ordenados por prioridad y vencimiento. Los casos ALTA y con plazo próximo destacan con acento y tinte. Registro Agente: denso, desktop, sidebar navy.'>
+    <BrowserFrame label='Lista con casos' url='app.amparo.ar/agente/casos' tall={true}><FullList /></BrowserFrame>
+    <TabletFrame label='Tablet — lista'><FullList /></TabletFrame>
+    <BrowserFrame label='Estado vacío' url='app.amparo.ar/agente/casos'><EmptyList /></BrowserFrame>
+    <BrowserFrame label='Cargando (skeleton)' url='app.amparo.ar/agente/casos'><SkeletonList /></BrowserFrame>
+  </Canvas>;
+}
+
+mount(<App />);
+</script>
+</body>
+</html>

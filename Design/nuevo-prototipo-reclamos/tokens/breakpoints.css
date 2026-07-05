@@ -1,0 +1,16 @@
+/* ═══════════════════════════════════════════════════════════════
+   AMPARO · Breakpoints — mobile-first
+   El Damnificado vive en 375 (mobile); el Agente en 1280+ (desktop).
+   Nota: las custom properties documentan los valores; en @media hay
+   que escribir el px literal (CSS no interpola vars en media queries).
+   ═══════════════════════════════════════════════════════════════ */
+:root {
+  --bp-mobile:  375px;   /* piso del registro Damnificado */
+  --bp-tablet:  768px;   /* transición */
+  --bp-desktop: 1280px;  /* piso del registro Agente (dashboard denso) */
+  --bp-wide:    1536px;  /* pantallas amplias */
+
+  /* anchos de layout de referencia */
+  --content-max:  1200px; /* ancho máximo de contenido del agente */
+  --reading-max:  560px;  /* ancho cómodo de lectura del damnificado */
+}
