@@ -33,3 +33,47 @@ a {
   color: inherit;
   text-decoration: none;
 }
+
+/* ── Estados interactivos de los componentes del design system ────
+   hover / focus / active no se pueden expresar con estilos inline,
+   así que viven acá y los componentes se mantienen RSC-safe. */
+button[data-amparo-hover]:not(:disabled):hover {
+  filter: brightness(0.96);
+}
+button[data-amparo-hover]:not(:disabled):active {
+  transform: translateY(0.5px);
+}
+
+.amparo-field {
+  transition:
+    border-color 0.12s,
+    box-shadow 0.12s;
+}
+.amparo-field:focus-within {
+  border-color: var(--focus-ring);
+  box-shadow: var(--focus-ring-shadow);
+}
+.amparo-field[data-error="true"] {
+  border-color: var(--danger-500);
+}
+.amparo-field[data-error="true"]:focus-within {
+  box-shadow: var(--focus-ring-shadow-danger);
+}
+
+.amparo-row {
+  transition: background 0.12s;
+  cursor: pointer;
+}
+.amparo-row:hover {
+  background: var(--bg-subtle);
+}
+
+/* ── Login: panel hero navy sólo en desktop (mobile-first) ──────── */
+.login-hero {
+  display: none;
+}
+@media (min-width: 900px) {
+  .login-hero {
+    display: flex;
+  }
+}

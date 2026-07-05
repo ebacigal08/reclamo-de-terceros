@@ -1,4 +1,5 @@
 import { defineSchema, defineTable } from "convex/server";
+import { authTables } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 
 /**
@@ -63,11 +64,16 @@ const motivoNotificacion = v.union(
 );
 
 export default defineSchema({
+  // ── Convex Auth: sesiones, cuentas, tokens, verificación ───────
+  // Provee la tabla `users` (identidad). El rol se deriva por email
+  // contra `agentes` / `damnificados` (ver convex/users.ts).
+  ...authTables,
+
   // ── El profesional que gestiona los casos ──────────────────────
   agentes: defineTable({
     nombre: v.string(),
     email: v.string(),
-    passwordHash: v.optional(v.string()),
+    // Las credenciales las gestiona Convex Auth (tabla authAccounts), no acá.
   }).index("by_email", ["email"]),
 
   // ── La persona afectada. La crea el agente; accede por invitación ─
@@ -75,7 +81,7 @@ export default defineSchema({
     nombre: v.string(),
     email: v.string(),
     telefono: v.string(),
-    passwordHash: v.optional(v.string()),
+    // Credenciales gestionadas por Convex Auth (authAccounts), no acá.
     invitacionToken: v.optional(v.string()),
     invitacionEnviadaEn: v.optional(v.number()),
     cuentaActivada: v.boolean(),
@@ -135,7 +141,11 @@ export default defineSchema({
     descripcion: v.string(),
     fechaVencimiento: v.string(), // ISO date (YYYY-MM-DD)
     avisadoAlAgente: v.boolean(),
-  }).index("by_caso", ["casoId"]),
+  })
+    .index("by_caso", ["casoId"])
+    // Permite tomar el plazo más próximo de un caso por orden de índice,
+    // sin ordenar en JS (REC-18 · lista del agente).
+    .index("by_caso_fecha", ["casoId", "fechaVencimiento"]),
 
   // ── Notificaciones automáticas ─────────────────────────────────
   notificaciones: defineTable({

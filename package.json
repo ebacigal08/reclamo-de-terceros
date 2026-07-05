@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "description": "CRM Siniestros AR — Amparo. Next.js + Convex.",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "next dev",
     "dev:convex": "convex dev",
@@ -12,6 +15,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@auth/core": "^0.41.2",
+    "@convex-dev/auth": "^0.0.94",
     "convex": "^1.17.4",
     "lucide-react": "^0.469.0",
     "next": "^15.1.6",

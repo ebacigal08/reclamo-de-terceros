@@ -1,13 +1,14 @@
-import { query, mutation } from "./_generated/server";
+import { query, internalMutation } from "./_generated/server";
+import type { MutationCtx } from "./_generated/server";
 import { v } from "convex/values";
+import { resolveRole } from "./users";
 
 /**
- * Funciones del Caso — ejemplo inicial para arrancar a construir las pantallas.
- * Ampliar según se implementen REC-18 (lista), REC-19 (alta), REC-20 (ficha),
- * REC-21 (pipeline), REC-30 (cierre), REC-35/37/38 (prioridad).
+ * Funciones del Caso.
  *
- * NOTA: la carpeta `_generated/` la crea `npx convex dev`. Hasta correrlo por
- * primera vez, los imports de `./_generated/*` van a marcar error de tipos.
+ * Regla de seguridad (ver convex/users.ts): la identidad se DERIVA de la
+ * sesión con `resolveRole`. Ninguna función pública acepta `agenteId` /
+ * `damnificadoId` desde el cliente como identidad o autorización.
  */
 
 const tipoSiniestro = v.union(
@@ -24,10 +25,27 @@ const prioridad = v.union(
   v.literal("BAJA"),
 );
 
-/** Lista los casos activos de un agente (REC-18). */
-export const listByAgente = query({
-  args: { agenteId: v.id("agentes") },
-  handler: async (ctx, { agenteId }) => {
+const ORDEN_PRIORIDAD: Record<"ALTA" | "MEDIA" | "BAJA", number> = {
+  ALTA: 0,
+  MEDIA: 1,
+  BAJA: 2,
+};
+
+/**
+ * Lista de casos activos del **agente autenticado** (REC-18).
+ * No recibe `agenteId`: lo deriva de la sesión. Enriquece con el nombre del
+ * damnificado y el vencimiento más próximo, y ordena por prioridad y — dentro
+ * de cada prioridad — por vencimiento (los sin vencimiento, al final).
+ */
+export const listMine = query({
+  args: {},
+  handler: async (ctx) => {
+    const resolved = await resolveRole(ctx);
+    if (!resolved || resolved.rol !== "agente") {
+      throw new Error("No autorizado: se requiere una sesión de agente.");
+    }
+    const agenteId = resolved.agente._id;
+
     const casos = await ctx.db
       .query("casos")
       .withIndex("by_agente", (q) =>
@@ -35,33 +53,97 @@ export const listByAgente = query({
       )
       .collect();
 
-    // Enriquecemos con el nombre del damnificado para la lista.
-    return Promise.all(
+    const filas = await Promise.all(
       casos.map(async (caso) => {
         const damnificado = await ctx.db.get(caso.damnificadoId);
-        return { ...caso, damnificadoNombre: damnificado?.nombre ?? "" };
+        // El índice by_caso_fecha viene ordenado por fechaVencimiento asc
+        // (ISO YYYY-MM-DD = orden cronológico), así que .first() es el más próximo.
+        const proximoPlazo = await ctx.db
+          .query("plazos")
+          .withIndex("by_caso_fecha", (q) => q.eq("casoId", caso._id))
+          .first();
+        return {
+          _id: caso._id,
+          numeroCaso: caso.numeroCaso,
+          damnificadoNombre: damnificado?.nombre ?? "",
+          tipoSiniestro: caso.tipoSiniestro,
+          etapa: caso.etapa,
+          prioridad: caso.prioridad,
+          vencimiento: proximoPlazo?.fechaVencimiento ?? null,
+          creadoEn: caso._creationTime,
+        };
       }),
     );
+
+    filas.sort((a, b) => {
+      const p = ORDEN_PRIORIDAD[a.prioridad] - ORDEN_PRIORIDAD[b.prioridad];
+      if (p !== 0) return p;
+      if (a.vencimiento && b.vencimiento) {
+        return a.vencimiento < b.vencimiento
+          ? -1
+          : a.vencimiento > b.vencimiento
+            ? 1
+            : 0;
+      }
+      if (a.vencimiento) return -1; // con vencimiento primero
+      if (b.vencimiento) return 1; // sin vencimiento, al final
+      return 0;
+    });
+
+    return filas;
   },
 });
 
-/** Ficha completa de un caso (REC-20). */
+/**
+ * Ficha de un caso, con validación de **ownership** (REC-20).
+ * Contrato único: devuelve `null` tanto si el caso no existe como si no
+ * pertenece al que llama (no filtra la existencia de casos ajenos).
+ */
 export const get = query({
   args: { casoId: v.id("casos") },
   handler: async (ctx, { casoId }) => {
+    const resolved = await resolveRole(ctx);
+    if (!resolved) return null;
+
     const caso = await ctx.db.get(casoId);
     if (!caso) return null;
+
+    const esDueño =
+      resolved.rol === "agente"
+        ? caso.agenteId === resolved.agente._id
+        : caso.damnificadoId === resolved.damnificado._id;
+    if (!esDueño) return null;
+
     const damnificado = await ctx.db.get(caso.damnificadoId);
     return { ...caso, damnificado };
   },
 });
 
 /**
- * Da de alta un caso (REC-19). Genera el numeroCaso legible SIN-AAAA-NNNNN.
- * TODO: enviar la invitación por email al damnificado (REC-17) y crear la
- * notificación CASO_ABIERTO (REC-28) desde una action/mutation dedicada.
+ * Genera el numeroCaso legible `SIN-AAAA-NNNNN` (correlativo del año).
+ * Helper compartido por el alta (REC-19) y el seed. Para producción conviene
+ * un contador atómico dedicado.
  */
-export const crear = mutation({
+export async function generarNumeroCaso(
+  ctx: MutationCtx,
+  anio: number,
+): Promise<string> {
+  const delAnio = await ctx.db
+    .query("casos")
+    .withIndex("by_numeroCaso", (q) =>
+      q.gte("numeroCaso", `SIN-${anio}-`).lt("numeroCaso", `SIN-${anio}-999999`),
+    )
+    .collect();
+  const correlativo = String(delAnio.length + 1).padStart(5, "0");
+  return `SIN-${anio}-${correlativo}`;
+}
+
+/**
+ * Alta de un caso — **internal** por ahora (usada por el seed).
+ * La versión pública, con identidad derivada de sesión + invitación por email,
+ * es parte de REC-19 (Nuevo caso), fuera del alcance de esta entrega.
+ */
+export const crearInterno = internalMutation({
   args: {
     damnificadoId: v.id("damnificados"),
     agenteId: v.id("agentes"),
@@ -70,17 +152,7 @@ export const crear = mutation({
     prioridad: v.optional(prioridad),
   },
   handler: async (ctx, args) => {
-    const anio = new Date().getFullYear();
-    // Correlativo simple del año. Para producción conviene un contador atómico.
-    const delAnio = await ctx.db
-      .query("casos")
-      .withIndex("by_numeroCaso", (q) =>
-        q.gte("numeroCaso", `SIN-${anio}-`).lt("numeroCaso", `SIN-${anio}-999999`),
-      )
-      .collect();
-    const correlativo = String(delAnio.length + 1).padStart(5, "0");
-    const numeroCaso = `SIN-${anio}-${correlativo}`;
-
+    const numeroCaso = await generarNumeroCaso(ctx, new Date().getFullYear());
     return ctx.db.insert("casos", {
       numeroCaso,
       damnificadoId: args.damnificadoId,

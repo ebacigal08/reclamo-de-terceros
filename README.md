@@ -40,26 +40,34 @@ Copiá `.env.example` a `.env.local`. `npx convex dev` completa `NEXT_PUBLIC_CON
 
   (ya configurado en `railway.json`).
 
-- Variables en Railway:
-  - `CONVEX_DEPLOY_KEY` — clave de deploy de producción de Convex (dashboard → Settings → Deploy Keys). El comando de arriba inyecta `NEXT_PUBLIC_CONVEX_URL` en el build.
+- **Variables en Railway** (servicio):
+  - `CONVEX_DEPLOY_KEY` — clave de deploy de **producción** de Convex (dashboard → Settings → Deploy Keys). El build (`convex deploy --cmd`) la usa e inyecta `NEXT_PUBLIC_CONVEX_URL` en el build.
+  - `NEXT_PUBLIC_CONVEX_URL` — URL del deployment de **producción** de Convex (persistente, la usa el runtime de middleware/server).
+- **Variables en el deployment de PRODUCCIÓN de Convex** (dashboard de Convex, NO Railway):
+  - Convex Auth: `JWT_PRIVATE_KEY`, `JWKS`, `SITE_URL` (= dominio público de Railway). Se generan con `npx @convex-dev/auth` apuntando a producción.
+  - **NO** setear `SEED_ENABLED` ni `DEPLOYMENT_ENV=dev`: así el seed demo (`convex/seed.ts`) queda bloqueado en prod.
 
 ### Pasos para publicar
 
-1. `git push` a GitHub.
-2. En Railway: New Project → Deploy from GitHub repo.
-3. Setear `CONVEX_DEPLOY_KEY` en las variables del servicio.
-4. Railway usa el build/start de `railway.json`. Listo.
+1. `git push` a GitHub (rama `main`).
+2. Convex **producción**: `npx convex deploy` una vez y `npx @convex-dev/auth` (genera claves de auth + `SITE_URL` = dominio de Railway).
+3. En Railway: New Project → Deploy from GitHub repo (rama `main`).
+4. Setear en el servicio `CONVEX_DEPLOY_KEY` y `NEXT_PUBLIC_CONVEX_URL` (URL de Convex prod).
+5. Railway usa el build/start de `railway.json`. A partir de ahí, **auto-deploy en cada push a `main`**.
 
 ## Estructura
 
 ```
 convex/                     # Backend Convex (base de datos)
-  schema.ts                 # Esquema completo del MVP (REC-16)
-  casos.ts                  # Funciones de ejemplo (list / get / crear)
-  _generated/               # Lo crea `npx convex dev` (no versionar)
+  schema.ts                 # Esquema del MVP (REC-16) + authTables
+  auth.ts, http.ts          # Convex Auth (provider Password) — REC-17
+  users.ts                  # resolveRole + query `me` (rol por email)
+  casos.ts                  # listMine (sesión) / get (ownership) / crearInterno
+  seed.ts                   # Datos demo dev-only (doble guard)
+  _generated/               # Lo (re)genera convex; versionado para typechecar
 src/
   app/
-    layout.tsx              # Fuentes (Inter/JetBrains Mono) + ConvexProvider
+    layout.tsx              # Fuentes (Inter/JetBrains Mono) + Convex Auth provider
     globals.css             # Tailwind v4 + tokens Amparo
     page.tsx                # Redirige a /login
     login/                  # REC-54 / REC-17
@@ -94,8 +102,14 @@ src/
 | Carga de documentos | `/damnificado/documentos` | REC-63 · REC-23 |
 | Responder pedido | `/damnificado/pedido/[id]` | REC-64 · REC-25 |
 
-## Pendiente (próximos pasos)
+## Estado
 
-- **Autenticación** (REC-17): elegir approach (p. ej. Convex Auth con password) y wirearlo con las tablas `agentes` / `damnificados`. Hoy está stubeado.
-- **Portar componentes Amparo** a `src/components/ui/` (Button, Badge, Input, Card, etc.).
-- Construir cada pantalla reemplazando su `Placeholder`.
+**Implementado (esta entrega):**
+- **Autenticación** con **Convex Auth** (login por rol, protección de rutas, logout) — REC-17 core. Setup local en `convex/README.md`.
+- **Pantalla principal del Agente**: Lista de casos con datos reales de Convex — REC-18.
+- **Sidebar / navegación** del agente y componentes base del design system (Button, Input, Alert, Badge, EmptyState, Skeleton).
+
+**Pendiente (próximos pasos):**
+- Invitación/activación del damnificado y reset de contraseña (resto de REC-17).
+- Resto de pantallas (ficha, nuevo caso, flujos del damnificado) reemplazando cada `Placeholder`.
+- Quitar o proteger el hub de desarrollo `/mapa` antes del lanzamiento público (hoy es una ruta abierta de andamiaje).

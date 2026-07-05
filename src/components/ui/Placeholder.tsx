@@ -58,7 +58,7 @@ export function Placeholder({
         Pantalla pendiente de construir. La ruta y la estructura ya están listas.
       </div>
       <Link
-        href="/login"
+        href="/mapa"
         style={{
           display: "inline-block",
           marginTop: 24,
@@ -67,7 +67,7 @@ export function Placeholder({
           fontSize: "var(--text-body-sm-size)",
         }}
       >
-        ← Volver al login
+        ← Ver todas las pantallas
       </Link>
     </div>
   );
