@@ -3,12 +3,12 @@
 import { Component, ReactNode, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "convex/react";
-import { Bell, ChevronRight, Clock, Inbox, Plus, Search } from "lucide-react";
+import { AlertTriangle, Bell, ChevronRight, Clock, Inbox, Plus, Search } from "lucide-react";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { Badge, Button, EmptyState, Input, Skeleton } from "@/components/ui";
 import { ETAPAS, PRIORIDADES, RUTAS, TIPOS_SINIESTRO } from "@/lib/constants";
-import { estadoPlazo, formatFecha } from "@/lib/format";
+import { estadoPlazo, formatFecha, hoyLocalISO } from "@/lib/format";
 
 const COLS = "1.7fr 1fr 1.5fr 0.9fr 1.15fr 0.85fr 28px";
 
@@ -30,7 +30,9 @@ export default function ListaCasosPage() {
 
 function CasosView() {
   const router = useRouter();
-  const casos = useQuery(api.casos.listMine);
+  // `hoyLocalISO()` da el mismo string dentro del día → clave de query estable
+  // (sin refetch en loop). La regla de "inminente" es de calendario local.
+  const casos = useQuery(api.casos.listMine, { hoyISO: hoyLocalISO() });
   const [q, setQ] = useState("");
 
   const filtrados = useMemo(() => {
@@ -57,10 +59,15 @@ function CasosView() {
           </p>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {/* Notificaciones: placeholder honesto. El centro de notificaciones
+              (y el conteo real de no leídas) es Fase 5; hasta entonces la
+              campana queda inactiva y SIN indicador, para no simular estado. */}
           <button
-            aria-label="Notificaciones"
+            type="button"
+            aria-label="Notificaciones (disponible pronto)"
+            title="Disponible pronto"
+            disabled
             style={{
-              position: "relative",
               width: 40,
               height: 40,
               display: "flex",
@@ -69,15 +76,11 @@ function CasosView() {
               background: "var(--bg-surface)",
               border: "1px solid var(--border)",
               borderRadius: "var(--radius-md)",
-              cursor: "pointer",
-              color: "var(--text-secondary)",
+              cursor: "not-allowed",
+              color: "var(--text-tertiary)",
             }}
           >
             <Bell size={18} strokeWidth={1.5} />
-            <span
-              aria-hidden
-              style={{ position: "absolute", top: 9, right: 10, width: 7, height: 7, borderRadius: "50%", background: "var(--danger-500)", border: "1.5px solid var(--bg-surface)" }}
-            />
           </button>
           <Button variant="primary" iconLeft={<Plus size={17} />} onClick={irNuevo}>
             Nuevo caso
@@ -143,6 +146,7 @@ type Fila = {
   etapa: string;
   prioridad: string;
   vencimiento: string | null;
+  inminente: boolean;
   creadoEn: number;
 };
 
@@ -179,15 +183,19 @@ function HeaderRow() {
   );
 }
 
-function VencCell({ venc }: { venc: string | null }) {
+function VencCell({ venc, inminente }: { venc: string | null; inminente: boolean }) {
   if (!venc) {
     return <span style={{ color: "var(--text-tertiary)", fontFamily: "var(--font-mono)", fontSize: 12 }}>—</span>;
   }
   const estado = estadoPlazo(fechaLocal(venc));
   const color = estado === "vencido" ? "var(--danger-600)" : estado === "proximo" ? "var(--warning-700)" : "var(--text-secondary)";
+  // Ícono de alerta sólo cuando el plazo es inminente (≤3 días sin avisar,
+  // criterio del backend); si no, el reloj neutro. El color de la fecha lo
+  // sigue derivando `estadoPlazo` (fecha), coherente con el flag `inminente`.
+  const Icono = inminente ? AlertTriangle : Clock;
   return (
     <span style={{ display: "inline-flex", alignItems: "center", gap: 5, color, fontWeight: 600 }}>
-      <Clock size={14} />
+      <Icono size={14} />
       <span style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>{formatFecha(fechaLocal(venc))}</span>
     </span>
   );
@@ -195,7 +203,9 @@ function VencCell({ venc }: { venc: string | null }) {
 
 function CaseRow({ c, onOpen }: { c: Fila; onOpen: (id: Id<"casos">) => void }) {
   const alta = c.prioridad === "ALTA";
-  const accent = alta ? "var(--danger-500)" : c.vencimiento ? "var(--warning-500)" : "transparent";
+  // Acento lateral: rojo si ALTA; ámbar si el caso tiene un plazo INMINENTE
+  // (≤3 días sin avisar), no por cualquier vencimiento futuro (fix REC-18).
+  const accent = alta ? "var(--danger-500)" : c.inminente ? "var(--warning-500)" : "transparent";
   const tint = alta ? "rgba(214,74,58,0.04)" : "transparent";
   const etapa = etapaInfo(c.etapa);
   const prioridad = prioridadInfo(c.prioridad);
@@ -223,7 +233,7 @@ function CaseRow({ c, onOpen }: { c: Fila; onOpen: (id: Id<"casos">) => void }) 
       <span style={{ fontSize: "var(--text-body-sm-size)", color: "var(--text-secondary)" }}>{tipoLabel(c.tipoSiniestro)}</span>
       <div>{etapa && <Badge variant={etapa.badge}>{etapa.labelAgente}</Badge>}</div>
       <div>{prioridad && <Badge variant={prioridad.badge}>{prioridad.label}</Badge>}</div>
-      <VencCell venc={c.vencimiento} />
+      <VencCell venc={c.vencimiento} inminente={c.inminente} />
       <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--text-tertiary)" }}>{formatFecha(c.creadoEn)}</span>
       <span style={{ color: "var(--text-tertiary)", display: "flex" }}>
         <ChevronRight size={18} />

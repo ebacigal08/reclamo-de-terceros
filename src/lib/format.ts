@@ -10,6 +10,19 @@ export function formatFecha(input: string | number | Date): string {
   return `${dd}/${mm}/${yyyy}`;
 }
 
+/**
+ * Fecha LOCAL de hoy en formato YYYY-MM-DD (usa getters locales, no toISOString
+ * —que es UTC—). Fuente de "hoy" para reglas de calendario local (ej. el corte
+ * de "plazo inminente" que se envía a `casos.listMine`). Coherente con
+ * `diasHasta`/`estadoPlazo`, que trabajan en medianoche local.
+ */
+export function hoyLocalISO(): string {
+  const d = new Date();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${mm}-${dd}`;
+}
+
 /** Días entre hoy y una fecha (positivo = futuro). Útil para plazos. */
 export function diasHasta(fecha: string | number | Date): number {
   const hoy = new Date();

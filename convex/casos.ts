@@ -38,13 +38,32 @@ const ORDEN_PRIORIDAD: Record<"ALTA" | "MEDIA" | "BAJA", number> = {
  * de cada prioridad — por vencimiento (los sin vencimiento, al final).
  */
 export const listMine = query({
-  args: {},
-  handler: async (ctx) => {
+  // `hoyISO` es la fecha LOCAL del cliente (YYYY-MM-DD). La regla de "plazo
+  // inminente" es de calendario local (AR): calcular "hoy" en el server (UTC)
+  // correría la frontera un día de noche en Argentina. `hoyISO` NO participa
+  // de la autorización ni de la selección de casos (sólo del flag de display).
+  args: { hoyISO: v.string() },
+  handler: async (ctx, { hoyISO }) => {
     const resolved = await resolveRole(ctx);
     if (!resolved || resolved.rol !== "agente") {
       throw new Error("No autorizado: se requiere una sesión de agente.");
     }
+    // Validación de formato: evita derivar un `limiteISO` disparatado si
+    // llegara un valor inválido (nuestro cliente siempre manda YYYY-MM-DD).
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(hoyISO)) {
+      throw new Error("hoyISO inválido: se espera formato YYYY-MM-DD.");
+    }
     const agenteId = resolved.agente._id;
+
+    // Límite de "inminente": hoy + 3 días en aritmética de CALENDARIO. Se ancla
+    // en medianoche UTC de `hoyISO` y se suman 3×24h; ambos extremos caen en
+    // medianoche UTC, así que el resultado es la fecha-calendario +3 exacta,
+    // sin corrimiento por timezone. Comparar strings YYYY-MM-DD = comparar fechas.
+    const limiteISO = new Date(
+      new Date(`${hoyISO}T00:00:00Z`).getTime() + 3 * 86_400_000,
+    )
+      .toISOString()
+      .slice(0, 10);
 
     const casos = await ctx.db
       .query("casos")
@@ -56,12 +75,18 @@ export const listMine = query({
     const filas = await Promise.all(
       casos.map(async (caso) => {
         const damnificado = await ctx.db.get(caso.damnificadoId);
-        // El índice by_caso_fecha viene ordenado por fechaVencimiento asc
-        // (ISO YYYY-MM-DD = orden cronológico), así que .first() es el más próximo.
-        const proximoPlazo = await ctx.db
+        // Todos los plazos del caso, ordenados por fechaVencimiento asc
+        // (índice by_caso_fecha; ISO YYYY-MM-DD = orden cronológico).
+        const plazos = await ctx.db
           .query("plazos")
           .withIndex("by_caso_fecha", (q) => q.eq("casoId", caso._id))
-          .first();
+          .collect();
+        // "Inminente" (REC-18): ALGÚN plazo a ≤3 días —incluye vencidos, sin
+        // cota inferior— que además NO fue avisado al agente (avisadoAlAgente
+        // se marcará con el job de alertas de Fase 5; hoy siempre es false).
+        const inminente = plazos.some(
+          (p) => !p.avisadoAlAgente && p.fechaVencimiento <= limiteISO,
+        );
         return {
           _id: caso._id,
           numeroCaso: caso.numeroCaso,
@@ -69,7 +94,9 @@ export const listMine = query({
           tipoSiniestro: caso.tipoSiniestro,
           etapa: caso.etapa,
           prioridad: caso.prioridad,
-          vencimiento: proximoPlazo?.fechaVencimiento ?? null,
+          // El más próximo (plazos[0]) para la columna; sin filtrar por avisado.
+          vencimiento: plazos[0]?.fechaVencimiento ?? null,
+          inminente,
           creadoEn: caso._creationTime,
         };
       }),
