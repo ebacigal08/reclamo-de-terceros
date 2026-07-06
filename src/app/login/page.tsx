@@ -1,10 +1,12 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { Eye, EyeOff } from "lucide-react";
 import { Alert, Button, Input } from "@/components/ui";
+import { RUTAS } from "@/lib/constants";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -126,14 +128,16 @@ export default function LoginPage() {
                   </button>
                 }
               />
-              {/* Reset de contraseña fuera de alcance: mostrado pero deshabilitado. */}
-              <span
-                aria-disabled="true"
-                title="Disponible próximamente"
-                style={{ alignSelf: "flex-end", fontSize: "var(--text-body-sm-size)", fontWeight: 600, color: "var(--text-tertiary)", cursor: "default" }}
-              >
-                ¿Olvidaste tu contraseña?
-              </span>
+              {/* Reset DEV: sólo se ofrece fuera de producción (la barrera real
+                  es el gate del backend; ver convex/auth.ts). */}
+              {process.env.NODE_ENV !== "production" && (
+                <Link
+                  href={RUTAS.recuperar}
+                  style={{ alignSelf: "flex-end", fontSize: "var(--text-body-sm-size)", fontWeight: 600, color: "var(--primary-600)", textDecoration: "none" }}
+                >
+                  ¿Olvidaste tu contraseña?
+                </Link>
+              )}
             </div>
 
             <Button variant="primary" size="lg" fullWidth type="submit" loading={loading}>

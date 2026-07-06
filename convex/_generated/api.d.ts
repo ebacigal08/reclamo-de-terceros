@@ -11,7 +11,9 @@
 import type * as auth from "../auth.js";
 import type * as casos from "../casos.js";
 import type * as http from "../http.js";
+import type * as invitaciones from "../invitaciones.js";
 import type * as lib from "../lib.js";
+import type * as passwordReset from "../passwordReset.js";
 import type * as seed from "../seed.js";
 import type * as users from "../users.js";
 
@@ -25,7 +27,9 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   casos: typeof casos;
   http: typeof http;
+  invitaciones: typeof invitaciones;
   lib: typeof lib;
+  passwordReset: typeof passwordReset;
   seed: typeof seed;
   users: typeof users;
 }>;

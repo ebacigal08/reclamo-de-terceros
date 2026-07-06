@@ -53,7 +53,19 @@ export async function resolveRole(ctx: QueryCtx) {
   if (agentes.length === 1) {
     return { rol: "agente" as const, userId, agente: agentes[0] };
   }
-  return { rol: "damnificado" as const, userId, damnificado: damnificados[0] };
+
+  const damnificado = damnificados[0];
+  // Fail-closed: una cuenta Auth cuyo damnificado todavía no activó su cuenta
+  // NO resuelve como sesión usable. Cubre estados parciales de activación
+  // (cuenta Auth creada pero `marcarActivado` no aplicado; ver
+  // invitaciones.activar). Recién con cuentaActivada=true accede al flujo privado.
+  if (!damnificado.cuentaActivada) {
+    console.warn(
+      `[auth] damnificado ${damnificado._id} con cuenta Auth pero cuentaActivada=false; fail-closed`,
+    );
+    return null;
+  }
+  return { rol: "damnificado" as const, userId, damnificado };
 }
 
 /**
