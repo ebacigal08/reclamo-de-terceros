@@ -1,7 +1,10 @@
-import { query, internalMutation } from "./_generated/server";
+import { query, mutation, internalMutation } from "./_generated/server";
 import type { MutationCtx } from "./_generated/server";
-import { v } from "convex/values";
+import type { Id } from "./_generated/dataModel";
+import { ConvexError, v } from "convex/values";
+import { internal } from "./_generated/api";
 import { resolveRole } from "./users";
+import { normalizeEmail } from "./lib";
 
 /**
  * Funciones del Caso.
@@ -166,9 +169,142 @@ export async function generarNumeroCaso(
 }
 
 /**
- * Alta de un caso — **internal** por ahora (usada por el seed).
- * La versión pública, con identidad derivada de sesión + invitación por email,
- * es parte de REC-19 (Nuevo caso), fuera del alcance de esta entrega.
+ * Alta pública de un caso (REC-19) — el punto de entrada de todos los datos.
+ *
+ * Contrato transaccional: crea o reusa el damnificado por email, genera y
+ * PERSISTE el `invitacionToken` cuando corresponde, da de alta el caso en
+ * etapa NUEVO y la notificación CASO_ABIERTO — TODO en esta única transacción
+ * (atómica: si algo lanza, rollback completo). La ENTREGA de la invitación se
+ * agenda con `scheduler.runAfter` (se encola sólo si la mutation commitea); el
+ * email real es REC-65 (ver `invitaciones.enviarInvitacion`).
+ *
+ * Seguridad (regla del módulo): la identidad del agente se DERIVA de la sesión
+ * con `resolveRole`; nunca se acepta `agenteId` del cliente. Los errores de
+ * formulario/negocio usan `ConvexError` (mensaje legible en el cliente);
+ * `Error` queda sólo para el guard de sesión.
+ */
+export const crear = mutation({
+  args: {
+    nombre: v.string(),
+    email: v.string(),
+    telefono: v.string(),
+    tipoSiniestro,
+    aseguradora: v.string(),
+    prioridad: v.optional(prioridad),
+  },
+  handler: async (ctx, args) => {
+    // 1) Autorización: sólo un agente autenticado (guard → Error, no es de formulario).
+    const resolved = await resolveRole(ctx);
+    if (!resolved || resolved.rol !== "agente") {
+      throw new Error("No autorizado: se requiere una sesión de agente.");
+    }
+    const agenteId = resolved.agente._id;
+
+    // 2) Validación de campos (defensa server; la UI también valida).
+    const nombre = args.nombre.trim();
+    const telefono = args.telefono.trim();
+    const aseguradora = args.aseguradora.trim();
+    const email = normalizeEmail(args.email);
+    if (!nombre) throw new ConvexError("Ingresá el nombre del damnificado.");
+    if (!telefono) throw new ConvexError("Ingresá un teléfono de contacto.");
+    if (!aseguradora) throw new ConvexError("Indicá la aseguradora involucrada.");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      throw new ConvexError("Ingresá un email válido (ej: nombre@dominio.com).");
+    }
+
+    // 3) Resolver el damnificado por email, respetando la unicidad global de
+    //    email entre `agentes` y `damnificados` (invariante de `resolveRole`).
+    const [agentesMatch, damnificadosMatch] = await Promise.all([
+      ctx.db
+        .query("agentes")
+        .withIndex("by_email", (q) => q.eq("email", email))
+        .take(1),
+      ctx.db
+        .query("damnificados")
+        .withIndex("by_email", (q) => q.eq("email", email))
+        .take(2), // take(2): detecta un duplicado intra-tabla (no debería pasar)
+    ]);
+    if (agentesMatch.length > 0) {
+      throw new ConvexError("Ese email ya pertenece a un agente.");
+    }
+    if (damnificadosMatch.length > 1) {
+      throw new ConvexError(
+        "Conflicto de cuenta: el email no es único entre damnificados.",
+      );
+    }
+
+    const existente = damnificadosMatch[0];
+    let damnificadoId: Id<"damnificados">;
+    let invitar: boolean;
+    let token: string | undefined;
+    if (!existente) {
+      // (a) No existe → crear con token e invitar.
+      token = crypto.randomUUID();
+      damnificadoId = await ctx.db.insert("damnificados", {
+        nombre,
+        email,
+        telefono,
+        invitacionToken: token,
+        invitacionEnviadaEn: Date.now(),
+        cuentaActivada: false,
+        onboardingCompletado: false,
+      });
+      invitar = true;
+    } else if (!existente.cuentaActivada) {
+      // (b) Existe y sin activar → reusar y regenerar token (invalida de facto
+      //     el anterior: el link viejo deja de resolver) para reenviar la invitación.
+      token = crypto.randomUUID();
+      await ctx.db.patch(existente._id, {
+        invitacionToken: token,
+        invitacionEnviadaEn: Date.now(),
+      });
+      damnificadoId = existente._id;
+      invitar = true;
+    } else {
+      // (c) Existe y ya activado → reusar; NO regenerar token, NO invitar.
+      damnificadoId = existente._id;
+      invitar = false;
+    }
+
+    // 4) Alta del caso. `generarNumeroCaso` corre INLINE acá, dentro de esta
+    //    mutation e inmediatamente antes del insert: no moverlo a una action ni
+    //    a un helper externo no transaccional (la unicidad del correlativo se
+    //    apoya en el aislamiento serializable / reintentos por OCC de Convex).
+    const numeroCaso = await generarNumeroCaso(ctx, new Date().getFullYear());
+    const casoId = await ctx.db.insert("casos", {
+      numeroCaso,
+      damnificadoId,
+      agenteId,
+      tipoSiniestro: args.tipoSiniestro,
+      aseguradora,
+      etapa: "NUEVO",
+      prioridad: args.prioridad ?? "MEDIA",
+      cerrado: false,
+    });
+
+    // 5) Notificación para el damnificado (primera escritura de esta tabla).
+    await ctx.db.insert("notificaciones", {
+      destinatario: "DAMNIFICADO",
+      casoId,
+      motivo: "CASO_ABIERTO",
+      visto: false,
+    });
+
+    // 6) Entrega de la invitación (sólo casos a/b): se encola atada al commit.
+    if (invitar && token) {
+      await ctx.scheduler.runAfter(0, internal.invitaciones.enviarInvitacion, {
+        email,
+        token,
+      });
+    }
+
+    return { casoId, numeroCaso, email, invitacionEnviada: invitar };
+  },
+});
+
+/**
+ * Alta de un caso — **internal** (usada por el seed). La versión pública con
+ * identidad de sesión + invitación por email es `crear` (arriba, REC-19).
  */
 export const crearInterno = internalMutation({
   args: {

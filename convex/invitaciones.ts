@@ -58,6 +58,23 @@ export const porToken = query({
   },
 });
 
+// ── Entrega de la invitación (seam de REC-19 → REC-65) ───────────
+// La dispara `casos.crear` vía `scheduler.runAfter` cuando corresponde
+// invitar (damnificado nuevo o aún sin activar). El token ya lo persistió la
+// mutation: esta action SÓLO entrega. Hoy loguea el link (DEV); REC-65
+// reemplaza EL CUERPO por el envío real (Resend/Nodemailer) sin tocar firma
+// ni call-site. Logueamos sólo email + link (nada más de PII); para prod,
+// REC-65 debe revisar este logging.
+export const enviarInvitacion = internalAction({
+  args: { email: v.string(), token: v.string() },
+  handler: async (_ctx, { email, token }): Promise<void> => {
+    const base = process.env.SITE_URL ?? "http://localhost:3000";
+    const url = `${base}/activar/${token}`;
+    // TODO REC-65: enviar email real. Hoy: log DEV (no muta DB, no genera token).
+    console.log(`[invitacion] Link de activación para ${email}: ${url}`);
+  },
+});
+
 // ── Internos usados por la action `activar` ──────────────────────
 export const damnificadoPorToken = internalQuery({
   args: { token: v.string() },
