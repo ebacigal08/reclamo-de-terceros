@@ -1,3 +1,5 @@
+"use client";
+
 import { CSSProperties, KeyboardEvent, useRef } from "react";
 import { Badge } from "./Badge";
 import { PRIORIDADES, type Prioridad } from "@/lib/constants";
