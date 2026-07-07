@@ -34,6 +34,37 @@ const ORDEN_PRIORIDAD: Record<"ALTA" | "MEDIA" | "BAJA", number> = {
   BAJA: 2,
 };
 
+// Validador de la etapa (mirror de la union `etapa` de `convex/schema.ts`;
+// mismo criterio que `tipoSiniestro`/`prioridad` arriba). Valida el arg
+// `etapaActual` de la concurrencia optimista en `avanzarEtapa`.
+const etapa = v.union(
+  v.literal("NUEVO"),
+  v.literal("EXPEDIENTE_EN_ARMADO"),
+  v.literal("EXPEDIENTE_COMPLETO"),
+  v.literal("PRESENTADO_A_ASEGURADORA"),
+  v.literal("EN_NEGOCIACION"),
+  v.literal("CERRADO"),
+);
+
+// Orden canónico del pipeline. MANTENER SINCRONIZADO con la union `etapa` de
+// `convex/schema.ts` y con `ETAPAS` de `src/lib/constants.ts` (no hay import
+// compartido). Se usa para resolver "la etapa siguiente". `CERRADO` se lista
+// para poder indexar, pero NO se alcanza desde `avanzarEtapa`: el cierre (con
+// resultado) es la pantalla Cerrar caso (REC-30).
+const ORDEN_ETAPAS = [
+  "NUEVO",
+  "EXPEDIENTE_EN_ARMADO",
+  "EXPEDIENTE_COMPLETO",
+  "PRESENTADO_A_ASEGURADORA",
+  "EN_NEGOCIACION",
+  "CERRADO",
+] as const;
+
+// Última etapa desde la que `avanzarEtapa` puede mover es PRESENTADO (idx 3),
+// cuyo siguiente es EN_NEGOCIACION (idx 4). Desde EN_NEGOCIACION en adelante el
+// botón se deshabilita: el único "siguiente" sería CERRADO → Cerrar caso.
+const IDX_EN_NEGOCIACION = 4;
+
 /**
  * Lista de casos activos del **agente autenticado** (REC-18).
  * No recibe `agenteId`: lo deriva de la sesión. Enriquece con el nombre del
@@ -397,5 +428,64 @@ export const crearInterno = internalMutation({
       prioridad: args.prioridad ?? "MEDIA",
       cerrado: false,
     });
+  },
+});
+
+/**
+ * Avanza el caso a la etapa inmediata siguiente del pipeline (REC-21).
+ *
+ * Reglas del issue: sólo el agente **dueño**; un único paso **hacia adelante**
+ * (nunca retrocede ni saltea); se detiene en `EN_NEGOCIACION` — llegar a
+ * `CERRADO` (con resultado) es la pantalla Cerrar caso (REC-30), no este botón.
+ * Cada avance registra una notificación `AVANCE_ETAPA` para el damnificado (el
+ * envío por email es el motor de notificaciones, REC-28).
+ *
+ * `etapaActual` (concurrencia optimista): el cliente manda la etapa que el
+ * agente vio al confirmar; si el caso ya cambió de etapa, se rechaza. Bajo el
+ * aislamiento serializable de Convex, un doble submit (o una ficha
+ * desactualizada) no avanza dos pasos ni duplica la notificación.
+ */
+export const avanzarEtapa = mutation({
+  args: { casoId: v.id("casos"), etapaActual: etapa },
+  handler: async (ctx, { casoId, etapaActual }) => {
+    // Auth: sólo agente autenticado (guard de sesión, no de formulario).
+    const resolved = await resolveRole(ctx);
+    if (!resolved || resolved.rol !== "agente") {
+      throw new Error("No autorizado: se requiere una sesión de agente.");
+    }
+    // Ownership fail-closed (mismo mensaje para inexistente y ajeno).
+    const caso = await ctx.db.get(casoId);
+    if (!caso || caso.agenteId !== resolved.agente._id) {
+      throw new Error("No autorizado: el caso no existe o no es tuyo.");
+    }
+    if (caso.cerrado) {
+      throw new ConvexError("El caso está cerrado; no se puede avanzar de etapa.");
+    }
+    // Concurrencia optimista: sólo aplica sobre la etapa que el agente confirmó.
+    if (caso.etapa !== etapaActual) {
+      throw new ConvexError(
+        "La etapa del caso cambió. Actualizá la ficha e intentá de nuevo.",
+      );
+    }
+    const idx = ORDEN_ETAPAS.indexOf(caso.etapa);
+    if (idx < 0) {
+      throw new Error("Estado inconsistente: etapa desconocida.");
+    }
+    if (idx >= IDX_EN_NEGOCIACION) {
+      throw new ConvexError(
+        "El caso está en la última etapa antes del cierre; para finalizarlo usá “Cerrar caso”.",
+      );
+    }
+    const siguiente = ORDEN_ETAPAS[idx + 1];
+    // 1) Avanzar la etapa.
+    await ctx.db.patch(casoId, { etapa: siguiente });
+    // 2) Notificación automática al damnificado (registro; el email es REC-28).
+    await ctx.db.insert("notificaciones", {
+      destinatario: "DAMNIFICADO",
+      casoId,
+      motivo: "AVANCE_ETAPA",
+      visto: false,
+    });
+    return { etapa: siguiente };
   },
 });

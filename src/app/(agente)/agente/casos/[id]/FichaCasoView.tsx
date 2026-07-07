@@ -1,8 +1,9 @@
 "use client";
 
-import { Component, CSSProperties, ReactNode } from "react";
+import { Component, CSSProperties, ReactNode, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
+import { ConvexError } from "convex/values";
 import type { FunctionReturnType } from "convex/server";
 import {
   AlertTriangle,
@@ -40,6 +41,16 @@ const tipoLabel = (v: string) =>
 // "T00:00:00") para no correr un día por timezone (AR es UTC-3). Mismo patrón
 // que la Lista de casos (const local, no exportada).
 const fechaLocal = (iso: string) => new Date(`${iso}T00:00:00`);
+
+// Índice de EN_NEGOCIACION en ETAPAS: desde esta etapa el botón de avance se
+// deshabilita (el único "siguiente" es CERRADO, que se hace en Cerrar caso).
+const IDX_EN_NEGOCIACION = ETAPAS.findIndex((e) => e.value === "EN_NEGOCIACION");
+
+/** Extrae el mensaje legible de un ConvexError (mismo helper que Nuevo caso). */
+function mensajeError(err: unknown, fallback: string): string {
+  if (err instanceof ConvexError && typeof err.data === "string") return err.data;
+  return fallback;
+}
 
 // ── Estilos compartidos ──────────────────────────────────────────
 const backLinkStyle: CSSProperties = {
@@ -104,17 +115,40 @@ function FichaContent({ casoId }: { casoId: string }) {
 // ── Contenido principal ──────────────────────────────────────────
 function FichaDetalle({ caso }: { caso: Ficha }) {
   const router = useRouter();
+  const avanzar = useMutation(api.casos.avanzarEtapa);
+  const [confirmando, setConfirmando] = useState(false);
+  const [avanzando, setAvanzando] = useState(false);
+  const [avanceError, setAvanceError] = useState<string | null>(null);
   const etapa = etapaInfo(caso.etapa);
   const prioridad = prioridadInfo(caso.prioridad);
   const idx = Math.max(
     0,
     ETAPAS.findIndex((e) => e.value === caso.etapa),
   );
-  const esUltimo = idx >= ETAPAS.length - 1;
-  const nextLabel = ETAPAS[Math.min(idx + 1, ETAPAS.length - 1)].labelAgente;
+  // Sólo se avanza desde NUEVO..PRESENTADO (idx 0..3). Desde EN_NEGOCIACION en
+  // adelante el botón se deshabilita: el cierre (con resultado) es Cerrar caso.
+  const puedeAvanzar = !caso.cerrado && idx < IDX_EN_NEGOCIACION;
+  const nextLabel = puedeAvanzar ? ETAPAS[idx + 1].labelAgente : null;
   const dam = caso.damnificado;
   const relatoCompleto = caso.relato?.completo === true;
   const alerta = alertaContextual(caso);
+
+  async function onConfirmarAvance() {
+    setAvanceError(null);
+    setAvanzando(true);
+    try {
+      // `etapaActual` = la etapa renderizada: si el caso cambió entre ver y
+      // confirmar, la mutation rechaza (concurrencia optimista, no avanza dos).
+      await avanzar({ casoId: caso._id, etapaActual: caso.etapa });
+      setConfirmando(false); // la live query ya movió el Stepper y el badge
+    } catch (err) {
+      setAvanceError(
+        mensajeError(err, "No pudimos avanzar la etapa. Intentá de nuevo."),
+      );
+    } finally {
+      setAvanzando(false);
+    }
+  }
 
   return (
     <div style={{ padding: "28px 32px", maxWidth: 1160, margin: "0 auto" }}>
@@ -190,7 +224,8 @@ function FichaDetalle({ caso }: { caso: Ficha }) {
 
       {alerta && <div style={{ marginBottom: 18 }}>{alerta}</div>}
 
-      {/* Pipeline (read-only; "Mover a" es REC-21) */}
+      {/* Pipeline — avanzar de etapa (REC-21): confirmación inline; se detiene
+          en EN_NEGOCIACION (llegar a CERRADO es Cerrar caso, REC-30). */}
       <div
         style={{
           background: "var(--bg-surface)",
@@ -224,15 +259,60 @@ function FichaDetalle({ caso }: { caso: Ficha }) {
           <span style={{ fontSize: "var(--text-body-sm-size)", color: "var(--text-secondary)" }}>
             Etapa actual: <strong style={{ color: "var(--text-primary)" }}>{etapa?.labelAgente}</strong>
           </span>
-          <Button
-            variant="primary"
-            disabled
-            title="Disponible pronto"
-            iconRight={<ChevronRight size={16} />}
-          >
-            {esUltimo ? "Caso resuelto" : `Mover a: ${nextLabel}`}
-          </Button>
+          {caso.cerrado ? (
+            <span
+              style={{
+                fontSize: "var(--text-body-sm-size)",
+                fontWeight: 600,
+                color: "var(--text-tertiary)",
+              }}
+            >
+              Caso cerrado
+            </span>
+          ) : puedeAvanzar && confirmando ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <span style={{ fontSize: "var(--text-body-sm-size)", color: "var(--text-secondary)" }}>
+                ¿Avanzar a{" "}
+                <strong style={{ color: "var(--text-primary)" }}>{nextLabel}</strong>?
+              </span>
+              <Button
+                variant="ghost"
+                disabled={avanzando}
+                onClick={() => {
+                  setConfirmando(false);
+                  setAvanceError(null);
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button variant="primary" loading={avanzando} onClick={onConfirmarAvance}>
+                Confirmar
+              </Button>
+            </div>
+          ) : puedeAvanzar ? (
+            <Button
+              variant="primary"
+              onClick={() => setConfirmando(true)}
+              iconRight={<ChevronRight size={16} />}
+            >
+              Mover a: {nextLabel}
+            </Button>
+          ) : (
+            <Button
+              variant="primary"
+              disabled
+              title="El cierre del caso se hace desde “Cerrar caso”."
+              iconRight={<ChevronRight size={16} />}
+            >
+              Avanzar etapa
+            </Button>
+          )}
         </div>
+        {avanceError && (
+          <div style={{ padding: "0 20px 14px" }}>
+            <Alert variant="error">{avanceError}</Alert>
+          </div>
+        )}
       </div>
 
       {/* Grilla principal — layout de 2 columnas fijo (1.9fr / 1fr). Decisión
