@@ -128,6 +128,17 @@ export const listMine = query({
  * Ficha de un caso, con validación de **ownership** (REC-20).
  * Contrato único: devuelve `null` tanto si el caso no existe como si no
  * pertenece al que llama (no filtra la existencia de casos ajenos).
+ *
+ * Enriquece el caso con lo que muestra la ficha —damnificado, relato,
+ * documentos, pedidos y plazos— TODO leído **después** de confirmar ownership,
+ * por índice (orden determinístico, sin `.sort()` en JS) y en paralelo. Es
+ * dual-rol: el dueño (agente o damnificado) ve estos datos de su propio caso.
+ *
+ * Proyecciones (nunca se filtra al cliente más de lo necesario):
+ *  - damnificado: sólo `{ _id, nombre, email, telefono }` (SIN `invitacionToken`
+ *    —credencial de activación— ni flags de cuenta).
+ *  - documentos: SIN `storageId` (interno de File Storage).
+ *  - opcionales normalizados a `null` (que la UI no mezcle `undefined`/`null`).
  */
 export const get = query({
   args: { casoId: v.id("casos") },
@@ -144,8 +155,68 @@ export const get = query({
         : caso.damnificadoId === resolved.damnificado._id;
     if (!esDueño) return null;
 
-    const damnificado = await ctx.db.get(caso.damnificadoId);
-    return { ...caso, damnificado };
+    // Enriquecimiento — SÓLO tras confirmar ownership. Todas las lecturas van
+    // por índice (`by_caso` / `by_caso_fecha`), en paralelo; el orden lo da el
+    // propio índice: documentos/pedidos por `_creationTime` asc, plazos por
+    // `fechaVencimiento` asc.
+    const [damnificadoDoc, relatoDoc, documentos, pedidos, plazos] =
+      await Promise.all([
+        ctx.db.get(caso.damnificadoId),
+        ctx.db
+          .query("relatosSiniestro")
+          .withIndex("by_caso", (q) => q.eq("casoId", casoId))
+          .first(),
+        ctx.db
+          .query("documentos")
+          .withIndex("by_caso", (q) => q.eq("casoId", casoId))
+          .collect(),
+        ctx.db
+          .query("pedidosDocumentacion")
+          .withIndex("by_caso", (q) => q.eq("casoId", casoId))
+          .collect(),
+        ctx.db
+          .query("plazos")
+          .withIndex("by_caso_fecha", (q) => q.eq("casoId", casoId))
+          .collect(),
+      ]);
+
+    return {
+      ...caso,
+      damnificado: damnificadoDoc && {
+        _id: damnificadoDoc._id,
+        nombre: damnificadoDoc.nombre,
+        email: damnificadoDoc.email,
+        telefono: damnificadoDoc.telefono,
+      },
+      relato: relatoDoc && {
+        respuestas: relatoDoc.respuestas,
+        completo: relatoDoc.completo,
+        completadoEn: relatoDoc.completadoEn ?? null,
+      },
+      documentos: documentos.map((d) => ({
+        _id: d._id,
+        nombreArchivo: d.nombreArchivo,
+        subidoPor: d.subidoPor,
+        tipoMime: d.tipoMime ?? null,
+        tamanoBytes: d.tamanoBytes ?? null,
+        url: d.url ?? null,
+        creadoEn: d._creationTime,
+      })),
+      pedidos: pedidos.map((p) => ({
+        _id: p._id,
+        descripcion: p.descripcion,
+        respondido: p.respondido,
+        respondidoEn: p.respondidoEn ?? null,
+        creadoEn: p._creationTime,
+      })),
+      plazos: plazos.map((p) => ({
+        _id: p._id,
+        descripcion: p.descripcion,
+        fechaVencimiento: p.fechaVencimiento,
+        avisadoAlAgente: p.avisadoAlAgente,
+        creadoEn: p._creationTime,
+      })),
+    };
   },
 });
 
