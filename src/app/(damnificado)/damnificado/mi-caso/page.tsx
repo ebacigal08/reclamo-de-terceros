@@ -1,12 +1,8 @@
-import { Placeholder } from "@/components/ui";
+import { MiCasoView } from "./MiCasoView";
 
+// REC-27 · Hub del damnificado. La vista resuelve el caso desde la sesión
+// (query `casos.miCaso`, sin `casoId` en la URL), así que la página sólo monta
+// el client component.
 export default function MiCasoPage() {
-  return (
-    <Placeholder
-      registro="damnificado"
-      rec="REC-61 / REC-27"
-      titulo="Mi caso"
-      descripcion="Hub del damnificado: estado en lenguaje humano con progreso de 6 pasos, lo que tiene pendiente, últimas novedades y acceso a documentos."
-    />
-  );
+  return <MiCasoView />;
 }
