@@ -15,6 +15,7 @@ import type * as invitaciones from "../invitaciones.js";
 import type * as lib from "../lib.js";
 import type * as passwordReset from "../passwordReset.js";
 import type * as pedidos from "../pedidos.js";
+import type * as relato from "../relato.js";
 import type * as seed from "../seed.js";
 import type * as users from "../users.js";
 
@@ -32,6 +33,7 @@ declare const fullApi: ApiFromModules<{
   lib: typeof lib;
   passwordReset: typeof passwordReset;
   pedidos: typeof pedidos;
+  relato: typeof relato;
   seed: typeof seed;
   users: typeof users;
 }>;
