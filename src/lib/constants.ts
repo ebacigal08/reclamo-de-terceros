@@ -71,6 +71,10 @@ export const RELATO_TOTAL_PASOS = RELATO_PREGUNTAS.length; // 7
 
 // ── Archivos aceptados en la carga de documentos (REC-23) ────────
 export const ARCHIVOS_ACEPTADOS = ["image/jpeg", "image/png", "image/heic", "application/pdf"];
+// Extensiones espejo de ARCHIVOS_ACEPTADOS (con punto, en minúscula). Sirven para
+// el `accept` del input y como fallback de validación cuando el content-type no es
+// confiable (típico de HEIC): tanto el pre-check del cliente como el server las usan.
+export const EXTENSIONES_ACEPTADAS = [".jpg", ".jpeg", ".png", ".heic", ".pdf"];
 export const ARCHIVO_MAX_BYTES = 10 * 1024 * 1024; // 10 MB
 
 // ── Rutas ────────────────────────────────────────────────────────
