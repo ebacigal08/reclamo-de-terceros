@@ -252,6 +252,76 @@ export const get = query({
 });
 
 /**
+ * Hub "Mi caso" del damnificado (REC-27). Resuelve el caso DESDE la sesión (no
+ * recibe `casoId`) y devuelve SÓLO lo que muestra el hub, en proyección
+ * estricta: nunca se expone `agenteId`, `prioridad`, `tipoSiniestro`,
+ * `aseguradora` ni `storageId` (ver "Lo que NO muestra" del issue). Por eso NO
+ * se hace `...caso`: se listan los campos permitidos uno por uno.
+ *
+ * Fail-closed: sin sesión de damnificado → `null`. Si el damnificado no tiene
+ * caso → `null`. Si tuviera más de uno (no pasa en el MVP), se toma el más
+ * reciente (`by_damnificado` + `order desc`); los cerrados también se muestran
+ * (estado final resuelto/rechazado/apelación).
+ */
+export const miCaso = query({
+  args: {},
+  handler: async (ctx) => {
+    const resolved = await resolveRole(ctx);
+    if (!resolved || resolved.rol !== "damnificado") return null;
+
+    const caso = await ctx.db
+      .query("casos")
+      .withIndex("by_damnificado", (q) =>
+        q.eq("damnificadoId", resolved.damnificado._id),
+      )
+      .order("desc") // más reciente por `_creationTime`
+      .first();
+    if (!caso) return null;
+
+    // Enriquecimiento SÓLO tras tener el caso, por índice y en paralelo (igual
+    // que `casos.get`). `novedades`: las 3 más recientes del damnificado.
+    const [relato, pedidos, novedades] = await Promise.all([
+      ctx.db
+        .query("relatosSiniestro")
+        .withIndex("by_caso", (q) => q.eq("casoId", caso._id))
+        .first(),
+      ctx.db
+        .query("pedidosDocumentacion")
+        .withIndex("by_caso", (q) => q.eq("casoId", caso._id))
+        .collect(),
+      ctx.db
+        .query("notificaciones")
+        .withIndex("by_caso_destinatario", (q) =>
+          q.eq("casoId", caso._id).eq("destinatario", "DAMNIFICADO"),
+        )
+        .order("desc")
+        .take(3),
+    ]);
+
+    return {
+      // Proyección estricta (NO `...caso`): sólo lo que el hub necesita.
+      caso: {
+        _id: caso._id,
+        numeroCaso: caso.numeroCaso,
+        etapa: caso.etapa,
+        cerrado: caso.cerrado,
+        resultadoCierre: caso.resultadoCierre ?? null,
+      },
+      nombre: resolved.damnificado.nombre,
+      relato: relato ? { completo: relato.completo } : null,
+      pedidosPendientes: pedidos
+        .filter((p) => !p.respondido)
+        .map((p) => ({ _id: p._id, descripcion: p.descripcion })),
+      novedades: novedades.map((n) => ({
+        _id: n._id,
+        motivo: n.motivo,
+        creadoEn: n._creationTime,
+      })),
+    };
+  },
+});
+
+/**
  * Genera el numeroCaso legible `SIN-AAAA-NNNNN` (correlativo del año).
  * Helper compartido por el alta (REC-19) y el seed. Para producción conviene
  * un contador atómico dedicado.
