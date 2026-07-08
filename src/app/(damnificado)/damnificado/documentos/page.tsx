@@ -1,12 +1,8 @@
-import { Placeholder } from "@/components/ui";
+import { DocumentosView } from "./DocumentosView";
 
+// REC-23 · Carga de documentos y evidencias. La vista resuelve la sesión y el
+// caso (query `documentos.misDocumentos`) y hace el guard de acceso; la página
+// sólo monta el client component.
 export default function DocumentosPage() {
-  return (
-    <Placeholder
-      registro="damnificado"
-      rec="REC-63 / REC-23"
-      titulo="Carga de documentos"
-      descripcion="Subir fotos y archivos (JPG/PNG/HEIC/PDF, hasta 10 MB) con acuse de recibo inmediato y manejo de errores. Lista de lo ya cargado."
-    />
-  );
+  return <DocumentosView />;
 }

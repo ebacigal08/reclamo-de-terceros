@@ -10,6 +10,7 @@
 
 import type * as auth from "../auth.js";
 import type * as casos from "../casos.js";
+import type * as documentos from "../documentos.js";
 import type * as http from "../http.js";
 import type * as invitaciones from "../invitaciones.js";
 import type * as lib from "../lib.js";
@@ -28,6 +29,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   casos: typeof casos;
+  documentos: typeof documentos;
   http: typeof http;
   invitaciones: typeof invitaciones;
   lib: typeof lib;

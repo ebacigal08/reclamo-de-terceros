@@ -40,6 +40,23 @@ export function estadoPlazo(fechaVencimiento: string | number | Date): "vencido"
   return "ok";
 }
 
+/**
+ * Tamaño de archivo legible (ej: 348_500 → "340 KB"; 2_100_000 → "2 MB").
+ * Tolera `null`/`undefined` porque `tamanoBytes` es opcional en `documentos`
+ * (docs viejos podrían no tenerlo) → devuelve "" en ese caso. Base 1024,
+ * separador decimal local (coma en es-AR) y sin decimales para bytes/KB enteros.
+ */
+export function formatTamano(bytes: number | null | undefined): string {
+  if (bytes == null || Number.isNaN(bytes) || bytes < 0) return "";
+  if (bytes < 1024) return `${bytes} B`;
+  const kb = bytes / 1024;
+  if (kb < 1024) return `${Math.round(kb)} KB`;
+  const mb = kb / 1024;
+  // Hasta 1 decimal para MB; sin ".0" si es entero.
+  const redondeado = Math.round(mb * 10) / 10;
+  return `${redondeado.toLocaleString("es-AR")} MB`;
+}
+
 /** Iniciales para avatares (ej: "Lucía Fernández" → "LF"). */
 export function iniciales(nombre: string): string {
   return nombre
