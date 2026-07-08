@@ -1,12 +1,8 @@
-import { Placeholder } from "@/components/ui";
+import { RelatoView } from "./RelatoView";
 
+// REC-22 · Wizard de relato del siniestro. La vista resuelve la sesión y el
+// caso (query `relato.miRelato`) y hace el guard de acceso; la página sólo monta
+// el client component.
 export default function RelatoPage() {
-  return (
-    <Placeholder
-      registro="damnificado"
-      rec="REC-62 / REC-22"
-      titulo="Relato del siniestro"
-      descripcion="Wizard de 7 preguntas (una por pantalla) + resumen editable + confirmación. Guarda borrador para continuar después."
-    />
-  );
+  return <RelatoView />;
 }
