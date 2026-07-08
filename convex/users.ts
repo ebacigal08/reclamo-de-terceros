@@ -1,4 +1,4 @@
-import { query } from "./_generated/server";
+import { query, mutation } from "./_generated/server";
 import type { QueryCtx } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { normalizeEmail } from "./lib";
@@ -99,5 +99,27 @@ export const me = query({
       damnificadoId: resolved.damnificado._id,
       onboardingCompletado: resolved.damnificado.onboardingCompletado,
     };
+  },
+});
+
+/**
+ * Marca el onboarding del damnificado como visto (REC-26). Sin args: la
+ * identidad se DERIVA de la sesión con `resolveRole` (regla del módulo; nunca
+ * se acepta id del cliente). Fail-closed (guard → Error) e idempotente: no
+ * re-escribe si ya estaba en `true`. La dispara la pantalla de onboarding al
+ * finalizar o saltar; el resolver `/` deja de mostrar el wizard cuando queda
+ * en `true`.
+ */
+export const completarOnboarding = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const resolved = await resolveRole(ctx);
+    if (!resolved || resolved.rol !== "damnificado") {
+      throw new Error("No autorizado: se requiere una sesión de damnificado.");
+    }
+    if (!resolved.damnificado.onboardingCompletado) {
+      await ctx.db.patch(resolved.damnificado._id, { onboardingCompletado: true });
+    }
+    return null;
   },
 });

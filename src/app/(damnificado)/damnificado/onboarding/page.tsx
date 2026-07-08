@@ -1,12 +1,7 @@
-import { Placeholder } from "@/components/ui";
+import { OnboardingView } from "./OnboardingView";
 
+// REC-26 · Wizard de bienvenida (primera vez). La vista resuelve la sesión con
+// `users.me` y hace el guard de acceso; la página sólo monta el client component.
 export default function OnboardingPage() {
-  return (
-    <Placeholder
-      registro="damnificado"
-      rec="REC-60 / REC-26"
-      titulo="Onboarding"
-      descripcion="Wizard de bienvenida de 4 pasos (primera vez). Al terminar marca onboardingCompletado y lleva a Mi caso."
-    />
-  );
+  return <OnboardingView />;
 }
