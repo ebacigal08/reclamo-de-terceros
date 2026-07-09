@@ -1,4 +1,4 @@
-import { query, mutation, internalMutation } from "./_generated/server";
+import { query, mutation, internalMutation, internalAction } from "./_generated/server";
 import type { MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { ConvexError, v } from "convex/values";
@@ -44,6 +44,14 @@ const etapa = v.union(
   v.literal("PRESENTADO_A_ASEGURADORA"),
   v.literal("EN_NEGOCIACION"),
   v.literal("CERRADO"),
+);
+
+// Validador del resultado de cierre (mirror de la union `resultadoCierre` de
+// `convex/schema.ts` y de `RESULTADOS_CIERRE` de `src/lib/constants.ts`).
+const resultadoCierre = v.union(
+  v.literal("RESUELTO"),
+  v.literal("RECHAZADO"),
+  v.literal("EN_APELACION"),
 );
 
 // Orden canónico del pipeline. MANTENER SINCRONIZADO con la union `etapa` de
@@ -557,5 +565,88 @@ export const avanzarEtapa = mutation({
       visto: false,
     });
     return { etapa: siguiente };
+  },
+});
+
+/**
+ * Cierra el caso con su resultado final (REC-30). Última acción del ciclo de
+ * vida del reclamo: `avanzarEtapa` se detiene en EN_NEGOCIACION y el paso a
+ * CERRADO (con resultado) es esta pantalla.
+ *
+ * Espeja `avanzarEtapa`: identidad y pertenencia se DERIVAN de la sesión; `Error`
+ * para guards de sesión/pertenencia/estado, `ConvexError` para negocio legible.
+ * Se puede cerrar desde CUALQUIER etapa abierta (un rechazo/apelación puede
+ * llegar temprano); lo único que se exige es que el caso no esté ya cerrado.
+ *
+ * ORDEN (fijo): auth → pertenencia → idempotencia → cargar damnificado ANTES de
+ * escribir → patch → notificación → scheduler email → return.
+ */
+export const cerrar = mutation({
+  args: { casoId: v.id("casos"), resultadoCierre },
+  handler: async (ctx, { casoId, resultadoCierre: resultado }) => {
+    // 1) Autorización: sólo un agente autenticado.
+    const resolved = await resolveRole(ctx);
+    if (!resolved || resolved.rol !== "agente") {
+      throw new Error("No autorizado: se requiere una sesión de agente.");
+    }
+    // 2) Pertenencia fail-closed (mismo mensaje para inexistente y ajeno).
+    const caso = await ctx.db.get(casoId);
+    if (!caso || caso.agenteId !== resolved.agente._id) {
+      throw new Error("No autorizado: el caso no existe o no es tuyo.");
+    }
+    // 3) Idempotencia: no re-cerrar (evita doble notificación/email).
+    if (caso.cerrado) {
+      throw new ConvexError("Este caso ya está cerrado.");
+    }
+    // 4) Cargar el damnificado ANTES de escribir (para el email); si faltara
+    //    (dato inconsistente), abortamos sin dejar el caso a medio cerrar.
+    const damnificado = await ctx.db.get(caso.damnificadoId);
+    if (!damnificado) {
+      throw new Error("Estado inconsistente: el caso no tiene damnificado.");
+    }
+    // 5) Cerrar: resultado + etapa final. Sale de la lista de activos (índice
+    //    `by_agente` por `cerrado`), pero el caso NO se borra (historial/métricas).
+    await ctx.db.patch(casoId, {
+      cerrado: true,
+      resultadoCierre: resultado,
+      etapa: "CERRADO",
+    });
+    // 6) Notificación para el damnificado (registro; el email va abajo).
+    await ctx.db.insert("notificaciones", {
+      destinatario: "DAMNIFICADO",
+      casoId,
+      motivo: "CASO_CERRADO",
+      visto: false,
+    });
+    // 7) Aviso por email (stub), atado al commit de esta mutation.
+    await ctx.scheduler.runAfter(0, internal.casos.notificarCierre, {
+      email: damnificado.email,
+      resultadoCierre: resultado,
+    });
+    return { ok: true };
+  },
+});
+
+// Mensaje humano por resultado (texto del issue). Vive junto al stub para que el
+// envío real (REC-28/REC-65) sólo reemplace el cuerpo del action.
+const MENSAJE_CIERRE: Record<"RESUELTO" | "RECHAZADO" | "EN_APELACION", string> = {
+  RESUELTO:
+    "Tu reclamo fue resuelto. Comunicate con tu agente para los próximos pasos.",
+  RECHAZADO:
+    "Tu reclamo fue rechazado por la aseguradora. Comunicate con tu agente para entender los motivos.",
+  EN_APELACION:
+    "Tu reclamo fue rechazado, pero tu agente está apelando la decisión. Te avisaremos de los avances.",
+};
+
+/**
+ * Entrega del aviso de cierre al damnificado. Mismo patrón STUB que
+ * `pedidos.notificarPedido`: hoy loguea (DEV); el envío real (Resend/Nodemailer)
+ * queda para la infra de email (REC-28/REC-65) y reemplaza SÓLO el cuerpo.
+ */
+export const notificarCierre = internalAction({
+  args: { email: v.string(), resultadoCierre },
+  handler: async (_ctx, { email, resultadoCierre: resultado }) => {
+    // TODO (infra email, REC-28/REC-65): envío real al damnificado.
+    console.log(`[cierre] Aviso de cierre (${resultado}) para ${email}: ${MENSAJE_CIERRE[resultado]}`);
   },
 });
