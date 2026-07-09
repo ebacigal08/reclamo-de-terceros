@@ -84,6 +84,7 @@ export const RUTAS = {
   activar: (token: string) => `/activar/${token}`,
   agente: {
     casos: "/agente/casos",
+    historico: "/agente/casos/historico",
     nuevoCaso: "/agente/casos/nuevo",
     caso: (id: string) => `/agente/casos/${id}`,
     solicitar: (id: string) => `/agente/casos/${id}/solicitar`,

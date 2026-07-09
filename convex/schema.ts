@@ -101,6 +101,7 @@ export default defineSchema({
     prioridad,
     cerrado: v.boolean(),
     resultadoCierre: v.optional(resultadoCierre),
+    cerradoEn: v.optional(v.number()), // timestamp de cierre (REC-66); ausente en casos cerrados antes de REC-66
   })
     .index("by_agente", ["agenteId", "cerrado"])
     .index("by_damnificado", ["damnificadoId"])
