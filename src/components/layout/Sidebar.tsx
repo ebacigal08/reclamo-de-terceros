@@ -1,9 +1,10 @@
 "use client";
 
+import { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuthActions } from "@convex-dev/auth/react";
-import { FolderKanban, LogOut } from "lucide-react";
+import { Archive, FolderKanban, LogOut } from "lucide-react";
 import { RUTAS } from "@/lib/constants";
 import { iniciales } from "@/lib/format";
 
@@ -21,7 +22,11 @@ export function Sidebar({
   const pathname = usePathname();
   const router = useRouter();
   const { signOut } = useAuthActions();
-  const activo = pathname?.startsWith("/agente/casos") ?? false;
+  // "Histórico" es un sub-path de "/agente/casos", así que se resuelve primero y
+  // se excluye de "Casos" para no marcar ambas entradas. "Casos" cubre lista +
+  // ficha + nuevo; "Histórico" sólo /agente/casos/historico.
+  const enHistorico = pathname?.startsWith("/agente/casos/historico") ?? false;
+  const enCasos = (pathname?.startsWith("/agente/casos") ?? false) && !enHistorico;
 
   async function cerrarSesion() {
     // Esperar el signOut antes de navegar: evita dejar la sesión visible.
@@ -52,27 +57,19 @@ export function Sidebar({
       </div>
 
       <nav style={{ marginTop: 28, display: "flex", flexDirection: "column", gap: 4, flex: 1 }}>
-        <Link
+        <NavItem
           href={RUTAS.agente.casos}
-          aria-current={activo ? "page" : undefined}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-            padding: "9px 10px",
-            borderRadius: "var(--radius-md)",
-            fontSize: 14,
-            fontWeight: 600,
-            color: activo ? "var(--sidebar-active)" : "var(--sidebar-text-strong)",
-            background: activo ? "var(--sidebar-active-bg)" : "transparent",
-          }}
-        >
-          <FolderKanban size={18} strokeWidth={1.5} />
-          <span style={{ flex: 1 }}>Casos</span>
-          <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--sidebar-text)" }}>
-            {casosActivos}
-          </span>
-        </Link>
+          icon={<FolderKanban size={18} strokeWidth={1.5} />}
+          label="Casos"
+          active={enCasos}
+          count={casosActivos}
+        />
+        <NavItem
+          href={RUTAS.agente.historico}
+          icon={<Archive size={18} strokeWidth={1.5} />}
+          label="Histórico"
+          active={enHistorico}
+        />
       </nav>
 
       <div
@@ -127,5 +124,46 @@ export function Sidebar({
         </button>
       </div>
     </aside>
+  );
+}
+
+/** Entrada de navegación de la Sidebar (activa = fondo + color de acento). */
+function NavItem({
+  href,
+  icon,
+  label,
+  active,
+  count,
+}: {
+  href: string;
+  icon: ReactNode;
+  label: string;
+  active: boolean;
+  count?: number;
+}) {
+  return (
+    <Link
+      href={href}
+      aria-current={active ? "page" : undefined}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        padding: "9px 10px",
+        borderRadius: "var(--radius-md)",
+        fontSize: 14,
+        fontWeight: 600,
+        color: active ? "var(--sidebar-active)" : "var(--sidebar-text-strong)",
+        background: active ? "var(--sidebar-active-bg)" : "transparent",
+      }}
+    >
+      {icon}
+      <span style={{ flex: 1 }}>{label}</span>
+      {count !== undefined && (
+        <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--sidebar-text)" }}>
+          {count}
+        </span>
+      )}
+    </Link>
   );
 }

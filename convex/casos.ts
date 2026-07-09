@@ -164,6 +164,51 @@ export const listMine = query({
 });
 
 /**
+ * Casos CERRADOS del agente autenticado (histórico, REC-66). Espejo reducido de
+ * `listMine`: mismo índice `by_agente` pero con `cerrado=true`. Sin
+ * vencimiento/prioridad (no aplican a cerrados); proyecta el resultado del
+ * cierre y la fecha de cierre, y ordena por `cerradoEn` desc (más reciente
+ * primero). Los casos cerrados antes de REC-66 (sin `cerradoEn`) caen a
+ * `_creationTime`.
+ */
+export const listClosed = query({
+  args: {},
+  handler: async (ctx) => {
+    const resolved = await resolveRole(ctx);
+    if (!resolved || resolved.rol !== "agente") {
+      throw new Error("No autorizado: se requiere una sesión de agente.");
+    }
+    const agenteId = resolved.agente._id;
+
+    const casos = await ctx.db
+      .query("casos")
+      .withIndex("by_agente", (q) =>
+        q.eq("agenteId", agenteId).eq("cerrado", true),
+      )
+      .collect();
+
+    const filas = await Promise.all(
+      casos.map(async (caso) => {
+        const damnificado = await ctx.db.get(caso.damnificadoId);
+        return {
+          _id: caso._id,
+          numeroCaso: caso.numeroCaso,
+          damnificadoNombre: damnificado?.nombre ?? "",
+          tipoSiniestro: caso.tipoSiniestro,
+          resultadoCierre: caso.resultadoCierre ?? null,
+          cerradoEn: caso.cerradoEn ?? caso._creationTime,
+          creadoEn: caso._creationTime,
+        };
+      }),
+    );
+
+    // Orden por fecha de cierre, más reciente primero.
+    filas.sort((a, b) => b.cerradoEn - a.cerradoEn);
+    return filas;
+  },
+});
+
+/**
  * Ficha de un caso, con validación de **ownership** (REC-20).
  * Contrato único: devuelve `null` tanto si el caso no existe como si no
  * pertenece al que llama (no filtra la existencia de casos ajenos).
@@ -610,6 +655,7 @@ export const cerrar = mutation({
       cerrado: true,
       resultadoCierre: resultado,
       etapa: "CERRADO",
+      cerradoEn: Date.now(),
     });
     // 6) Notificación para el damnificado (registro; el email va abajo).
     await ctx.db.insert("notificaciones", {

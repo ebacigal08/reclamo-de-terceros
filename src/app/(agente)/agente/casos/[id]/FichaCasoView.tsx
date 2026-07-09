@@ -163,10 +163,10 @@ function FichaDetalle({ caso }: { caso: Ficha }) {
     <div style={{ padding: "28px 32px", maxWidth: 1160, margin: "0 auto" }}>
       <button
         type="button"
-        onClick={() => router.push(RUTAS.agente.casos)}
+        onClick={() => router.push(caso.cerrado ? RUTAS.agente.historico : RUTAS.agente.casos)}
         style={backLinkStyle}
       >
-        <ArrowLeft size={16} /> Volver a casos
+        <ArrowLeft size={16} /> {caso.cerrado ? "Volver al histórico" : "Volver a casos"}
       </button>
 
       {/* Encabezado */}
@@ -414,14 +414,16 @@ function FichaDetalle({ caso }: { caso: Ficha }) {
           <SectionCard
             title="Pedidos de documentación"
             right={
-              <Button
-                variant="ghost"
-                size="sm"
-                iconLeft={<Plus size={14} />}
-                onClick={() => router.push(RUTAS.agente.solicitar(caso._id))}
-              >
-                Nuevo pedido
-              </Button>
+              caso.cerrado ? undefined : (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  iconLeft={<Plus size={14} />}
+                  onClick={() => router.push(RUTAS.agente.solicitar(caso._id))}
+                >
+                  Nuevo pedido
+                </Button>
+              )
             }
           >
             {caso.pedidos.length ? (
