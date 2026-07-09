@@ -3,6 +3,7 @@
 import { Component, CSSProperties, ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "convex/react";
+import { useAuthActions } from "@convex-dev/auth/react";
 import type { FunctionReturnType } from "convex/server";
 import {
   ArrowRight,
@@ -12,6 +13,7 @@ import {
   FileText,
   FolderOpen,
   Inbox,
+  LogOut,
   Scale,
   Sparkles,
   XCircle,
@@ -97,7 +99,14 @@ function MiCasoContent() {
 // ── Pantalla principal ───────────────────────────────────────────
 function MiCasoHub({ data }: { data: Hub }) {
   const router = useRouter();
+  const { signOut } = useAuthActions();
   const { caso, nombre, relato, pedidosPendientes, novedades } = data;
+
+  async function cerrarSesion() {
+    // Esperar el signOut antes de navegar: no deja la sesión visible (igual que la Sidebar del agente).
+    await signOut();
+    router.replace(RUTAS.login);
+  }
 
   // Fallback defensivo: si la etapa fuese desconocida, no rompemos el progreso.
   const idxRaw = ETAPAS.findIndex((e) => e.value === caso.etapa);
@@ -110,9 +119,29 @@ function MiCasoHub({ data }: { data: Hub }) {
   return (
     <div style={pageStyle}>
       {/* Header */}
-      <div style={{ padding: "22px 20px 4px" }}>
-        <p style={saludoStyle}>Hola, {nombre.split(" ")[0] || nombre}</p>
-        <p style={numeroCasoStyle}>{caso.numeroCaso}</p>
+      <div
+        style={{
+          padding: "22px 20px 4px",
+          display: "flex",
+          alignItems: "flex-start",
+          justifyContent: "space-between",
+          gap: 12,
+        }}
+      >
+        <div style={{ minWidth: 0 }}>
+          <p style={saludoStyle}>Hola, {nombre.split(" ")[0] || nombre}</p>
+          <p style={numeroCasoStyle}>{caso.numeroCaso}</p>
+        </div>
+        <div style={{ flexShrink: 0 }}>
+          <Button
+            variant="ghost"
+            size="sm"
+            iconLeft={<LogOut size={16} />}
+            onClick={cerrarSesion}
+          >
+            Salir
+          </Button>
+        </div>
       </div>
 
       {/* Hero de estado */}
@@ -329,6 +358,14 @@ function MiCasoSkeleton() {
 }
 
 function MiCasoSinCaso() {
+  const router = useRouter();
+  const { signOut } = useAuthActions();
+
+  async function cerrarSesion() {
+    await signOut();
+    router.replace(RUTAS.login);
+  }
+
   return (
     <div style={{ ...pageStyle, display: "flex", justifyContent: "center", padding: "56px 24px" }}>
       <EmptyState
@@ -336,9 +373,9 @@ function MiCasoSinCaso() {
         title="Todavía no tenés un caso"
         description="Cuando tu agente registre tu reclamo, vas a ver acá el estado y lo que tengas pendiente."
         action={
-          <a href={RUTAS.login} style={linkStyle}>
-            Volver a ingresar
-          </a>
+          <Button variant="ghost" size="sm" iconLeft={<LogOut size={16} />} onClick={cerrarSesion}>
+            Cerrar sesión
+          </Button>
         }
       />
     </div>
