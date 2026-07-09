@@ -1,4 +1,4 @@
-import { mutation, internalAction } from "./_generated/server";
+import { query, mutation, internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v, ConvexError } from "convex/values";
 import { resolveRole } from "./users";
@@ -98,5 +98,147 @@ export const notificarPedido = internalAction({
     // descripción completa — aceptable en DEV, pero al cablear el envío real
     // revisar/retirar este console.log para no exponer texto sensible en prod.
     console.log(`[pedido] Aviso de nuevo pedido para ${email}: ${descripcion}`);
+  },
+});
+
+/**
+ * REC-25 · "Responder pedido" — el damnificado ve y responde un pedido activo del
+ * agente (`/damnificado/pedido/[id]`). `get` es la lectura de la pantalla;
+ * `responder` cierra el ciclo (marca respondido + notifica al agente).
+ *
+ * Seguridad (misma regla del módulo que `crear`): identidad y pertenencia se
+ * DERIVAN de la sesión con `resolveRole`; nunca se acepta id de identidad del
+ * cliente. Como el pedido sólo tiene `casoId`, la pertenencia se valida vía
+ * pedido → caso → `caso.damnificadoId === sesión` (mismo patrón dual que
+ * `documentos.getCasoAutorizado`).
+ */
+
+/**
+ * Lee UN pedido por id para la pantalla del damnificado. `pedidoId` llega crudo
+ * de la URL: se normaliza con `normalizeId` para tolerar ids malformados sin
+ * tirar error de validación. Devuelve `null` (→ el cliente redirige a "Mi caso")
+ * ante: sin sesión de damnificado, id inválido, pedido inexistente, o caso ajeno
+ * (mismo trato "no existe"/"ajeno" → no filtra existencia).
+ */
+export const get = query({
+  args: { pedidoId: v.string() },
+  handler: async (ctx, { pedidoId }) => {
+    const resolved = await resolveRole(ctx);
+    if (!resolved || resolved.rol !== "damnificado") return null;
+
+    const id = ctx.db.normalizeId("pedidosDocumentacion", pedidoId);
+    if (!id) return null;
+
+    const pedido = await ctx.db.get(id);
+    if (!pedido) return null;
+
+    const caso = await ctx.db.get(pedido.casoId);
+    if (!caso || caso.damnificadoId !== resolved.damnificado._id) return null;
+
+    return {
+      pedido: {
+        _id: pedido._id,
+        descripcion: pedido.descripcion,
+        respondido: pedido.respondido,
+        respondidoEn: pedido.respondidoEn ?? null,
+      },
+      caso: { _id: caso._id, cerrado: caso.cerrado },
+    };
+  },
+});
+
+/**
+ * Cierra el ciclo: marca el pedido como respondido, notifica al agente (in-app +
+ * email) y muestra el acuse en el cliente. Los archivos ya se subieron por
+ * separado con `documentos.registrar`; acá se reciben sus `documentoIds` y se
+ * VALIDA en el servidor que existan, sean del mismo caso del pedido y del
+ * damnificado — así un cliente manipulado no puede responder sin documento real
+ * (no se confía en el gating de la UI).
+ *
+ * ORDEN (fijo, igual que `crear`): auth → pertenencia → negocio → validar docs →
+ * cargar agente ANTES de escribir → writes → scheduler → return.
+ */
+export const responder = mutation({
+  args: {
+    pedidoId: v.id("pedidosDocumentacion"),
+    documentoIds: v.array(v.id("documentos")),
+  },
+  handler: async (ctx, { pedidoId, documentoIds }) => {
+    // 1) Autorización: sólo un damnificado autenticado (guard → Error).
+    const resolved = await resolveRole(ctx);
+    if (!resolved || resolved.rol !== "damnificado") {
+      throw new Error("No autorizado: se requiere una sesión de damnificado.");
+    }
+
+    // 2) Pertenencia vía pedido → caso. Mismo mensaje para inexistente y ajeno.
+    const pedido = await ctx.db.get(pedidoId);
+    if (!pedido) {
+      throw new Error("No autorizado: el pedido no existe o no es tuyo.");
+    }
+    const caso = await ctx.db.get(pedido.casoId);
+    if (!caso || caso.damnificadoId !== resolved.damnificado._id) {
+      throw new Error("No autorizado: el pedido no existe o no es tuyo.");
+    }
+
+    // 3) Guards de negocio (ConvexError legible en el cliente).
+    if (caso.cerrado) {
+      throw new ConvexError("El caso está cerrado; no podés responder este pedido.");
+    }
+    if (pedido.respondido) {
+      throw new ConvexError("Este pedido ya fue respondido.");
+    }
+
+    // 4) Integridad de los documentos: al menos uno, y todos deben existir, ser
+    //    del mismo caso del pedido y subidos por el damnificado. No se confía en
+    //    el cliente (evita marcar respondido sin documento real).
+    if (documentoIds.length === 0) {
+      throw new ConvexError("Subí al menos un archivo antes de confirmar.");
+    }
+    for (const docId of new Set(documentoIds)) {
+      const doc = await ctx.db.get(docId);
+      if (!doc || doc.casoId !== pedido.casoId || doc.subidoPor !== "DAMNIFICADO") {
+        throw new Error("Documento inválido: no pertenece a este caso.");
+      }
+    }
+
+    // 5) Cargar el agente ANTES de escribir: si faltara (dato inconsistente),
+    //    abortamos sin dejar el pedido a medias ni un email sin destinatario.
+    const agente = await ctx.db.get(caso.agenteId);
+    if (!agente) {
+      throw new Error("Estado inconsistente: el caso no tiene agente.");
+    }
+
+    // 6) Marcar respondido. `respondidoEn` = ahora.
+    await ctx.db.patch(pedidoId, { respondido: true, respondidoEn: Date.now() });
+
+    // 7) Notificación para el AGENTE (primer uso de destinatario "AGENTE").
+    await ctx.db.insert("notificaciones", {
+      destinatario: "AGENTE",
+      casoId: caso._id,
+      motivo: "PEDIDO_RESPONDIDO",
+      visto: false,
+    });
+
+    // 8) Aviso por email al agente (stub), atado al commit de esta mutation.
+    await ctx.scheduler.runAfter(0, internal.pedidos.notificarRespuesta, {
+      email: agente.email,
+      descripcion: pedido.descripcion,
+    });
+
+    return { ok: true };
+  },
+});
+
+/**
+ * Entrega del aviso "el damnificado respondió tu pedido" al agente. Mismo patrón
+ * STUB que `notificarPedido`: hoy loguea (DEV); el envío real (Resend/Nodemailer)
+ * queda para la infra de email (REC-65/REC-15) y reemplaza SÓLO el cuerpo.
+ */
+export const notificarRespuesta = internalAction({
+  args: { email: v.string(), descripcion: v.string() },
+  handler: async (_ctx, { email, descripcion }) => {
+    // TODO (infra email, REC-65/REC-15): envío real al agente. NOTA: el log
+    // incluye la descripción — aceptable en DEV; revisar al cablear prod.
+    console.log(`[pedido] El damnificado respondió el pedido — aviso para ${email}: ${descripcion}`);
   },
 });
