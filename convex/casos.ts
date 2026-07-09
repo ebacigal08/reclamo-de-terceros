@@ -614,6 +614,37 @@ export const avanzarEtapa = mutation({
 });
 
 /**
+ * Cambia la prioridad del caso (REC-37). Acción del agente sobre la ficha; se
+ * guarda al instante (la live query de `get` refleja el cambio sin recargar).
+ *
+ * Espeja los guards de `avanzarEtapa`: identidad y pertenencia se DERIVAN de la
+ * sesión (nunca del cliente); `Error` para sesión/pertenencia, `ConvexError`
+ * para negocio. No genera notificación: la prioridad es interna del agente y el
+ * damnificado está excluido del campo (REC-35). Set de valor absoluto → no
+ * necesita concurrencia optimista; idempotente (no escribe si no cambió).
+ */
+export const cambiarPrioridad = mutation({
+  args: { casoId: v.id("casos"), prioridad },
+  handler: async (ctx, { casoId, prioridad: nueva }) => {
+    const resolved = await resolveRole(ctx);
+    if (!resolved || resolved.rol !== "agente") {
+      throw new Error("No autorizado: se requiere una sesión de agente.");
+    }
+    const caso = await ctx.db.get(casoId);
+    if (!caso || caso.agenteId !== resolved.agente._id) {
+      throw new Error("No autorizado: el caso no existe o no es tuyo.");
+    }
+    if (caso.cerrado) {
+      throw new ConvexError("El caso está cerrado; no se puede cambiar la prioridad.");
+    }
+    if (caso.prioridad !== nueva) {
+      await ctx.db.patch(casoId, { prioridad: nueva });
+    }
+    return { prioridad: nueva };
+  },
+});
+
+/**
  * Cierra el caso con su resultado final (REC-30). Última acción del ciclo de
  * vida del reclamo: `avanzarEtapa` se detiene en EN_NEGOCIACION y el paso a
  * CERRADO (con resultado) es esta pantalla.

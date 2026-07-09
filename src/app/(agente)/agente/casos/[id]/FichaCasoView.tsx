@@ -24,8 +24,8 @@ import {
 } from "lucide-react";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
-import { Alert, Badge, Button, EmptyState, Skeleton, Stepper } from "@/components/ui";
-import { ETAPAS, PRIORIDADES, RESULTADOS_CIERRE, RUTAS, TIPOS_SINIESTRO } from "@/lib/constants";
+import { Alert, Badge, Button, EmptyState, PrioritySelector, Skeleton, Stepper } from "@/components/ui";
+import { ETAPAS, PRIORIDADES, type Prioridad, RESULTADOS_CIERRE, RUTAS, TIPOS_SINIESTRO } from "@/lib/constants";
 import { diasHasta, estadoPlazo, formatFecha } from "@/lib/format";
 
 // DTO de la ficha (deriva del retorno de la query → siempre en sync). `null`
@@ -119,6 +119,9 @@ function FichaDetalle({ caso }: { caso: Ficha }) {
   const [confirmando, setConfirmando] = useState(false);
   const [avanzando, setAvanzando] = useState(false);
   const [avanceError, setAvanceError] = useState<string | null>(null);
+  const cambiarPrioridad = useMutation(api.casos.cambiarPrioridad);
+  const [guardandoPrioridad, setGuardandoPrioridad] = useState(false);
+  const [prioridadError, setPrioridadError] = useState<string | null>(null);
   const etapa = etapaInfo(caso.etapa);
   const prioridad = prioridadInfo(caso.prioridad);
   // Con el caso cerrado, el badge/estado refleja el RESULTADO real
@@ -156,6 +159,22 @@ function FichaDetalle({ caso }: { caso: Ficha }) {
       );
     } finally {
       setAvanzando(false);
+    }
+  }
+
+  async function onCambiarPrioridad(nueva: Prioridad) {
+    if (nueva === caso.prioridad) return;
+    setPrioridadError(null);
+    setGuardandoPrioridad(true);
+    try {
+      await cambiarPrioridad({ casoId: caso._id, prioridad: nueva });
+      // la live query de `get` refleja la nueva prioridad; sin recargar
+    } catch (err) {
+      setPrioridadError(
+        mensajeError(err, "No pudimos cambiar la prioridad. Intentá de nuevo."),
+      );
+    } finally {
+      setGuardandoPrioridad(false);
     }
   }
 
@@ -213,11 +232,25 @@ function FichaDetalle({ caso }: { caso: Ficha }) {
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
-          {/* Prioridad: sólo lectura en REC-20; editarla es REC-37. */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-start" }}>
-            <span style={captionStyle}>Prioridad</span>
-            {prioridad && <Badge variant={prioridad.badge}>{prioridad.label}</Badge>}
-          </div>
+          {/* Prioridad (REC-37): editable con el caso abierto; sólo lectura si está cerrado.
+              PrioritySelector ya trae su propio label "Prioridad" (no repetir el caption). */}
+          {caso.cerrado ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-start" }}>
+              <span style={captionStyle}>Prioridad</span>
+              {prioridad && <Badge variant={prioridad.badge}>{prioridad.label}</Badge>}
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-start" }}>
+              <PrioritySelector
+                value={caso.prioridad}
+                onChange={onCambiarPrioridad}
+                disabled={guardandoPrioridad}
+              />
+              {prioridadError && (
+                <span style={{ fontSize: 12, color: "var(--danger-600)" }}>{prioridadError}</span>
+              )}
+            </div>
+          )}
           {/* Acciones sobre un caso abierto: sin sentido (ruta muerta) si ya
               está cerrado. El backend además rechaza pedidos/cierres sobre cerrados. */}
           {!caso.cerrado && (
