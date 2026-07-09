@@ -146,7 +146,10 @@ export default defineSchema({
     .index("by_caso", ["casoId"])
     // Permite tomar el plazo más próximo de un caso por orden de índice,
     // sin ordenar en JS (REC-18 · lista del agente).
-    .index("by_caso_fecha", ["casoId", "fechaVencimiento"]),
+    .index("by_caso_fecha", ["casoId", "fechaVencimiento"])
+    // Job de alertas (REC-29): plazos no avisados con vencimiento próximo, sin
+    // escanear toda la tabla —> q.eq("avisadoAlAgente", false).lte("fechaVencimiento", limite).
+    .index("by_avisado_fecha", ["avisadoAlAgente", "fechaVencimiento"]),
 
   // ── Notificaciones automáticas ─────────────────────────────────
   notificaciones: defineTable({
