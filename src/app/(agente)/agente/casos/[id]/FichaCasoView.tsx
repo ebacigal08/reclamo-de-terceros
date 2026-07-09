@@ -25,7 +25,7 @@ import {
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { Alert, Badge, Button, EmptyState, Skeleton, Stepper } from "@/components/ui";
-import { ETAPAS, PRIORIDADES, RUTAS, TIPOS_SINIESTRO } from "@/lib/constants";
+import { ETAPAS, PRIORIDADES, RESULTADOS_CIERRE, RUTAS, TIPOS_SINIESTRO } from "@/lib/constants";
 import { diasHasta, estadoPlazo, formatFecha } from "@/lib/format";
 
 // DTO de la ficha (deriva del retorno de la query → siempre en sync). `null`
@@ -121,6 +121,15 @@ function FichaDetalle({ caso }: { caso: Ficha }) {
   const [avanceError, setAvanceError] = useState<string | null>(null);
   const etapa = etapaInfo(caso.etapa);
   const prioridad = prioridadInfo(caso.prioridad);
+  // Con el caso cerrado, el badge/estado refleja el RESULTADO real
+  // (RESUELTO/RECHAZADO/EN_APELACION), no el label genérico de la etapa CERRADO
+  // (que siempre es "Resuelto"). Fallback defensivo si el resultado viniera null.
+  const cierre = caso.cerrado
+    ? RESULTADOS_CIERRE.find((r) => r.value === caso.resultadoCierre) ?? {
+        label: "Cerrado",
+        badge: "apelacion" as const,
+      }
+    : null;
   const idx = Math.max(
     0,
     ETAPAS.findIndex((e) => e.value === caso.etapa),
@@ -176,7 +185,11 @@ function FichaDetalle({ caso }: { caso: Ficha }) {
             <h1 className="text-h2" style={{ margin: 0 }}>
               {dam?.nombre ?? "Damnificado"}
             </h1>
-            {etapa && <Badge variant={etapa.badge}>{etapa.labelAgente}</Badge>}
+            {cierre ? (
+              <Badge variant={cierre.badge}>{cierre.label}</Badge>
+            ) : (
+              etapa && <Badge variant={etapa.badge}>{etapa.labelAgente}</Badge>
+            )}
           </div>
           <div
             style={{
@@ -205,20 +218,26 @@ function FichaDetalle({ caso }: { caso: Ficha }) {
             <span style={captionStyle}>Prioridad</span>
             {prioridad && <Badge variant={prioridad.badge}>{prioridad.label}</Badge>}
           </div>
-          <Button
-            variant="secondary"
-            iconLeft={<Send size={15} />}
-            onClick={() => router.push(RUTAS.agente.solicitar(caso._id))}
-          >
-            Solicitar documentación
-          </Button>
-          <Button
-            variant="secondary"
-            iconLeft={<CheckCircle2 size={15} />}
-            onClick={() => router.push(RUTAS.agente.cerrar(caso._id))}
-          >
-            Cerrar caso
-          </Button>
+          {/* Acciones sobre un caso abierto: sin sentido (ruta muerta) si ya
+              está cerrado. El backend además rechaza pedidos/cierres sobre cerrados. */}
+          {!caso.cerrado && (
+            <>
+              <Button
+                variant="secondary"
+                iconLeft={<Send size={15} />}
+                onClick={() => router.push(RUTAS.agente.solicitar(caso._id))}
+              >
+                Solicitar documentación
+              </Button>
+              <Button
+                variant="secondary"
+                iconLeft={<CheckCircle2 size={15} />}
+                onClick={() => router.push(RUTAS.agente.cerrar(caso._id))}
+              >
+                Cerrar caso
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -257,7 +276,10 @@ function FichaDetalle({ caso }: { caso: Ficha }) {
           }}
         >
           <span style={{ fontSize: "var(--text-body-sm-size)", color: "var(--text-secondary)" }}>
-            Etapa actual: <strong style={{ color: "var(--text-primary)" }}>{etapa?.labelAgente}</strong>
+            {cierre ? "Resultado: " : "Etapa actual: "}
+            <strong style={{ color: "var(--text-primary)" }}>
+              {cierre ? cierre.label : etapa?.labelAgente}
+            </strong>
           </span>
           {caso.cerrado ? (
             <span
