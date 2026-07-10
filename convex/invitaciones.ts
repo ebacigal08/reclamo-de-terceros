@@ -14,7 +14,7 @@ import {
   modifyAccountCredentials,
 } from "@convex-dev/auth/server";
 import { normalizeEmail } from "./lib";
-import { baseUrl } from "./email";
+import { baseUrl, emailTexto, renderEmailHtml, sendEmailOrThrow } from "./email";
 
 /**
  * Invitación y activación de cuenta del damnificado (REC-17).
@@ -59,19 +59,33 @@ export const porToken = query({
   },
 });
 
-// ── Entrega de la invitación (seam de REC-19 → REC-65) ───────────
-// La dispara `casos.crear` vía `scheduler.runAfter` cuando corresponde
-// invitar (damnificado nuevo o aún sin activar). El token ya lo persistió la
-// mutation: esta action SÓLO entrega. Hoy loguea el link (DEV); REC-65
-// reemplaza EL CUERPO por el envío real (Resend/Nodemailer) sin tocar firma
-// ni call-site. Logueamos sólo email + link (nada más de PII); para prod,
-// REC-65 debe revisar este logging.
+// ── Entrega de la invitación (REC-19 → REC-65) ───────────────────
+// La dispara `casos.crear` vía `scheduler.runAfter` cuando corresponde invitar
+// (damnificado nuevo o aún sin activar). El token ya lo persistió la mutation:
+// esta action SÓLO entrega, ahora por email real (Resend, ver `email.ts`).
+// Usa `sendEmailOrThrow`: si no entrega, lanza → queda como error de esta
+// scheduled function en los logs de Convex (no se silencia). NO se loguea el
+// link (era PII). El link productivo lo arma `baseUrl()`; el helper de prueba
+// `generarInvitacionDemo` (dev-only) sigue devolviéndolo aparte.
 export const enviarInvitacion = internalAction({
   args: { email: v.string(), token: v.string() },
   handler: async (_ctx, { email, token }): Promise<void> => {
     const url = `${baseUrl()}/activar/${token}`;
-    // TODO REC-65: enviar email real. Hoy: log DEV (no muta DB, no genera token).
-    console.log(`[invitacion] Link de activación para ${email}: ${url}`);
+    const contenido = {
+      titulo: "Activá tu cuenta en Amparo",
+      cuerpo:
+        "Tu agente creó tu caso en Amparo. Activá tu cuenta para seguir el " +
+        "estado de tu reclamo, cargar la documentación que te pidan y recibir " +
+        "las novedades.",
+      boton: { url, label: "Activar mi cuenta" },
+    };
+    await sendEmailOrThrow({
+      to: email,
+      subject: "Activá tu cuenta en Amparo",
+      motivo: "invitacion",
+      text: emailTexto(contenido),
+      html: renderEmailHtml(contenido),
+    });
   },
 });
 
