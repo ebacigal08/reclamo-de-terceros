@@ -1,13 +1,13 @@
-import { query, mutation, internalAction } from "./_generated/server";
-import { internal } from "./_generated/api";
+import { query, mutation } from "./_generated/server";
 import { v, ConvexError } from "convex/values";
 import { resolveRole } from "./users";
+import { crearNotificacion } from "./notificaciones";
 
 /**
  * REC-24 · "Solicitar documentación" — el agente le pide un documento o info al
- * damnificado directamente desde el sistema. Crea el `pedidosDocumentacion` + una
- * notificación `NUEVO_PEDIDO` y agenda el aviso por email (hoy stub, ver
- * `notificarPedido`). NO cambia el esquema (los campos ya existen).
+ * damnificado directamente desde el sistema. Crea el `pedidosDocumentacion` y
+ * dispara la notificación `NUEVO_PEDIDO` (registro + email) vía el motor
+ * `crearNotificacion` (REC-28). NO cambia el esquema (los campos ya existen).
  *
  * Seguridad (regla del módulo, igual que `casos.crear`): la identidad del agente
  * se DERIVA de la sesión con `resolveRole`; nunca se acepta `agenteId` del
@@ -66,38 +66,15 @@ export const crear = mutation({
       respondido: false,
     });
 
-    // 6) Notificación para el damnificado (misma forma que `casos.crear`).
-    await ctx.db.insert("notificaciones", {
-      destinatario: "DAMNIFICADO",
+    // 6) Notificación + email al damnificado (registro + envío en un paso).
+    await crearNotificacion(ctx, {
       casoId,
-      motivo: "NUEVO_PEDIDO",
-      visto: false,
-    });
-
-    // 7) Aviso por email (stub), encolado atado al commit de esta mutation
-    //    (`runAfter` sólo dispara si la transacción commitea).
-    await ctx.scheduler.runAfter(0, internal.pedidos.notificarPedido, {
+      destinatario: "DAMNIFICADO",
       email: damnificado.email,
-      descripcion: texto,
+      datos: { motivo: "NUEVO_PEDIDO", descripcion: texto },
     });
 
     return { pedidoId };
-  },
-});
-
-/**
- * Entrega del aviso "nuevo pedido" al damnificado. Igual que
- * `invitaciones.enviarInvitacion`: hoy es un STUB que loguea (DEV). El envío real
- * (Resend/Nodemailer) queda para la infra de email (REC-65/REC-15) y reemplaza
- * SÓLO el cuerpo, sin tocar firma ni call-site.
- */
-export const notificarPedido = internalAction({
-  args: { email: v.string(), descripcion: v.string() },
-  handler: async (_ctx, { email, descripcion }) => {
-    // TODO (infra email, REC-65/REC-15): envío real. NOTA: este log incluye la
-    // descripción completa — aceptable en DEV, pero al cablear el envío real
-    // revisar/retirar este console.log para no exponer texto sensible en prod.
-    console.log(`[pedido] Aviso de nuevo pedido para ${email}: ${descripcion}`);
   },
 });
 
@@ -211,34 +188,14 @@ export const responder = mutation({
     // 6) Marcar respondido. `respondidoEn` = ahora.
     await ctx.db.patch(pedidoId, { respondido: true, respondidoEn: Date.now() });
 
-    // 7) Notificación para el AGENTE (primer uso de destinatario "AGENTE").
-    await ctx.db.insert("notificaciones", {
-      destinatario: "AGENTE",
+    // 7) Notificación + email al AGENTE (registro + envío en un paso).
+    await crearNotificacion(ctx, {
       casoId: caso._id,
-      motivo: "PEDIDO_RESPONDIDO",
-      visto: false,
-    });
-
-    // 8) Aviso por email al agente (stub), atado al commit de esta mutation.
-    await ctx.scheduler.runAfter(0, internal.pedidos.notificarRespuesta, {
+      destinatario: "AGENTE",
       email: agente.email,
-      descripcion: pedido.descripcion,
+      datos: { motivo: "PEDIDO_RESPONDIDO", descripcion: pedido.descripcion },
     });
 
     return { ok: true };
-  },
-});
-
-/**
- * Entrega del aviso "el damnificado respondió tu pedido" al agente. Mismo patrón
- * STUB que `notificarPedido`: hoy loguea (DEV); el envío real (Resend/Nodemailer)
- * queda para la infra de email (REC-65/REC-15) y reemplaza SÓLO el cuerpo.
- */
-export const notificarRespuesta = internalAction({
-  args: { email: v.string(), descripcion: v.string() },
-  handler: async (_ctx, { email, descripcion }) => {
-    // TODO (infra email, REC-65/REC-15): envío real al agente. NOTA: el log
-    // incluye la descripción — aceptable en DEV; revisar al cablear prod.
-    console.log(`[pedido] El damnificado respondió el pedido — aviso para ${email}: ${descripcion}`);
   },
 });

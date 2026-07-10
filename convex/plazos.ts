@@ -1,6 +1,5 @@
-import { v } from "convex/values";
-import { internalMutation, internalAction } from "./_generated/server";
-import { internal } from "./_generated/api";
+import { internalMutation } from "./_generated/server";
+import { crearNotificacion } from "./notificaciones";
 
 /**
  * Alertas de vencimientos de plazos para el agente (REC-29).
@@ -45,52 +44,24 @@ export const revisarVencimientos = internalMutation({
       if (!agente) continue; // sin destinatario del aviso
       const damnificado = await ctx.db.get(caso.damnificadoId);
 
-      await ctx.db.insert("notificaciones", {
-        destinatario: "AGENTE",
-        casoId: caso._id,
-        motivo: "PLAZO_PROXIMO",
-        visto: false,
-      });
-      // Marcar avisado ANTES de agendar: evita reavisos aunque el email falle.
+      // Marcar avisado ANTES de crear la notificación/email: idempotencia del
+      // cron (todo en el mismo commit; evita reavisar en la próxima corrida).
       await ctx.db.patch(plazo._id, { avisadoAlAgente: true });
-      // Email al agente (stub), atado al commit de esta mutation.
-      await ctx.scheduler.runAfter(0, internal.plazos.notificarPlazo, {
-        email: agente.email,
-        damnificadoNombre: damnificado?.nombre ?? "",
-        descripcion: plazo.descripcion,
-        fechaVencimiento: plazo.fechaVencimiento,
+      // Notificación + email al agente (registro + envío en un paso).
+      await crearNotificacion(ctx, {
         casoId: caso._id,
+        destinatario: "AGENTE",
+        email: agente.email,
+        datos: {
+          motivo: "PLAZO_PROXIMO",
+          descripcion: plazo.descripcion,
+          fechaVencimiento: plazo.fechaVencimiento,
+          damnificadoNombre: damnificado?.nombre ?? "",
+        },
       });
       avisados++;
     }
 
     return { avisados };
-  },
-});
-
-/**
- * Entrega del aviso "plazo próximo a vencer" al agente. Mismo patrón STUB que
- * `pedidos.notificarRespuesta`: hoy loguea (DEV); el envío real (Resend/Nodemailer)
- * queda para la infra de email (REC-28/REC-65) y reemplaza SÓLO el cuerpo.
- */
-export const notificarPlazo = internalAction({
-  args: {
-    email: v.string(),
-    damnificadoNombre: v.string(),
-    descripcion: v.string(),
-    fechaVencimiento: v.string(),
-    casoId: v.id("casos"),
-  },
-  handler: async (
-    _ctx,
-    { email, damnificadoNombre, descripcion, fechaVencimiento, casoId },
-  ) => {
-    const base = process.env.SITE_URL ?? "http://localhost:3000";
-    const url = `${base}/agente/casos/${casoId}`;
-    // TODO (infra email, REC-28/REC-65): envío real al agente. Asunto sugerido:
-    // "Plazo próximo a vencer en el caso de {damnificadoNombre}".
-    console.log(
-      `[plazo] Plazo próximo (${fechaVencimiento}) en el caso de ${damnificadoNombre} para ${email}: ${descripcion} — ${url}`,
-    );
   },
 });

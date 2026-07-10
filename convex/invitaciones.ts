@@ -14,6 +14,7 @@ import {
   modifyAccountCredentials,
 } from "@convex-dev/auth/server";
 import { normalizeEmail } from "./lib";
+import { baseUrl } from "./email";
 
 /**
  * Invitación y activación de cuenta del damnificado (REC-17).
@@ -68,8 +69,7 @@ export const porToken = query({
 export const enviarInvitacion = internalAction({
   args: { email: v.string(), token: v.string() },
   handler: async (_ctx, { email, token }): Promise<void> => {
-    const base = process.env.SITE_URL ?? "http://localhost:3000";
-    const url = `${base}/activar/${token}`;
+    const url = `${baseUrl()}/activar/${token}`;
     // TODO REC-65: enviar email real. Hoy: log DEV (no muta DB, no genera token).
     console.log(`[invitacion] Link de activación para ${email}: ${url}`);
   },
@@ -234,8 +234,7 @@ export const generarInvitacionDemo = internalAction({
       email: objetivo,
       token,
     });
-    const base = process.env.SITE_URL ?? "http://localhost:3000";
-    const url = `${base}/activar/${token}`;
+    const url = `${baseUrl()}/activar/${token}`;
     console.log(
       `[invitacion][DEV] Link de activación para ${res.email}: ${url}`,
     );

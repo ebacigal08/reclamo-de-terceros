@@ -1,10 +1,11 @@
-import { query, mutation, internalMutation, internalAction } from "./_generated/server";
+import { query, mutation, internalMutation } from "./_generated/server";
 import type { MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { ConvexError, v } from "convex/values";
 import { internal } from "./_generated/api";
 import { resolveRole } from "./users";
 import { normalizeEmail } from "./lib";
+import { crearNotificacion } from "./notificaciones";
 
 /**
  * Funciones del Caso.
@@ -369,6 +370,7 @@ export const miCaso = query({
         _id: n._id,
         motivo: n.motivo,
         creadoEn: n._creationTime,
+        visto: n.visto,
       })),
     };
   },
@@ -507,19 +509,31 @@ export const crear = mutation({
       cerrado: false,
     });
 
-    // 5) Notificación para el damnificado (primera escritura de esta tabla).
-    await ctx.db.insert("notificaciones", {
-      destinatario: "DAMNIFICADO",
-      casoId,
-      motivo: "CASO_ABIERTO",
-      visto: false,
-    });
-
-    // 6) Entrega de la invitación (sólo casos a/b): se encola atada al commit.
+    // 5) Notificación de "caso abierto" para el damnificado. El registro se
+    //    crea siempre; el EMAIL depende de si además va una invitación:
     if (invitar && token) {
+      // (a/b) Damnificado nuevo o sin activar: registramos la novedad pero NO
+      //       mandamos el email de "caso abierto" — la invitación (abajo) ya le
+      //       anuncia el caso y le da acceso. Evita el doble mail casi idéntico.
+      await ctx.db.insert("notificaciones", {
+        destinatario: "DAMNIFICADO",
+        casoId,
+        motivo: "CASO_ABIERTO",
+        visto: false,
+      });
       await ctx.scheduler.runAfter(0, internal.invitaciones.enviarInvitacion, {
         email,
         token,
+      });
+    } else {
+      // (c) Damnificado con cuenta ya activada (p. ej. su segundo caso): no hay
+      //     invitación, así que acá SÍ va el email de "tu caso fue abierto"
+      //     (antes este escenario no enviaba nada — bug que REC-28 corrige).
+      await crearNotificacion(ctx, {
+        casoId,
+        destinatario: "DAMNIFICADO",
+        email,
+        datos: { motivo: "CASO_ABIERTO" },
       });
     }
 
@@ -600,14 +614,21 @@ export const avanzarEtapa = mutation({
       );
     }
     const siguiente = ORDEN_ETAPAS[idx + 1];
+    // Cargar el damnificado ANTES de escribir (para el email; patrón del
+    // módulo). Si faltara, abortamos sin avanzar la etapa.
+    const damnificado = await ctx.db.get(caso.damnificadoId);
+    if (!damnificado) {
+      throw new Error("Estado inconsistente: el caso no tiene damnificado.");
+    }
     // 1) Avanzar la etapa.
     await ctx.db.patch(casoId, { etapa: siguiente });
-    // 2) Notificación automática al damnificado (registro; el email es REC-28).
-    await ctx.db.insert("notificaciones", {
-      destinatario: "DAMNIFICADO",
+    // 2) Notificación + email al damnificado. El email lleva la etapa NUEVA
+    //    (`siguiente`), que es la que el damnificado tiene que ver.
+    await crearNotificacion(ctx, {
       casoId,
-      motivo: "AVANCE_ETAPA",
-      visto: false,
+      destinatario: "DAMNIFICADO",
+      email: damnificado.email,
+      datos: { motivo: "AVANCE_ETAPA", etapa: siguiente },
     });
     return { etapa: siguiente };
   },
@@ -688,42 +709,14 @@ export const cerrar = mutation({
       etapa: "CERRADO",
       cerradoEn: Date.now(),
     });
-    // 6) Notificación para el damnificado (registro; el email va abajo).
-    await ctx.db.insert("notificaciones", {
-      destinatario: "DAMNIFICADO",
+    // 6) Notificación + email de cierre al damnificado. El texto por resultado
+    //    (RESUELTO/RECHAZADO/EN_APELACION) lo arma el motor (`notificaciones`).
+    await crearNotificacion(ctx, {
       casoId,
-      motivo: "CASO_CERRADO",
-      visto: false,
-    });
-    // 7) Aviso por email (stub), atado al commit de esta mutation.
-    await ctx.scheduler.runAfter(0, internal.casos.notificarCierre, {
+      destinatario: "DAMNIFICADO",
       email: damnificado.email,
-      resultadoCierre: resultado,
+      datos: { motivo: "CASO_CERRADO", resultadoCierre: resultado },
     });
     return { ok: true };
-  },
-});
-
-// Mensaje humano por resultado (texto del issue). Vive junto al stub para que el
-// envío real (REC-28/REC-65) sólo reemplace el cuerpo del action.
-const MENSAJE_CIERRE: Record<"RESUELTO" | "RECHAZADO" | "EN_APELACION", string> = {
-  RESUELTO:
-    "Tu reclamo fue resuelto. Comunicate con tu agente para los próximos pasos.",
-  RECHAZADO:
-    "Tu reclamo fue rechazado por la aseguradora. Comunicate con tu agente para entender los motivos.",
-  EN_APELACION:
-    "Tu reclamo fue rechazado, pero tu agente está apelando la decisión. Te avisaremos de los avances.",
-};
-
-/**
- * Entrega del aviso de cierre al damnificado. Mismo patrón STUB que
- * `pedidos.notificarPedido`: hoy loguea (DEV); el envío real (Resend/Nodemailer)
- * queda para la infra de email (REC-28/REC-65) y reemplaza SÓLO el cuerpo.
- */
-export const notificarCierre = internalAction({
-  args: { email: v.string(), resultadoCierre },
-  handler: async (_ctx, { email, resultadoCierre: resultado }) => {
-    // TODO (infra email, REC-28/REC-65): envío real al damnificado.
-    console.log(`[cierre] Aviso de cierre (${resultado}) para ${email}: ${MENSAJE_CIERRE[resultado]}`);
   },
 });

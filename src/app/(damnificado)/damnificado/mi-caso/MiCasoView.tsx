@@ -1,8 +1,8 @@
 "use client";
 
-import { Component, CSSProperties, ReactNode } from "react";
+import { Component, CSSProperties, ReactNode, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { useAuthActions } from "@convex-dev/auth/react";
 import type { FunctionReturnType } from "convex/server";
 import {
@@ -101,6 +101,25 @@ function MiCasoHub({ data }: { data: Hub }) {
   const router = useRouter();
   const { signOut } = useAuthActions();
   const { caso, nombre, relato, pedidosPendientes, novedades } = data;
+
+  // Marcar como leídas las novedades que este feed muestra (REC-28). El anti
+  // doble-disparo es por ids (no un booleano global): si durante el mismo mount
+  // llega una novedad nueva sin ver, igual se marca. El loop reactivo se corta
+  // solo — tras el patch esos ids quedan `visto:true` y ya están en el set.
+  const marcarVistas = useMutation(api.notificaciones.marcarVistas);
+  const marcadasRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const pendientes = novedades.filter(
+      (n) => !n.visto && !marcadasRef.current.has(n._id),
+    );
+    if (pendientes.length === 0) return;
+    const ids = pendientes.map((n) => n._id);
+    ids.forEach((id) => marcadasRef.current.add(id));
+    void marcarVistas({ ids }).catch(() => {
+      // Falló el marcado: liberar los ids para reintentar en el próximo cambio.
+      ids.forEach((id) => marcadasRef.current.delete(id));
+    });
+  }, [novedades, marcarVistas]);
 
   async function cerrarSesion() {
     // Esperar el signOut antes de navegar: no deja la sesión visible (igual que la Sidebar del agente).
@@ -219,7 +238,7 @@ function MiCasoHub({ data }: { data: Hub }) {
           <div style={timelineStyle}>
             {novedades.map((n) => (
               <div key={n._id} style={novedadRowStyle}>
-                <span style={novedadDotStyle} />
+                <span style={n.visto ? novedadDotLeidoStyle : novedadDotStyle} />
                 <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                   <span style={{ fontSize: "var(--text-body-sm-size)", color: "var(--text-primary)", fontWeight: 600 }}>
                     {textoNovedad(n.motivo, caso.resultadoCierre)}
@@ -544,6 +563,12 @@ const novedadDotStyle: CSSProperties = {
   background: "var(--primary-500)",
   flexShrink: 0,
   marginTop: 6,
+};
+
+// Novedad ya vista: mismo dot, atenuado (REC-28).
+const novedadDotLeidoStyle: CSSProperties = {
+  ...novedadDotStyle,
+  background: "var(--text-tertiary)",
 };
 
 const novedadesVaciasStyle: CSSProperties = {
