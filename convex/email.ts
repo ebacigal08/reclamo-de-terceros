@@ -121,12 +121,15 @@ export async function sendEmailOrThrow(args: ArgsEnvio): Promise<void> {
 
 // ── Plantillas de marca (compartidas por notificaciones, reset e invitación) ──
 
-/** Escapa lo que va embebido en el HTML (texto libre del usuario, OTP, etc.). */
+/** Escapa lo que va embebido en el HTML (texto libre del usuario, OTP, URL, etc.).
+ *  Incluye la comilla doble para que sea seguro también dentro de un atributo
+ *  (p. ej. `href="..."`). */
 export function esc(s: string): string {
   return s
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 type ContenidoEmail = {
@@ -143,9 +146,10 @@ export function renderEmailHtml({ titulo, cuerpo, boton, codigo }: ContenidoEmai
   const bloqueCodigo = codigo
     ? `<div style="margin:0 0 24px;padding:16px 20px;background:#f4f4f5;border-radius:8px;font-family:'Courier New',monospace;font-size:28px;font-weight:700;letter-spacing:.2em;text-align:center;color:#18181b">${esc(codigo)}</div>`
     : "";
+  const urlSegura = boton ? esc(boton.url) : "";
   const bloqueBoton = boton
-    ? `<a href="${boton.url}" style="display:inline-block;background:#6d28d9;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:8px;font-size:14px;font-weight:600">${esc(boton.label)}</a>
-      <p style="margin:24px 0 0;font-size:12px;color:#a1a1aa">Si el botón no funciona, copiá este link:<br>${boton.url}</p>`
+    ? `<a href="${urlSegura}" style="display:inline-block;background:#6d28d9;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:8px;font-size:14px;font-weight:600">${esc(boton.label)}</a>
+      <p style="margin:24px 0 0;font-size:12px;color:#a1a1aa">Si el botón no funciona, copiá este link:<br>${urlSegura}</p>`
     : "";
   return `<!doctype html>
 <html lang="es"><body style="margin:0;background:#f4f4f5;padding:24px;font-family:Arial,Helvetica,sans-serif;color:#18181b">
