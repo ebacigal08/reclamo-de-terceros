@@ -110,5 +110,5 @@ src/
 - **Sidebar / navegación** del agente y componentes base del design system (Button, Input, Alert, Badge, EmptyState, Skeleton).
 
 **Pendiente (próximos pasos):**
-- Invitación/activación del damnificado y reset de contraseña (resto de REC-17).
+- Verificar un dominio propio en Resend para el email en producción — hoy el envío usa el remitente de prueba `onboarding@resend.dev` (sólo entrega a la casilla de la cuenta). Invitación, reset de contraseña y notificaciones ya están cableados con email real (REC-28 · REC-65).
 - Resto de pantallas (ficha, nuevo caso, flujos del damnificado) reemplazando cada `Placeholder`.

@@ -1,25 +1,24 @@
 /**
- * Transporte de email — Amparo CRM (REC-28).
+ * Transporte y plantillas de email — Amparo CRM (REC-28, REC-65).
  *
- * `sendEmail` es el ÚNICO punto de salida de correo del sistema. Va contra la
- * HTTP API de Resend con `fetch` (disponible en el runtime default de Convex),
- * sin el SDK: así no arrastra la dependencia `resend` ni obliga a `"use node"`
- * en los módulos que envían. Lo consumen los `internalAction` de notificación
- * (ver `convex/notificaciones.ts`); nunca una mutation (no puede hacer I/O).
+ * Todo el correo del sistema sale por acá, contra la HTTP API de Resend con
+ * `fetch` (runtime default de Convex, sin el SDK ni `"use node"`). Hay DOS
+ * semánticas de envío, según qué tan crítica sea la entrega:
  *
- * Dos garantías de las que dependen las mutations que encolan envíos:
- *  - **Degrada sin credencial**: si falta `RESEND_API_KEY`, loguea y retorna.
- *    Preserva el comportamiento DEV de siempre, así que la rama se puede
- *    mergear/deployar antes de setear la variable sin romper nada.
- *  - **Nunca lanza**: cualquier fallo de red o respuesta !ok se loguea y se
- *    traga. El issue lo exige: si el email falla, no debe voltear la acción
- *    del agente. Como el envío ya corre desacoplado por `scheduler.runAfter`,
- *    la mutation ya commiteó cuando esto ejecuta.
+ *  - `sendEmail` — **best-effort** (notificaciones, REC-28). Degrada a log sin
+ *    `RESEND_API_KEY` y NUNCA lanza: un email de novedad que no sale no debe
+ *    voltear la acción del agente.
+ *  - `sendEmailOrThrow` — **crítico** (reset de contraseña e invitación, REC-65).
+ *    LANZA si no puede entregar (sin key, Resend !ok, o fallo de red). El flujo
+ *    de auth debe fallar VISIBLEMENTE en vez de decir "te enviamos el código"
+ *    cuando en realidad no se entregó.
  *
- * El log lleva SÓLO destinatario y motivo — nunca el asunto ni el cuerpo. El
- * `motivo` ya identifica la notificación, y algunos asuntos incluyen PII (el de
- * `PLAZO_PROXIMO` lleva el nombre del damnificado). Cierra además el TODO que
- * arrastraban los viejos stubs en `pedidos.ts` (logueaban la descripción).
+ * Ninguna de las dos loguea el asunto ni el cuerpo (evita exponer PII como el
+ * OTP de reset o la descripción de un pedido); el log/el error de fallo llevan
+ * sólo destinatario, motivo y el detalle acotado de Resend.
+ *
+ * Las plantillas de marca (`renderEmailHtml`, `emailTexto`, `esc`) también viven
+ * acá para que notificaciones, reset e invitación compartan un solo look.
  */
 
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
@@ -30,14 +29,14 @@ const FROM_DEFAULT = "Amparo <onboarding@resend.dev>";
 
 /**
  * Base pública del sitio para los links de los emails. Centraliza el
- * `SITE_URL ?? localhost` que estaba triplicado y normaliza la barra final
- * para no generar `//damnificado/...` si `SITE_URL` viene con `/`.
+ * `SITE_URL ?? localhost` y normaliza la barra final para no generar
+ * `//damnificado/...` si `SITE_URL` viene con `/`.
  */
 export function baseUrl(): string {
   return (process.env.SITE_URL ?? "http://localhost:3000").replace(/\/+$/, "");
 }
 
-/** Recorta un mensaje de error para el log (no volcamos bodies enteros). */
+/** Recorta un mensaje para el log/el error (no volcamos bodies enteros). */
 function acotar(s: string): string {
   return s.length > 200 ? `${s.slice(0, 200)}…` : s;
 }
@@ -56,24 +55,25 @@ async function resumenError(res: Response): Promise<string> {
   }
 }
 
-export async function sendEmail(args: {
+type ArgsEnvio = {
   to: string;
   subject: string;
   text: string;
   html: string;
-  /** Sólo para observabilidad en el log; no viaja a Resend. */
+  /** Sólo para observabilidad; no viaja a Resend ni al mensaje de error. */
   motivo: string;
-}): Promise<void> {
-  const { to, subject, text, html, motivo } = args;
-  const apiKey = process.env.RESEND_API_KEY;
+};
 
-  // Degradación: sin API key no se envía (dev local, o deployment sin la var).
-  // No logueamos el asunto: puede contener PII (ver docstring). `subject` se
-  // usa sólo para el envío real de abajo.
-  if (!apiKey) {
-    console.log(`[email][DEV] motivo=${motivo} → ${to}`);
-    return;
-  }
+type Entrega = { ok: true } | { ok: false; detalle: string };
+
+/**
+ * Hace el POST a Resend y devuelve el resultado. NO lanza y NO loguea (eso lo
+ * deciden `sendEmail`/`sendEmailOrThrow` según su semántica). El `detalle` de
+ * fallo lleva sólo status/mensaje de Resend, nunca el asunto ni el cuerpo.
+ */
+async function entregar({ to, subject, text, html }: ArgsEnvio): Promise<Entrega> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) return { ok: false, detalle: "RESEND_API_KEY no configurada" };
 
   const from = process.env.EMAIL_FROM ?? FROM_DEFAULT;
   try {
@@ -85,15 +85,89 @@ export async function sendEmail(args: {
       },
       body: JSON.stringify({ from, to, subject, text, html }),
     });
-    // El 403 de Resend en modo test (destinatario que no es el dueño de la
-    // cuenta) cae acá: se loguea y no rompe nada.
-    if (!res.ok) {
-      console.error(
-        `[email] fallo motivo=${motivo} → ${to}: ${res.status} ${await resumenError(res)}`,
-      );
-    }
+    if (!res.ok) return { ok: false, detalle: `${res.status} ${await resumenError(res)}` };
+    return { ok: true };
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error(`[email] fallo motivo=${motivo} → ${to}: ${acotar(msg)}`);
+    return { ok: false, detalle: acotar(err instanceof Error ? err.message : String(err)) };
   }
+}
+
+/**
+ * Envío best-effort (notificaciones). Degrada a log sin `RESEND_API_KEY` y nunca
+ * lanza; un fallo se loguea (sin asunto ni cuerpo) y se traga.
+ */
+export async function sendEmail(args: ArgsEnvio): Promise<void> {
+  if (!process.env.RESEND_API_KEY) {
+    console.log(`[email][DEV] motivo=${args.motivo} → ${args.to}`);
+    return;
+  }
+  const r = await entregar(args);
+  if (!r.ok) {
+    console.error(`[email] fallo motivo=${args.motivo} → ${args.to}: ${r.detalle}`);
+  }
+}
+
+/**
+ * Envío crítico (reset de contraseña, invitación). LANZA si no se pudo entregar,
+ * para que el flujo de auth falle visiblemente en vez de simular éxito. El error
+ * lleva sólo motivo y el detalle de Resend — NUNCA el asunto, el cuerpo ni el OTP.
+ */
+export async function sendEmailOrThrow(args: ArgsEnvio): Promise<void> {
+  const r = await entregar(args);
+  if (!r.ok) {
+    throw new Error(`No se pudo enviar el email (motivo=${args.motivo}): ${r.detalle}`);
+  }
+}
+
+// ── Plantillas de marca (compartidas por notificaciones, reset e invitación) ──
+
+/** Escapa lo que va embebido en el HTML (texto libre del usuario, OTP, URL, etc.).
+ *  Incluye la comilla doble para que sea seguro también dentro de un atributo
+ *  (p. ej. `href="..."`). */
+export function esc(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+type ContenidoEmail = {
+  titulo: string;
+  cuerpo: string;
+  /** Email con botón-link (invitación, notificaciones). */
+  boton?: { url: string; label: string };
+  /** Email con un código destacado (OTP de reset). */
+  codigo?: string;
+};
+
+/** Envuelve título + cuerpo + (botón | código) en el HTML de marca de Amparo. */
+export function renderEmailHtml({ titulo, cuerpo, boton, codigo }: ContenidoEmail): string {
+  const bloqueCodigo = codigo
+    ? `<div style="margin:0 0 24px;padding:16px 20px;background:#f4f4f5;border-radius:8px;font-family:'Courier New',monospace;font-size:28px;font-weight:700;letter-spacing:.2em;text-align:center;color:#18181b">${esc(codigo)}</div>`
+    : "";
+  const urlSegura = boton ? esc(boton.url) : "";
+  const bloqueBoton = boton
+    ? `<a href="${urlSegura}" style="display:inline-block;background:#6d28d9;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:8px;font-size:14px;font-weight:600">${esc(boton.label)}</a>
+      <p style="margin:24px 0 0;font-size:12px;color:#a1a1aa">Si el botón no funciona, copiá este link:<br>${urlSegura}</p>`
+    : "";
+  return `<!doctype html>
+<html lang="es"><body style="margin:0;background:#f4f4f5;padding:24px;font-family:Arial,Helvetica,sans-serif;color:#18181b">
+  <table role="presentation" width="100%" style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:12px;padding:32px">
+    <tr><td>
+      <p style="margin:0 0 8px;font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:#6d28d9;font-weight:700">Amparo</p>
+      <h1 style="margin:0 0 16px;font-size:20px;line-height:1.3">${esc(titulo)}</h1>
+      <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#3f3f46">${esc(cuerpo)}</p>
+      ${bloqueCodigo}${bloqueBoton}
+    </td></tr>
+  </table>
+</body></html>`;
+}
+
+/** Versión en texto plano del mismo contenido. */
+export function emailTexto({ titulo, cuerpo, boton, codigo }: ContenidoEmail): string {
+  let t = `${titulo}\n\n${cuerpo}`;
+  if (codigo) t += `\n\n${codigo}`;
+  if (boton) t += `\n\n${boton.label}: ${boton.url}`;
+  return t;
 }

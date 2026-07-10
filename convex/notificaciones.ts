@@ -4,7 +4,7 @@ import type { Id } from "./_generated/dataModel";
 import { v, ConvexError, type Infer } from "convex/values";
 import { internal } from "./_generated/api";
 import { resolveRole } from "./users";
-import { baseUrl, sendEmail } from "./email";
+import { baseUrl, emailTexto, renderEmailHtml, sendEmail } from "./email";
 
 /**
  * Motor de notificaciones al damnificado (y al agente) — REC-28.
@@ -133,37 +133,16 @@ function linkPara(dest: Destinatario, casoId: Id<"casos">): string {
     : `${baseUrl()}/damnificado/mi-caso`;
 }
 
-/** Escapa lo que va embebido en el HTML (la descripción es texto libre del usuario). */
-function esc(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-}
-
-/** Envuelve título + cuerpo + CTA en un HTML de email mínimo y legible. */
-function renderHtml(titulo: string, cuerpo: string, url: string, cta: string): string {
-  return `<!doctype html>
-<html lang="es"><body style="margin:0;background:#f4f4f5;padding:24px;font-family:Arial,Helvetica,sans-serif;color:#18181b">
-  <table role="presentation" width="100%" style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:12px;padding:32px">
-    <tr><td>
-      <p style="margin:0 0 8px;font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:#6d28d9;font-weight:700">Amparo</p>
-      <h1 style="margin:0 0 16px;font-size:20px;line-height:1.3">${esc(titulo)}</h1>
-      <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#3f3f46">${esc(cuerpo)}</p>
-      <a href="${url}" style="display:inline-block;background:#6d28d9;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:8px;font-size:14px;font-weight:600">${esc(cta)}</a>
-      <p style="margin:24px 0 0;font-size:12px;color:#a1a1aa">Si el botón no funciona, copiá este link:<br>${url}</p>
-    </td></tr>
-  </table>
-</body></html>`;
-}
-
 type Plantilla = { subject: string; text: string; html: string };
 
+// Reusa el shell de marca compartido (`convex/email.ts`); el botón-link envuelve
+// el `cta`+`url`. El texto/HTML resultante es equivalente al de antes de REC-65.
 function armar(subject: string, titulo: string, cuerpo: string, url: string, cta: string): Plantilla {
+  const contenido = { titulo, cuerpo, boton: { url, label: cta } };
   return {
     subject,
-    text: `${titulo}\n\n${cuerpo}\n\n${cta}: ${url}`,
-    html: renderHtml(titulo, cuerpo, url, cta),
+    text: emailTexto(contenido),
+    html: renderEmailHtml(contenido),
   };
 }
 

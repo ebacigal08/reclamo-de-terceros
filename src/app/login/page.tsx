@@ -128,16 +128,14 @@ export default function LoginPage() {
                   </button>
                 }
               />
-              {/* Reset DEV: sólo se ofrece fuera de producción (la barrera real
-                  es el gate del backend; ver convex/auth.ts). */}
-              {process.env.NODE_ENV !== "production" && (
-                <Link
-                  href={RUTAS.recuperar}
-                  style={{ alignSelf: "flex-end", fontSize: "var(--text-body-sm-size)", fontWeight: 600, color: "var(--primary-600)", textDecoration: "none" }}
-                >
-                  ¿Olvidaste tu contraseña?
-                </Link>
-              )}
+              {/* Recuperación de contraseña por email (REC-65): disponible
+                  siempre, también en producción. */}
+              <Link
+                href={RUTAS.recuperar}
+                style={{ alignSelf: "flex-end", fontSize: "var(--text-body-sm-size)", fontWeight: 600, color: "var(--primary-600)", textDecoration: "none" }}
+              >
+                ¿Olvidaste tu contraseña?
+              </Link>
             </div>
 
             <Button variant="primary" size="lg" fullWidth type="submit" loading={loading}>

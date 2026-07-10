@@ -9,13 +9,14 @@ import { Alert, Button, Input } from "@/components/ui";
 import { RUTAS } from "@/lib/constants";
 
 /**
- * Recuperación de contraseña (REC-17). Flujo nativo del provider Password:
+ * Recuperación de contraseña (REC-17, REC-65). Flujo nativo del provider Password:
  *  - paso "email": pide el código de reset (signIn flow "reset").
  *  - paso "codigo": verifica el código y fija la nueva contraseña
  *    (signIn flow "reset-verification"), que además deja la sesión iniciada.
  *
- * En dev, el código se loguea en el servidor Convex (ver passwordReset.ts);
- * no se envía email. Funciona para ambos roles (agente y damnificado activado).
+ * El código se ENVÍA por email (Resend, ver passwordReset.ts). Disponible en
+ * producción para ambos roles (agente y damnificado activado). Si el envío
+ * falla, `signIn(flow:"reset")` rechaza y no se avanza al paso del código.
  */
 export default function RecuperarPage() {
   const router = useRouter();
@@ -64,38 +65,6 @@ export default function RecuperarPage() {
       setError("El código es incorrecto o venció. Pedí uno nuevo.");
       setLoading(false);
     }
-  }
-
-  // El reset DEV no se ofrece en producción (la barrera real es el gate del
-  // backend en convex/auth.ts). Aquí sólo evitamos exponer la pantalla.
-  if (process.env.NODE_ENV === "production") {
-    return (
-      <main
-        style={{
-          minHeight: "100vh",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: "40px 22px",
-          background: "var(--bg-page)",
-        }}
-      >
-        <div style={{ width: "100%", maxWidth: 400, display: "flex", flexDirection: "column", gap: 22 }}>
-          <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-0.02em", color: "var(--text-primary)" }}>
-            Amparo
-          </div>
-          <Alert variant="info" title="No disponible">
-            La recuperación de contraseña todavía no está habilitada. Escribile a tu
-            agente para que te ayude a recuperar el acceso.
-          </Alert>
-          <p style={{ textAlign: "center", margin: 0 }}>
-            <Link href={RUTAS.login} style={{ fontSize: "var(--text-body-sm-size)", fontWeight: 600, color: "var(--primary-600)", textDecoration: "none" }}>
-              Volver a iniciar sesión
-            </Link>
-          </p>
-        </div>
-      </main>
-    );
   }
 
   return (
@@ -159,7 +128,7 @@ export default function RecuperarPage() {
               value={code}
               onChange={(e) => setCode(e.target.value)}
               error={error ? " " : undefined}
-              helperText="Modo dev: el código aparece en la consola del servidor (todavía no se envía por email)."
+              helperText="Te enviamos un código de 8 dígitos a tu email. Revisá tu bandeja (y el spam)."
               required
             />
             <Input
