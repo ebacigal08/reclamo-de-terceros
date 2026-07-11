@@ -23,6 +23,26 @@ export function hoyLocalISO(): string {
   return `${d.getFullYear()}-${mm}-${dd}`;
 }
 
+/** Hora local en HH:MM (24h). Para los mensajes del chat (REC-34). */
+export function formatHora(input: string | number | Date): string {
+  const d = new Date(input);
+  if (Number.isNaN(d.getTime())) return "";
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  return `${hh}:${mm}`;
+}
+
+/** ¿Los dos instantes caen el mismo día local? Separadores de día del chat. */
+export function mismoDia(a: string | number | Date, b: string | number | Date): boolean {
+  const x = new Date(a);
+  const y = new Date(b);
+  return (
+    x.getFullYear() === y.getFullYear() &&
+    x.getMonth() === y.getMonth() &&
+    x.getDate() === y.getDate()
+  );
+}
+
 /** Días entre hoy y una fecha (positivo = futuro). Útil para plazos. */
 export function diasHasta(fecha: string | number | Date): number {
   const hoy = new Date();

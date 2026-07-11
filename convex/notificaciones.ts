@@ -71,6 +71,38 @@ export const datosNotificacion = v.union(
 type DatosNotificacion = Infer<typeof datosNotificacion>;
 type Destinatario = Infer<typeof destinatario>;
 
+/**
+ * Motivos que SÓLO mandan email, SIN registrarse en la tabla `notificaciones`
+ * (REC-34 · chat).
+ *
+ * Por qué el chat no deja fila: el feed de "Mi caso" (`casos.miCaso`) es un
+ * `.take(3)` de HITOS del caso —avances de etapa, pedidos— y una conversación de
+ * cinco mensajes lo taparía entero. Peor: esa fila tiene su propio `visto`, que el
+ * feed marca al renderizar → el damnificado podría "ver la novedad" sin abrir el
+ * chat, y quedaríamos con DOS verdades desincronizadas sobre lo mismo (`visto` vs
+ * `mensajes.leidoAt`). El chat ya tiene su propio indicador de no leídos.
+ *
+ * Está FUERA de `datosNotificacion` a propósito, no por prolijidad: `crearNotificacion`
+ * hace `insert("notificaciones", { motivo: datos.motivo })`, así que si un motivo que
+ * NO está en el enum `motivoNotificacion` del schema entrara a ese union, el insert
+ * DEJARÍA DE COMPILAR. Al separarlo, `crearNotificacion` sencillamente no lo acepta:
+ * "el chat no entra al feed" pasa a ser una garantía del compilador, no una convención
+ * que alguien puede olvidar. Por lo mismo, `NUEVO_MENSAJE` NO se agrega al enum del
+ * schema: nunca se persiste.
+ */
+export const datosSoloEmail = v.union(
+  v.object({
+    motivo: v.literal("NUEVO_MENSAJE"),
+    // Para el asunto del email al AGENTE (mismo criterio que PLAZO_PROXIMO, que lleva
+    // el nombre en el subject para poder triar). El damnificado lo ignora.
+    damnificadoNombre: v.string(),
+  }),
+);
+
+/** Todo lo que `enviar` sabe mandar por email, se registre o no. */
+export const datosEmail = v.union(datosNotificacion, datosSoloEmail);
+type DatosEmail = Infer<typeof datosEmail>;
+
 // ── Textos (mirror local; MANTENER SINCRONIZADO con src/lib/constants.ts) ──
 // Label humano de cada etapa para el cuerpo del email de AVANCE_ETAPA. Espeja
 // `ETAPAS[].labelHumano` de `src/lib/constants.ts` (sin import compartido).
@@ -146,8 +178,12 @@ function armar(subject: string, titulo: string, cuerpo: string, url: string, cta
   };
 }
 
-/** Asunto/cuerpo del email según el motivo. `switch` exhaustivo sobre el union. */
-function plantilla(datos: DatosNotificacion, dest: Destinatario, casoId: Id<"casos">): Plantilla {
+/**
+ * Asunto/cuerpo del email según el motivo. `switch` exhaustivo sobre el union ANCHO
+ * (`DatosEmail` = los que se registran + los de sólo-email): agregar un miembro
+ * ROMPE LA COMPILACIÓN acá hasta escribirle su `case`. Es la red de seguridad.
+ */
+function plantilla(datos: DatosEmail, dest: Destinatario, casoId: Id<"casos">): Plantilla {
   const url = linkPara(dest, casoId);
   // Todo lo que va al damnificado comparte asunto (pedido del issue).
   const ASUNTO_DAMNIFICADO = "Novedad en tu reclamo";
@@ -200,6 +236,26 @@ function plantilla(datos: DatosNotificacion, dest: Destinatario, casoId: Id<"cas
         url,
         "Ver el caso",
       );
+    case "NUEVO_MENSAJE":
+      // El TEXTO del mensaje no va en el email, a propósito: (a) la política es
+      // "avisar una vez hasta que lea", así que un solo correo puede representar
+      // cinco mensajes y citar uno mentiría; (b) no volcamos contenido del caso al
+      // correo (mismo criterio que `email.ts`, que ni siquiera loguea el body).
+      return dest === "AGENTE"
+        ? armar(
+            `Mensaje nuevo — ${datos.damnificadoNombre}`,
+            "Tenés un mensaje nuevo",
+            `${datos.damnificadoNombre} te escribió en el chat del caso. Entrá para leerlo y responder.`,
+            url,
+            "Ver el caso",
+          )
+        : armar(
+            ASUNTO_DAMNIFICADO,
+            "Tu agente te escribió",
+            "Tenés un mensaje nuevo de tu agente. Entrá al chat de tu caso para leerlo y responder.",
+            url,
+            "Ver mi caso",
+          );
   }
 }
 
@@ -214,7 +270,10 @@ export const enviar = internalAction({
     email: v.string(),
     casoId: v.id("casos"),
     destinatario,
-    datos: datosNotificacion,
+    // Union ANCHO: acepta tanto los motivos que se registran en `notificaciones`
+    // (vía `crearNotificacion`) como los de sólo-email (el chat, que lo encola
+    // directo con `scheduler.runAfter`).
+    datos: datosEmail,
   },
   handler: async (_ctx, { email, casoId, destinatario: dest, datos }) => {
     const { subject, text, html } = plantilla(datos, dest, casoId);
