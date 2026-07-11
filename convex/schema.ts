@@ -16,6 +16,7 @@ import { v } from "convex/values";
  *  - prioridad:     ALTA | MEDIA | BAJA
  *  - resultadoCierre: RESUELTO | RECHAZADO | EN_APELACION
  *  - tipoRespuesta: OFERTA | RECHAZO | CONTRAOFERTA | PENDIENTE  (sólo agente)
+ *  - tipoGestion:   LLAMADA | CORREO | PRESENTACION | REUNION | OTRO  (sólo agente)
  *  - motivo (notif): CASO_ABIERTO | NUEVO_PEDIDO | AVANCE_ETAPA |
  *                    EXPEDIENTE_VALIDADO | PLAZO_PROXIMO | PEDIDO_RESPONDIDO |
  *                    CASO_CERRADO
@@ -56,6 +57,17 @@ const tipoRespuesta = v.union(
   v.literal("RECHAZO"),
   v.literal("CONTRAOFERTA"),
   v.literal("PENDIENTE"),
+);
+
+// Qué acción hizo el agente sobre el caso (REC-32). Son CATEGORÍAS de canal, no
+// estados: por eso en la UI se distinguen por ícono y no por badge de color
+// (ver TIPOS_GESTION en src/lib/constants.ts).
+const tipoGestion = v.union(
+  v.literal("LLAMADA"),
+  v.literal("CORREO"),
+  v.literal("PRESENTACION"),
+  v.literal("REUNION"),
+  v.literal("OTRO"),
 );
 
 const subidoPor = v.union(v.literal("AGENTE"), v.literal("DAMNIFICADO"));
@@ -181,6 +193,33 @@ export default defineSchema({
     // la ÚLTIMA que cargó el agente se muestra ARRIBA. Es deliberado (bitácora
     // operativa: lo último anotado va primero), no un efecto colateral.
     .index("by_caso_fecha", ["casoId", "fecha"]),
+
+  // ── Log de gestiones del agente (REC-32) · SÓLO AGENTE ─────────
+  // Bitácora interna: qué hizo el agente y cuándo (llamó, mandó un correo,
+  // presentó, se reunió). El damnificado NO la ve → se lee SÓLO por
+  // `gestiones.listPorCaso` (guard rol=agente), NUNCA desde `casos.get`, que es
+  // una query dual-rol. Mismo criterio que `respuestasAseguradora` (REC-31).
+  gestiones: defineTable({
+    casoId: v.id("casos"),
+    tipo: tipoGestion,
+    descripcion: v.string(),
+    fechaGestion: v.string(), // ISO date (YYYY-MM-DD): cuándo OCURRIÓ la gestión
+    // El `registradoAt` del issue = `_creationTime` (convención del módulo: no
+    // hay campos "creadoEn" manuales); la query lo proyecta como `registradoEn`.
+    // Al EDITAR una gestión el `_creationTime` NO cambia, que es lo correcto:
+    // es cuándo se anotó, no cuándo se corrigió.
+  })
+    // Historial cronológico por orden de índice, sin ordenar en JS. Sirve además
+    // como "todas las de un caso" por prefijo → no hace falta un `by_caso` aparte.
+    //
+    // DESEMPATE (misma `fechaGestion`): el índice las devuelve en orden de
+    // creación y la UI invierte el listado → de dos gestiones del mismo día, la
+    // ÚLTIMA que cargó el agente se muestra ARRIBA. Es deliberado (bitácora
+    // operativa: lo último anotado, primero), no un efecto colateral.
+    //
+    // Editar `fechaGestion` REUBICA la fila en la lista (el índice la re-ordena).
+    // Es el comportamiento correcto, no un bug.
+    .index("by_caso_fecha", ["casoId", "fechaGestion"]),
 
   // ── Notificaciones automáticas ─────────────────────────────────
   notificaciones: defineTable({

@@ -62,6 +62,28 @@ export type TipoRespuesta = (typeof TIPOS_RESPUESTA)[number]["value"];
 /** Espejo de MAX_TEXTO en convex/respuestasAseguradora.ts (el server valida igual). */
 export const RESPUESTA_MAX_TEXTO = 2000;
 
+// ── Gestiones del agente (REC-32) · SÓLO AGENTE ──────────────────
+// El orden del array es el orden del <Select>.
+//
+// SIN `badge`, a diferencia de todos los otros enums de acá, y es una decisión,
+// no un olvido: estos 5 valores son CATEGORÍAS de canal (por dónde se hizo la
+// gestión), no ESTADOS —que es lo que el badge de color codifica en Amparo
+// (etapa, prioridad, resultado, tipo de respuesta)—. Además ya no queda ninguna
+// escala de color libre en colors.css: cinco badges nuevos tendrían que reciclar
+// hues cargados de significado (danger=rechazo, success=resuelto…) y serían ruido
+// en la lista más larga de la ficha. Se distinguen por ÍCONO + el label en texto
+// (el mapa tipo→ícono vive en GestionesCard.tsx, que es donde importa lucide).
+export const TIPOS_GESTION = [
+  { value: "LLAMADA", label: "Llamada" },
+  { value: "CORREO", label: "Correo" },
+  { value: "PRESENTACION", label: "Presentación" },
+  { value: "REUNION", label: "Reunión" },
+  { value: "OTRO", label: "Otro" },
+] as const;
+export type TipoGestion = (typeof TIPOS_GESTION)[number]["value"];
+/** Espejo de MAX_DESCRIPCION en convex/gestiones.ts (el server valida igual). */
+export const GESTION_MAX_DESCRIPCION = 1000;
+
 // ── Motivos de notificación → texto humano para el damnificado ───
 export const MOTIVO_NOTIFICACION_TEXTO: Record<string, string> = {
   CASO_ABIERTO: "Tu caso fue abierto por tu agente",
