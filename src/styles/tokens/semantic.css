@@ -88,6 +88,19 @@
   --badge-respondido-bg:  var(--success-50);
   --badge-respondido-text:var(--success-700);
 
+  /* ── Badges · Respuesta de la aseguradora (REC-31) ────── */
+  /* RECHAZO reusa `rechazado` y PENDIENTE reusa `pendiente` (mismo significado).
+     Estos dos son propios: `resuelto` (verde) mentiría sobre una OFERTA —no es
+     una resolución— y `negociacion` es idéntico a `pendiente` (ambos
+     warning-50/700), así que CONTRAOFERTA sería indistinguible de PENDIENTE. */
+  --badge-oferta-bg:     var(--teal-50);
+  --badge-oferta-text:   var(--teal-700);
+  --badge-oferta-border: var(--teal-200);
+
+  --badge-contraoferta-bg:     var(--plum-50);
+  --badge-contraoferta-text:   var(--plum-700);
+  --badge-contraoferta-border: var(--plum-200);
+
   /* ── Alertas · Vencimiento de plazos ──────────────────── */
   --alert-venc-proximo-bg:     var(--orange-50);
   --alert-venc-proximo-text:   var(--orange-700);

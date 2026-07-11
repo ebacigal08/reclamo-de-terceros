@@ -15,6 +15,7 @@ import { v } from "convex/values";
  *                   PRESENTADO_A_ASEGURADORA | EN_NEGOCIACION | CERRADO
  *  - prioridad:     ALTA | MEDIA | BAJA
  *  - resultadoCierre: RESUELTO | RECHAZADO | EN_APELACION
+ *  - tipoRespuesta: OFERTA | RECHAZO | CONTRAOFERTA | PENDIENTE  (sólo agente)
  *  - motivo (notif): CASO_ABIERTO | NUEVO_PEDIDO | AVANCE_ETAPA |
  *                    EXPEDIENTE_VALIDADO | PLAZO_PROXIMO | PEDIDO_RESPONDIDO |
  *                    CASO_CERRADO
@@ -47,6 +48,14 @@ const resultadoCierre = v.union(
   v.literal("RESUELTO"),
   v.literal("RECHAZADO"),
   v.literal("EN_APELACION"),
+);
+
+// Qué contestó la aseguradora en una instancia de la negociación (REC-31).
+const tipoRespuesta = v.union(
+  v.literal("OFERTA"),
+  v.literal("RECHAZO"),
+  v.literal("CONTRAOFERTA"),
+  v.literal("PENDIENTE"),
 );
 
 const subidoPor = v.union(v.literal("AGENTE"), v.literal("DAMNIFICADO"));
@@ -150,6 +159,28 @@ export default defineSchema({
     // Job de alertas (REC-29): plazos no avisados con vencimiento próximo, sin
     // escanear toda la tabla —> q.eq("avisadoAlAgente", false).lte("fechaVencimiento", limite).
     .index("by_avisado_fecha", ["avisadoAlAgente", "fechaVencimiento"]),
+
+  // ── Respuestas de la aseguradora (REC-31) · SÓLO AGENTE ────────
+  // Bitácora interna: qué ofreció o resolvió la aseguradora en cada instancia.
+  // El damnificado NO la ve → se lee SÓLO por `respuestasAseguradora.listPorCaso`
+  // (guard rol=agente), NUNCA desde `casos.get`, que es una query dual-rol.
+  respuestasAseguradora: defineTable({
+    casoId: v.id("casos"),
+    texto: v.string(),
+    tipo: tipoRespuesta,
+    fecha: v.string(), // ISO date (YYYY-MM-DD): cuándo se RECIBIÓ la respuesta
+    // El `registradoAt` del issue = `_creationTime` (convención del módulo: no
+    // hay campos "creadoEn" manuales). La query lo proyecta como `registradoEn`.
+  })
+    // Historial cronológico del caso por orden de índice, sin ordenar en JS
+    // (mismo patrón que `plazos.by_caso_fecha`). Sirve además como "todas las de
+    // un caso" por prefijo → no hace falta un `by_caso` aparte.
+    //
+    // DESEMPATE (misma `fecha`): el índice las devuelve en orden de creación, y
+    // la UI invierte todo el listado → de dos respuestas recibidas el mismo día,
+    // la ÚLTIMA que cargó el agente se muestra ARRIBA. Es deliberado (bitácora
+    // operativa: lo último anotado va primero), no un efecto colateral.
+    .index("by_caso_fecha", ["casoId", "fecha"]),
 
   // ── Notificaciones automáticas ─────────────────────────────────
   notificaciones: defineTable({

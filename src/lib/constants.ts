@@ -46,6 +46,22 @@ export const RESULTADOS_CIERRE = [
 ] as const;
 export type ResultadoCierre = (typeof RESULTADOS_CIERRE)[number]["value"];
 
+// ── Respuesta de la aseguradora (REC-31) · SÓLO AGENTE ───────────
+// El orden del array es el orden del <Select>. `badge` = key de token en
+// semantic.css: `rechazado` y `pendiente` se reusan (mismo significado que en
+// cierre/pedidos); `oferta` y `contraoferta` son tokens nuevos, porque `resuelto`
+// (verde) mentiría sobre una oferta y `negociacion` es visualmente idéntico a
+// `pendiente` (ambos warning-50/700) → los estados quedarían indistinguibles.
+export const TIPOS_RESPUESTA = [
+  { value: "OFERTA", label: "Oferta", badge: "oferta" },
+  { value: "CONTRAOFERTA", label: "Contraoferta", badge: "contraoferta" },
+  { value: "RECHAZO", label: "Rechazo", badge: "rechazado" },
+  { value: "PENDIENTE", label: "Pendiente de resolución", badge: "pendiente" },
+] as const;
+export type TipoRespuesta = (typeof TIPOS_RESPUESTA)[number]["value"];
+/** Espejo de MAX_TEXTO en convex/respuestasAseguradora.ts (el server valida igual). */
+export const RESPUESTA_MAX_TEXTO = 2000;
+
 // ── Motivos de notificación → texto humano para el damnificado ───
 export const MOTIVO_NOTIFICACION_TEXTO: Record<string, string> = {
   CASO_ABIERTO: "Tu caso fue abierto por tu agente",
