@@ -27,6 +27,8 @@ import type { Id } from "@convex/_generated/dataModel";
 import { Alert, Badge, Button, EmptyState, PrioritySelector, Skeleton, Stepper } from "@/components/ui";
 import { ETAPAS, PRIORIDADES, type Prioridad, RESULTADOS_CIERRE, RUTAS, TIPOS_SINIESTRO } from "@/lib/constants";
 import { diasHasta, estadoPlazo, formatFecha } from "@/lib/format";
+import { CenteredEmpty, SectionCard, fechaLocal } from "./fichaUi";
+import { RespuestasAseguradoraCard } from "./RespuestasAseguradoraCard";
 
 // DTO de la ficha (deriva del retorno de la query → siempre en sync). `null`
 // (no-encontrado/no-dueño) se maneja aparte; acá el shape del caso presente.
@@ -36,11 +38,6 @@ const etapaInfo = (v: string) => ETAPAS.find((e) => e.value === v);
 const prioridadInfo = (v: string) => PRIORIDADES.find((p) => p.value === v);
 const tipoLabel = (v: string) =>
   TIPOS_SINIESTRO.find((t) => t.value === v)?.label ?? v;
-
-// fechaVencimiento viene "YYYY-MM-DD": se parsea como fecha LOCAL (con
-// "T00:00:00") para no correr un día por timezone (AR es UTC-3). Mismo patrón
-// que la Lista de casos (const local, no exportada).
-const fechaLocal = (iso: string) => new Date(`${iso}T00:00:00`);
 
 // Índice de EN_NEGOCIACION en ETAPAS: desde esta etapa el botón de avance se
 // deshabilita (el único "siguiente" es CERRADO, que se hace en Cerrar caso).
@@ -473,6 +470,10 @@ function FichaDetalle({ caso }: { caso: Ficha }) {
               />
             )}
           </SectionCard>
+
+          {/* Respuestas de la aseguradora (REC-31) — SÓLO AGENTE. Trae su propia
+              query: no cuelga de `casos.get`, que es dual-rol. */}
+          <RespuestasAseguradoraCard casoId={caso._id} cerrado={caso.cerrado} />
         </div>
 
         {/* Columna derecha */}
@@ -569,55 +570,8 @@ function alertaContextual(caso: Ficha): ReactNode {
 }
 
 // ── Sub-componentes de presentación (portados del prototipo) ─────
-function SectionCard({
-  title,
-  right,
-  children,
-  pad,
-}: {
-  title: string;
-  right?: ReactNode;
-  children: ReactNode;
-  pad?: string;
-}) {
-  return (
-    <div
-      style={{
-        background: "var(--bg-surface)",
-        border: "1px solid var(--border)",
-        borderRadius: "var(--radius-lg)",
-        boxShadow: "var(--shadow-sm)",
-        overflow: "hidden",
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 12,
-          padding: "13px 18px",
-          borderBottom: "1px solid var(--divider)",
-        }}
-      >
-        <h3
-          style={{
-            margin: 0,
-            fontFamily: "var(--font-sans)",
-            fontSize: "var(--text-h4-size)",
-            fontWeight: 700,
-            color: "var(--text-primary)",
-          }}
-        >
-          {title}
-        </h3>
-        {right}
-      </div>
-      <div style={{ padding: pad ?? "16px 18px" }}>{children}</div>
-    </div>
-  );
-}
-
+// `SectionCard`, `CenteredEmpty` y `fechaLocal` viven en ./fichaUi: las usa
+// también RespuestasAseguradoraCard, y tenerlas acá crearía un ciclo de imports.
 function DataRow({
   icon,
   label,
@@ -803,22 +757,6 @@ const pillStyle = (color: string): CSSProperties => ({
   whiteSpace: "nowrap",
 });
 
-function CenteredEmpty({
-  icon,
-  title,
-  description,
-}: {
-  icon: ReactNode;
-  title: string;
-  description: string;
-}) {
-  return (
-    <div style={{ display: "flex", justifyContent: "center" }}>
-      <EmptyState icon={icon} title={title} description={description} />
-    </div>
-  );
-}
-
 // ── Estados de carga / no-encontrado / error ─────────────────────
 function CardSkeleton() {
   return (
@@ -854,8 +792,9 @@ function FichaSkeleton() {
       </div>
       <Skeleton height={118} radius="var(--radius-lg)" style={{ marginBottom: 20 }} />
       <div style={{ display: "grid", gridTemplateColumns: "1.9fr 1fr", gap: 20, alignItems: "start" }}>
+        {/* Columna izquierda: relato, documentos, pedidos, respuestas (REC-31). */}
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-          {[0, 1, 2].map((i) => (
+          {[0, 1, 2, 3].map((i) => (
             <CardSkeleton key={i} />
           ))}
         </div>

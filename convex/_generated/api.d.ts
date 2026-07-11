@@ -21,6 +21,7 @@ import type * as passwordReset from "../passwordReset.js";
 import type * as pedidos from "../pedidos.js";
 import type * as plazos from "../plazos.js";
 import type * as relato from "../relato.js";
+import type * as respuestasAseguradora from "../respuestasAseguradora.js";
 import type * as seed from "../seed.js";
 import type * as users from "../users.js";
 
@@ -44,6 +45,7 @@ declare const fullApi: ApiFromModules<{
   pedidos: typeof pedidos;
   plazos: typeof plazos;
   relato: typeof relato;
+  respuestasAseguradora: typeof respuestasAseguradora;
   seed: typeof seed;
   users: typeof users;
 }>;
