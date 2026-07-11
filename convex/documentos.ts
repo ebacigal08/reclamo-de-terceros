@@ -1,8 +1,7 @@
 import { query, mutation } from "./_generated/server";
-import type { MutationCtx } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
 import { v, ConvexError } from "convex/values";
 import { resolveRole } from "./users";
+import { exigirCasoAutorizadoDual } from "./autorizacion";
 
 /**
  * REC-23 · Carga de documentos y evidencias. Primer uso de Convex File Storage
@@ -76,28 +75,14 @@ function motivoRechazoArchivo(
 }
 
 /**
- * Sesión + pertenencia dual del caso (helper compartido por las dos mutations).
+ * Sesión + pertenencia dual del caso. El helper se mudó a `convex/autorizacion.ts`
+ * (REC-34): el chat necesita el MISMO guard desde una query, y dos copias de una
+ * frontera de autorización es exactamente lo que no queremos que exista.
+ *
  * NO valida "cerrado": cada mutation decide su política, y en `registrar` la
- * limpieza del blob depende de haber pasado ESTOS guards primero. `Error` (no
- * `ConvexError`): son guards de sesión/pertenencia, no validación de formulario.
- * Mismo mensaje para caso inexistente y ajeno → no se filtra la existencia.
+ * limpieza del blob depende de haber pasado ESTOS guards primero.
  */
-async function getCasoAutorizado(ctx: MutationCtx, casoId: Id<"casos">) {
-  const resolved = await resolveRole(ctx);
-  if (!resolved) {
-    throw new Error("No autorizado: se requiere una sesión.");
-  }
-  const caso = await ctx.db.get(casoId);
-  const esDueño =
-    caso &&
-    (resolved.rol === "agente"
-      ? caso.agenteId === resolved.agente._id
-      : caso.damnificadoId === resolved.damnificado._id);
-  if (!caso || !esDueño) {
-    throw new Error("No autorizado: el caso no existe o no es tuyo.");
-  }
-  return { resolved, caso };
-}
+const getCasoAutorizado = exigirCasoAutorizadoDual;
 
 /**
  * Documentos del caso del damnificado autenticado + estado del caso. Sin args:

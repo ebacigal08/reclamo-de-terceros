@@ -22,6 +22,7 @@ import { api } from "@convex/_generated/api";
 import { ETAPAS, MOTIVO_NOTIFICACION_TEXTO, RUTAS } from "@/lib/constants";
 import { formatFecha } from "@/lib/format";
 import { Button, EmptyState, Skeleton, Stepper } from "@/components/ui";
+import { ChatSection } from "./ChatSection";
 
 // DTO derivado de `casos.miCaso` (siempre en sync con el backend).
 // `undefined`=cargando, `null`=sin sesión de damnificado / sin caso.
@@ -206,6 +207,10 @@ function MiCasoHub({ data }: { data: Hub }) {
         )}
       </section>
       )}
+
+      {/* Chat con el agente (REC-34). Arriba de documentos: si hay mensajes sin leer,
+          tienen que verse sin scrollear hasta el final. */}
+      <ChatSection casoId={caso._id} />
 
       {/* Acceso a documentos — siempre visible */}
       <section style={sectionStyle}>

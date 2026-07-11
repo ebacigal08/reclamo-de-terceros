@@ -22,7 +22,13 @@ import { generarNumeroCaso } from "./casos";
  * La contraseña demo es un dato de DESARROLLO, no un secreto productivo.
  */
 
-const EMAIL_AGENTE = "agente@amparo.ar";
+// OJO: `agente@amparo.ar` es la credencial de login de la demo, pero NO es una
+// dirección real — Resend ya la tiene en su lista de supresión (rebotó), así que los
+// emails al agente (PEDIDO_RESPONDIDO, PLAZO_PROXIMO, NUEVO_MENSAJE de REC-34)
+// simplemente no se entregan. No hace daño nuevo (suprimido = ni se intenta), pero si
+// querés VER los correos del lado agente, apuntá `SEED_AGENT_EMAIL` a una casilla real.
+// No se cambió el default para no romper la credencial de login documentada.
+const EMAIL_AGENTE = process.env.SEED_AGENT_EMAIL ?? "agente@amparo.ar";
 const NOMBRE_AGENTE = "María Gómez";
 
 type DominioResumen = {
@@ -134,12 +140,22 @@ export const insertarDominioDemo = internalMutation({
       email,
     });
 
+    // Alias `+` de una casilla REAL, no `@example.com`.
+    //
+    // Antes eran `@example.com`, que es un dominio reservado SIN registros MX: todo
+    // correo que se le manda REBOTA (hard bounce) y ensucia la reputación del dominio
+    // remitente. Con el MVP casi no se notaba —los datos demo generaban un email
+    // suelto—, pero el chat (REC-34) manda un aviso por cada tanda de mensajes: basta
+    // con demostrar la app sobre un caso demo para disparar rebotes sin enterarse.
+    //
+    // Los alias `+` van todos a la misma casilla y son direcciones válidas, así que
+    // la demo entrega de verdad y se puede ver el correo que le llega al damnificado.
     const damnificadosDemo = [
-      { nombre: "Marta Coledani", email: "marta.coledani@example.com", telefono: "11-5555-0001" },
-      { nombre: "Mónica Alsina", email: "monica.alsina@example.com", telefono: "11-5555-0002" },
-      { nombre: "Hernán Ríos", email: "hernan.rios@example.com", telefono: "11-5555-0003" },
-      { nombre: "Rubén Ferreyra", email: "ruben.ferreyra@example.com", telefono: "11-5555-0004" },
-      { nombre: "Patricia Vega", email: "patricia.vega@example.com", telefono: "11-5555-0005" },
+      { nombre: "Marta Coledani", email: "tote08+marta@gmail.com", telefono: "11-5555-0001" },
+      { nombre: "Mónica Alsina", email: "tote08+monica@gmail.com", telefono: "11-5555-0002" },
+      { nombre: "Hernán Ríos", email: "tote08+hernan@gmail.com", telefono: "11-5555-0003" },
+      { nombre: "Rubén Ferreyra", email: "tote08+ruben@gmail.com", telefono: "11-5555-0004" },
+      { nombre: "Patricia Vega", email: "tote08+patricia@gmail.com", telefono: "11-5555-0005" },
     ];
     const damnificadoIds = [];
     for (const d of damnificadosDemo) {

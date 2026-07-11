@@ -35,6 +35,10 @@ const ORDEN_PRIORIDAD: Record<"ALTA" | "MEDIA" | "BAJA", number> = {
   BAJA: 2,
 };
 
+// Tope del badge de mensajes sin leer (REC-34): a partir de acá la UI muestra "9+".
+// Acota la lectura por caso en `listMine` (nunca más de 10 docs).
+const TOPE_BADGE_MENSAJES = 9;
+
 // Validador de la etapa (mirror de la union `etapa` de `convex/schema.ts`;
 // mismo criterio que `tipoSiniestro`/`prioridad` arriba). Valida el arg
 // `etapaActual` de la concurrencia optimista en `avanzarEtapa`.
@@ -130,6 +134,20 @@ export const listMine = query({
         const inminente = plazos.some(
           (p) => !p.avisadoAlAgente && p.fechaVencimiento <= limiteISO,
         );
+        // Mensajes del chat (REC-34) que le mandó el DAMNIFICADO y el agente todavía
+        // no leyó (`leidoAt` ausente). Va acá, y no en una query aparte, porque ésta
+        // es la pantalla donde el agente aterriza: sin el indicador tendría que abrir
+        // caso por caso para descubrir quién le escribió. Es una lectura indexada y
+        // acotada (10 docs) — más barata que la de `plazos`, que ni tope tiene.
+        const noLeidos = await ctx.db
+          .query("mensajes")
+          .withIndex("by_caso_autor_leido", (q) =>
+            q
+              .eq("casoId", caso._id)
+              .eq("autorTipo", "DAMNIFICADO")
+              .eq("leidoAt", undefined),
+          )
+          .take(TOPE_BADGE_MENSAJES + 1);
         return {
           _id: caso._id,
           numeroCaso: caso.numeroCaso,
@@ -140,6 +158,7 @@ export const listMine = query({
           // El más próximo (plazos[0]) para la columna; sin filtrar por avisado.
           vencimiento: plazos[0]?.fechaVencimiento ?? null,
           inminente,
+          mensajesNoLeidos: noLeidos.length, // 0..10 → la UI pinta "9+" en el tope
           creadoEn: caso._creationTime,
         };
       }),
@@ -272,6 +291,11 @@ export const get = query({
         nombre: damnificadoDoc.nombre,
         email: damnificadoDoc.email,
         telefono: damnificadoDoc.telefono,
+        // REC-34: el chat del agente avisa si el damnificado todavía no activó la
+        // cuenta (puede escribirle, pero el aviso por email no sale: el link llevaría
+        // a un login que no puede pasar). No filtra nada — esta query es dual-rol,
+        // pero un damnificado logueado obviamente ya está activado.
+        cuentaActivada: damnificadoDoc.cuentaActivada,
       },
       relato: relatoDoc && {
         respuestas: relatoDoc.respuestas,

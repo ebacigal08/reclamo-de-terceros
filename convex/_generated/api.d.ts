@@ -9,6 +9,7 @@
  */
 
 import type * as auth from "../auth.js";
+import type * as autorizacion from "../autorizacion.js";
 import type * as casos from "../casos.js";
 import type * as crons from "../crons.js";
 import type * as documentos from "../documentos.js";
@@ -17,6 +18,7 @@ import type * as gestiones from "../gestiones.js";
 import type * as http from "../http.js";
 import type * as invitaciones from "../invitaciones.js";
 import type * as lib from "../lib.js";
+import type * as mensajes from "../mensajes.js";
 import type * as notasInternas from "../notasInternas.js";
 import type * as notificaciones from "../notificaciones.js";
 import type * as passwordReset from "../passwordReset.js";
@@ -35,6 +37,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
+  autorizacion: typeof autorizacion;
   casos: typeof casos;
   crons: typeof crons;
   documentos: typeof documentos;
@@ -43,6 +46,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   invitaciones: typeof invitaciones;
   lib: typeof lib;
+  mensajes: typeof mensajes;
   notasInternas: typeof notasInternas;
   notificaciones: typeof notificaciones;
   passwordReset: typeof passwordReset;

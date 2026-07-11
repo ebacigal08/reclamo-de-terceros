@@ -70,6 +70,14 @@ const tipoGestion = v.union(
   v.literal("OTRO"),
 );
 
+// Quién escribió un mensaje del chat (REC-34). Misma forma que `subidoPor` y
+// `destinatario`, pero semántica propia: discrimina AUTOR, y su complemento define
+// al ÚNICO lector posible del mensaje (la contraparte).
+const autorTipo = v.union(v.literal("AGENTE"), v.literal("DAMNIFICADO"));
+
+// Participante del chat de un caso (REC-34), para `chatEstado`.
+const participante = v.union(v.literal("AGENTE"), v.literal("DAMNIFICADO"));
+
 const subidoPor = v.union(v.literal("AGENTE"), v.literal("DAMNIFICADO"));
 
 const destinatario = v.union(v.literal("AGENTE"), v.literal("DAMNIFICADO"));
@@ -247,6 +255,79 @@ export default defineSchema({
     // devuelve en orden de creación ascendente y la UI invierte para mostrar la
     // más reciente arriba.
     .index("by_caso", ["casoId"]),
+
+  // ── Chat agente ↔ damnificado (REC-34) · DUAL-ROL ──────────────
+  // La ÚNICA tabla del módulo que ambos roles leen y escriben. No es una bitácora
+  // interna como respuestasAseguradora/gestiones/notasInternas: acá el damnificado
+  // es parte. Igual que ellas, NO cuelga de `casos.get`: módulo y query propios
+  // (`mensajes.listPorCaso`) con guard de pertenencia DUAL.
+  //
+  // Las notas internas y este canal son TABLAS DISTINTAS → no hay forma de que una
+  // nota aparezca acá (criterio de aceptación del issue).
+  mensajes: defineTable({
+    casoId: v.id("casos"),
+    // Autor real. Se DERIVA de la sesión (`resolveRole`), nunca llega del cliente.
+    // Union de ids porque puede ser de cualquiera de las dos tablas de identidad.
+    // NO se proyecta al cliente: devolverlo le filtraría el `agenteId` al
+    // damnificado, justo lo que la proyección estricta de `casos.miCaso` evita.
+    autorId: v.union(v.id("agentes"), v.id("damnificados")),
+    autorTipo,
+    texto: v.string(),
+    // `enviadoAt` del issue = `_creationTime` (convención del módulo).
+    //
+    // `leidoAt`: cuándo lo leyó su ÚNICO lector posible, la contraparte del autor
+    // (mismo truco que `notificaciones.destinatario`: no hace falta guardar quién
+    // leyó, lo determina el autor).
+    //
+    // AUSENTE = sin leer. NUNCA se escribe `null`: el índice `by_caso_autor_leido`
+    // se consulta con `q.eq("leidoAt", undefined)`, que matchea el campo ausente
+    // pero NO un `null` explícito → un `null` volvería el mensaje invisible para el
+    // badge y para el gate del email, en silencio. El insert OMITE el campo; la
+    // proyección normaliza a `null` sólo de salida.
+    //
+    // Gobierna el contador de no leídos y el acuse de "leído". NO gobierna la
+    // notificación por email: de eso se ocupa `chatEstado` (ver abajo).
+    leidoAt: v.optional(v.number()),
+  })
+    // (1) Línea de tiempo del caso, en orden de creación ascendente. Hace falta
+    //     APARTE del compuesto: dentro de un `casoId`, el compuesto ordena por
+    //     (autorTipo, leidoAt, …) e intercala los dos autores → no es una
+    //     conversación. Por eso acá SÍ hay un `by_caso` suelto, a diferencia de
+    //     `gestiones`/`respuestasAseguradora`, donde el prefijo del compuesto
+    //     alcanzaba.
+    .index("by_caso", ["casoId"])
+    // (2) No leídos de un autor en un caso, sin scan en JS. Lo usan el contador del
+    //     badge (ficha, lista de casos y Mi caso) y `marcarLeidos`.
+    .index("by_caso_autor_leido", ["casoId", "autorTipo", "leidoAt"]),
+
+  // ── Estado de aviso del chat, POR PARTICIPANTE (REC-34) ────────
+  // Fuente de verdad de la política "avisar una vez, hasta que lea".
+  //
+  // POR QUÉ NO ALCANZA `mensajes.leidoAt`: usar "¿tiene mensajes míos sin leer?"
+  // como proxy de "¿ya fue avisado?" confunde dos cosas distintas y produce bugs
+  // reales. (a) Damnificado sin cuenta activada —el estado por DEFECTO de un caso
+  // nuevo—: el 1er mensaje no manda email (el link iría a un login que no puede
+  // pasar) pero queda sin leer; al activarse, el 2º mensaje ve "hay sin leer" y
+  // tampoco avisa → nunca recibe aviso. (b) Si el email falla (sendEmail es
+  // best-effort y no lanza), el gate igual asume que fue avisado y no reintenta.
+  //
+  // `avisoPendiente` se pone en true SÓLO cuando el email se encola de verdad, y
+  // vuelve a false cuando ese participante lee (`marcarLeidos`) o escribe
+  // (`enviar` implica haber leído la conversación).
+  //
+  // Va en tabla propia y no como campos de `casos` porque `casos.get` hace spread
+  // del caso: todo lo que se agregue ahí viaja a los dos roles.
+  chatEstado: defineTable({
+    casoId: v.id("casos"),
+    participante,
+    avisoPendiente: v.boolean(),
+  })
+    // La fila se crea de forma perezosa. SIEMPRE leer por este índice ANTES de
+    // insertar, en la misma mutation: así el rango entra en el read-set y dos
+    // envíos concurrentes conflictúan en el OCC de Convex (la perdedora reintenta y
+    // ve la fila) en vez de crear dos filas para el mismo (casoId, participante),
+    // que volvería el gate del email no determinístico.
+    .index("by_caso_participante", ["casoId", "participante"]),
 
   // ── Notificaciones automáticas ─────────────────────────────────
   notificaciones: defineTable({
