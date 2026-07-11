@@ -1,5 +1,5 @@
-import { internalAction, mutation } from "./_generated/server";
-import type { MutationCtx } from "./_generated/server";
+import { internalAction, mutation, query } from "./_generated/server";
+import type { MutationCtx, QueryCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { v, ConvexError, type Infer } from "convex/values";
 import { internal } from "./_generated/api";
@@ -281,7 +281,128 @@ export const enviar = internalAction({
   },
 });
 
-// ── Marcar novedades como vistas ────────────────────────────────────
+// ── Novedades del AGENTE (REC-68) ───────────────────────────────────
+/**
+ * REC-68 · Hasta acá, las notificaciones con `destinatario: "AGENTE"` se insertaban
+ * en la base y NADIE LAS LEÍA JAMÁS: no había query que las trajera y la campana del
+ * header estaba deshabilitada. El agente sólo se enteraba por email, y si no miraba
+ * el correo, no se enteraba. Estas dos functions le dan salida.
+ *
+ * Hoy son dos motivos: `PEDIDO_RESPONDIDO` (pedidos.responder) y `PLAZO_PROXIMO`
+ * (el cron de plazos).
+ *
+ * Los mensajes del chat (REC-34) NO están acá, a propósito: no se persisten como
+ * notificación (ver `datosSoloEmail`), ya tienen su propio indicador de no leídos, y
+ * meterlos obligaría a mantener DOS estados de lectura sobre el mismo hecho
+ * (`visto` vs `mensajes.leidoAt`), desincronizables.
+ */
+const MAX_NOVEDADES = 20;
+
+/**
+ * Casos del agente — TODOS, abiertos y cerrados.
+ *
+ * `notificaciones` no guarda `agenteId`, sólo `casoId`, así que las del agente se
+ * resuelven vía sus casos. El índice `by_agente` es `["agenteId", "cerrado"]`:
+ * consultarlo sólo con el prefijo `agenteId` trae los dos. Es lo que queremos —un
+ * plazo por vencer de un caso que se cerró ayer sigue siendo una novedad que el
+ * agente no vio— y evita que queden notificaciones imposibles de marcar.
+ */
+async function casosDelAgente(ctx: QueryCtx, agenteId: Id<"agentes">) {
+  return await ctx.db
+    .query("casos")
+    .withIndex("by_agente", (q) => q.eq("agenteId", agenteId))
+    .collect();
+}
+
+/**
+ * Novedades del agente autenticado, de más reciente a más vieja, con el caso al que
+ * pertenecen (para el link). `null` sin sesión de agente (fail-closed).
+ *
+ * Costo: una lectura indexada y acotada por caso. Es el mismo N+1 que ya hace
+ * `casos.listMine` (que por cada caso lee el damnificado y TODOS los plazos, sin
+ * tope), así que no agrega una clase de costo nueva.
+ */
+export const listAgente = query({
+  args: {},
+  handler: async (ctx) => {
+    const resolved = await resolveRole(ctx);
+    if (!resolved || resolved.rol !== "agente") return null;
+
+    const casos = await casosDelAgente(ctx, resolved.agente._id);
+
+    const porCaso = await Promise.all(
+      casos.map(async (caso) => {
+        const notifs = await ctx.db
+          .query("notificaciones")
+          .withIndex("by_caso_destinatario", (q) =>
+            q.eq("casoId", caso._id).eq("destinatario", "AGENTE"),
+          )
+          .order("desc")
+          .take(MAX_NOVEDADES);
+        const damnificado = await ctx.db.get(caso.damnificadoId);
+        return notifs.map((n) => ({
+          _id: n._id,
+          motivo: n.motivo,
+          visto: n.visto,
+          creadoEn: n._creationTime,
+          casoId: caso._id,
+          numeroCaso: caso.numeroCaso,
+          damnificadoNombre: damnificado?.nombre ?? "",
+        }));
+      }),
+    );
+
+    const todas = porCaso.flat().sort((a, b) => b.creadoEn - a.creadoEn);
+    return {
+      novedades: todas.slice(0, MAX_NOVEDADES),
+      // El contador se cuenta sobre TODAS las traídas, no sobre la ventana que se
+      // devuelve: si hay 25 sin ver, el badge tiene que decir 25 aunque la pantalla
+      // liste 20.
+      noVistas: todas.filter((n) => !n.visto).length,
+    };
+  },
+});
+
+/**
+ * Marca como vistas TODAS las novedades sin ver del agente.
+ *
+ * Los ids se resuelven POR ÍNDICE, no los manda el cliente — a diferencia de
+ * `marcarVistas` (el del damnificado), que recibe un array y por eso necesita tope y
+ * validación id por id. Misma decisión que `mensajes.marcarLeidos` (REC-34): si el
+ * server puede derivar el conjunto, no hay razón para confiar en una lista del
+ * cliente ni para acotar cuántas se marcan.
+ *
+ * Idempotente: sólo escribe las que estaban en `false`.
+ */
+export const marcarVistasAgente = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const resolved = await resolveRole(ctx);
+    if (!resolved || resolved.rol !== "agente") {
+      throw new Error("No autorizado: se requiere una sesión de agente.");
+    }
+
+    const casos = await casosDelAgente(ctx, resolved.agente._id);
+    let marcadas = 0;
+    for (const caso of casos) {
+      const notifs = await ctx.db
+        .query("notificaciones")
+        .withIndex("by_caso_destinatario", (q) =>
+          q.eq("casoId", caso._id).eq("destinatario", "AGENTE"),
+        )
+        .collect();
+      for (const n of notifs) {
+        if (!n.visto) {
+          await ctx.db.patch(n._id, { visto: true });
+          marcadas++;
+        }
+      }
+    }
+    return { marcadas };
+  },
+});
+
+// ── Marcar novedades como vistas (damnificado) ──────────────────────
 /** Tope de ids por llamada: coincide con el `.take(3)` del feed de "Mi caso". */
 const MAX_MARCAR = 3;
 

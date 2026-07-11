@@ -4,7 +4,9 @@ import { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuthActions } from "@convex-dev/auth/react";
-import { Archive, FolderKanban, LogOut } from "lucide-react";
+import { useQuery } from "convex/react";
+import { Archive, Bell, FolderKanban, LogOut } from "lucide-react";
+import { api } from "@convex/_generated/api";
 import { RUTAS } from "@/lib/constants";
 import { iniciales } from "@/lib/format";
 
@@ -27,6 +29,14 @@ export function Sidebar({
   // ficha + nuevo; "Histórico" sólo /agente/casos/historico.
   const enHistorico = pathname?.startsWith("/agente/casos/historico") ?? false;
   const enCasos = (pathname?.startsWith("/agente/casos") ?? false) && !enHistorico;
+  const enNovedades = pathname?.startsWith("/agente/novedades") ?? false;
+
+  // El contador vive acá, y no en el header de la lista de casos, porque el sidebar
+  // es lo único GLOBAL del shell del agente: así se ve mientras trabaja en una ficha,
+  // que es donde pasa el tiempo. Es reactivo (live query), a diferencia de
+  // `casosActivos`, que llega como prop del server y sólo se refresca al navegar.
+  const novedades = useQuery(api.notificaciones.listAgente, {});
+  const noVistas = novedades?.noVistas ?? 0;
 
   async function cerrarSesion() {
     // Esperar el signOut antes de navegar: evita dejar la sesión visible.
@@ -63,6 +73,15 @@ export function Sidebar({
           label="Casos"
           active={enCasos}
           count={casosActivos}
+        />
+        <NavItem
+          href={RUTAS.agente.novedades}
+          icon={<Bell size={18} strokeWidth={1.5} />}
+          label="Novedades"
+          active={enNovedades}
+          // Sólo cuando hay algo sin ver: un "0" permanente es ruido, y un badge que
+          // nunca se apaga deja de significar nada.
+          badge={noVistas > 0 ? noVistas : undefined}
         />
         <NavItem
           href={RUTAS.agente.historico}
@@ -127,19 +146,28 @@ export function Sidebar({
   );
 }
 
-/** Entrada de navegación de la Sidebar (activa = fondo + color de acento). */
+/**
+ * Entrada de navegación de la Sidebar (activa = fondo + color de acento).
+ *
+ * `count` = dato neutro (cuántos casos tenés), en mono y apagado.
+ * `badge`  = algo que RECLAMA atención (novedades sin ver), en color de acento.
+ * Son cosas distintas y por eso no comparten estilo: si el contador de casos y el de
+ * novedades sin ver se vieran igual, el badge dejaría de gritar.
+ */
 function NavItem({
   href,
   icon,
   label,
   active,
   count,
+  badge,
 }: {
   href: string;
   icon: ReactNode;
   label: string;
   active: boolean;
   count?: number;
+  badge?: number;
 }) {
   return (
     <Link
@@ -162,6 +190,26 @@ function NavItem({
       {count !== undefined && (
         <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--sidebar-text)" }}>
           {count}
+        </span>
+      )}
+      {badge !== undefined && (
+        <span
+          aria-label={`${badge} novedades sin ver`}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            minWidth: 20,
+            height: 20,
+            padding: "0 6px",
+            borderRadius: "var(--radius-full)",
+            background: "var(--primary-500)",
+            color: "#FFFFFF",
+            fontSize: 11,
+            fontWeight: 700,
+          }}
+        >
+          {badge > 9 ? "9+" : badge}
         </span>
       )}
     </Link>
