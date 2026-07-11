@@ -17,6 +17,7 @@ import type * as gestiones from "../gestiones.js";
 import type * as http from "../http.js";
 import type * as invitaciones from "../invitaciones.js";
 import type * as lib from "../lib.js";
+import type * as notasInternas from "../notasInternas.js";
 import type * as notificaciones from "../notificaciones.js";
 import type * as passwordReset from "../passwordReset.js";
 import type * as pedidos from "../pedidos.js";
@@ -42,6 +43,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   invitaciones: typeof invitaciones;
   lib: typeof lib;
+  notasInternas: typeof notasInternas;
   notificaciones: typeof notificaciones;
   passwordReset: typeof passwordReset;
   pedidos: typeof pedidos;

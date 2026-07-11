@@ -30,6 +30,7 @@ import { diasHasta, estadoPlazo, formatFecha } from "@/lib/format";
 import { CenteredEmpty, SectionCard, fechaLocal } from "./fichaUi";
 import { RespuestasAseguradoraCard } from "./RespuestasAseguradoraCard";
 import { GestionesCard } from "./GestionesCard";
+import { NotasInternasCard } from "./NotasInternasCard";
 
 // DTO de la ficha (deriva del retorno de la query → siempre en sync). `null`
 // (no-encontrado/no-dueño) se maneja aparte; acá el shape del caso presente.
@@ -478,6 +479,10 @@ function FichaDetalle({ caso }: { caso: Ficha }) {
 
           {/* Log de gestiones (REC-32) — SÓLO AGENTE, misma regla. */}
           <GestionesCard casoId={caso._id} cerrado={caso.cerrado} />
+
+          {/* Notas internas (REC-33) — SÓLO AGENTE. El damnificado no las ve bajo
+              ninguna circunstancia; la card lo marca en pantalla. */}
+          <NotasInternasCard casoId={caso._id} cerrado={caso.cerrado} />
         </div>
 
         {/* Columna derecha */}
@@ -797,9 +802,9 @@ function FichaSkeleton() {
       <Skeleton height={118} radius="var(--radius-lg)" style={{ marginBottom: 20 }} />
       <div style={{ display: "grid", gridTemplateColumns: "1.9fr 1fr", gap: 20, alignItems: "start" }}>
         {/* Columna izquierda: relato, documentos, pedidos, respuestas (REC-31),
-            gestiones (REC-32). */}
+            gestiones (REC-32), notas internas (REC-33). */}
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-          {[0, 1, 2, 3, 4].map((i) => (
+          {[0, 1, 2, 3, 4, 5].map((i) => (
             <CardSkeleton key={i} />
           ))}
         </div>

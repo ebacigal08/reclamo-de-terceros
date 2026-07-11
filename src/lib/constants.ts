@@ -84,6 +84,11 @@ export type TipoGestion = (typeof TIPOS_GESTION)[number]["value"];
 /** Espejo de MAX_DESCRIPCION en convex/gestiones.ts (el server valida igual). */
 export const GESTION_MAX_DESCRIPCION = 1000;
 
+// ── Notas internas del agente (REC-33) · SÓLO AGENTE ─────────────
+// No hay enum: la nota es texto libre. Sólo el límite, espejo de MAX_TEXTO en
+// convex/notasInternas.ts (el server valida igual).
+export const NOTA_MAX_TEXTO = 2000;
+
 // ── Motivos de notificación → texto humano para el damnificado ───
 export const MOTIVO_NOTIFICACION_TEXTO: Record<string, string> = {
   CASO_ABIERTO: "Tu caso fue abierto por tu agente",

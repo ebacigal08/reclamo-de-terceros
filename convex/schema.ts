@@ -221,6 +221,33 @@ export default defineSchema({
     // Es el comportamiento correcto, no un bug.
     .index("by_caso_fecha", ["casoId", "fechaGestion"]),
 
+  // ── Notas internas del agente (REC-33) · SÓLO AGENTE ───────────
+  // El espacio PRIVADO del agente dentro del caso: sospechas sobre el reclamo,
+  // estrategia legal, datos sensibles de negociación, recordatorios. El criterio
+  // de aceptación del issue es absoluto — "el damnificado no puede acceder a
+  // ellas bajo ninguna circunstancia" — así que, igual que `gestiones` y
+  // `respuestasAseguradora`, se leen SÓLO por `notasInternas.listPorCaso` (guard
+  // rol=agente) y NUNCA desde `casos.get`, que es una query dual-rol.
+  notasInternas: defineTable({
+    casoId: v.id("casos"),
+    // Quién la escribió. Se DERIVA de la sesión (`resolveRole`), nunca llega del
+    // cliente. Hoy hay un solo agente; el campo es lo que mañana permite saber
+    // quién escribió qué.
+    agenteId: v.id("agentes"),
+    texto: v.string(),
+    // `creadaAt` del issue = `_creationTime` (convención del módulo); la query lo
+    // proyecta como `creadaEn`. `actualizadaAt`, en cambio, SÍ es un campo real:
+    // "cuándo se editó por última vez" no se deriva de nada. Ausente = nunca
+    // editada, y sólo se setea si la edición cambió el texto de verdad.
+    actualizadaAt: v.optional(v.number()),
+  })
+    // El orden es por CREACIÓN, no por una fecha editable: una nota es de cuando
+    // la escribiste, así que editarla NO la reordena (a diferencia de `gestiones`,
+    // donde la fecha es un campo del usuario). La consulta por este índice
+    // devuelve en orden de creación ascendente y la UI invierte para mostrar la
+    // más reciente arriba.
+    .index("by_caso", ["casoId"]),
+
   // ── Notificaciones automáticas ─────────────────────────────────
   notificaciones: defineTable({
     destinatario,
