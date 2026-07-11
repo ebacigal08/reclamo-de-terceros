@@ -13,6 +13,7 @@ import type * as casos from "../casos.js";
 import type * as crons from "../crons.js";
 import type * as documentos from "../documentos.js";
 import type * as email from "../email.js";
+import type * as gestiones from "../gestiones.js";
 import type * as http from "../http.js";
 import type * as invitaciones from "../invitaciones.js";
 import type * as lib from "../lib.js";
@@ -37,6 +38,7 @@ declare const fullApi: ApiFromModules<{
   crons: typeof crons;
   documentos: typeof documentos;
   email: typeof email;
+  gestiones: typeof gestiones;
   http: typeof http;
   invitaciones: typeof invitaciones;
   lib: typeof lib;

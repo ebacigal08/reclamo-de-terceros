@@ -29,6 +29,7 @@ import { ETAPAS, PRIORIDADES, type Prioridad, RESULTADOS_CIERRE, RUTAS, TIPOS_SI
 import { diasHasta, estadoPlazo, formatFecha } from "@/lib/format";
 import { CenteredEmpty, SectionCard, fechaLocal } from "./fichaUi";
 import { RespuestasAseguradoraCard } from "./RespuestasAseguradoraCard";
+import { GestionesCard } from "./GestionesCard";
 
 // DTO de la ficha (deriva del retorno de la query → siempre en sync). `null`
 // (no-encontrado/no-dueño) se maneja aparte; acá el shape del caso presente.
@@ -474,6 +475,9 @@ function FichaDetalle({ caso }: { caso: Ficha }) {
           {/* Respuestas de la aseguradora (REC-31) — SÓLO AGENTE. Trae su propia
               query: no cuelga de `casos.get`, que es dual-rol. */}
           <RespuestasAseguradoraCard casoId={caso._id} cerrado={caso.cerrado} />
+
+          {/* Log de gestiones (REC-32) — SÓLO AGENTE, misma regla. */}
+          <GestionesCard casoId={caso._id} cerrado={caso.cerrado} />
         </div>
 
         {/* Columna derecha */}
@@ -792,9 +796,10 @@ function FichaSkeleton() {
       </div>
       <Skeleton height={118} radius="var(--radius-lg)" style={{ marginBottom: 20 }} />
       <div style={{ display: "grid", gridTemplateColumns: "1.9fr 1fr", gap: 20, alignItems: "start" }}>
-        {/* Columna izquierda: relato, documentos, pedidos, respuestas (REC-31). */}
+        {/* Columna izquierda: relato, documentos, pedidos, respuestas (REC-31),
+            gestiones (REC-32). */}
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-          {[0, 1, 2, 3].map((i) => (
+          {[0, 1, 2, 3, 4].map((i) => (
             <CardSkeleton key={i} />
           ))}
         </div>
