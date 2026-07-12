@@ -21,18 +21,15 @@ import { casoAutorizadoDual, exigirCasoAutorizadoDual } from "./autorizacion";
  *
  * ── LAS DOS FUENTES DE VERDAD, SEPARADAS A PROPÓSITO ───────────────────────────
  * · `mensajes.leidoAt`      → LECTURA: contador de no leídos y acuse de "leído".
- * · `chatEstado.avisoPendiente` → NOTIFICACIÓN: si el destinatario ya tiene un aviso
- *                             por email pendiente de atender.
+ * · `chatEstado.avisoPendiente` → NOTIFICACIÓN por email AL AGENTE.
  *
- * Usar la lectura como proxy de la notificación (el gate ingenuo "¿tiene mensajes
- * míos sin leer? entonces ya fue avisado") produce dos bugs reales:
- *   (a) Damnificado sin cuenta activada —el estado por DEFECTO de un caso nuevo—:
- *       el 1er mensaje no manda email (el link iría a un login que no puede pasar)
- *       pero queda sin leer; cuando activa la cuenta, el 2º mensaje ve "hay sin
- *       leer" y tampoco avisa → NUNCA recibe un aviso.
- *   (b) Si el email falla (`sendEmail` es best-effort y no lanza), el gate igual
- *       asume que fue avisado y no reintenta jamás.
- * Por eso `avisoPendiente` se marca SÓLO cuando el email se encola de verdad.
+ * El aviso por email del chat va SÓLO al AGENTE, cuando el damnificado responde
+ * (REC-70: el damnificado ya no recibe email por mensajes; se entera por el badge de
+ * no leídos in-app). Usar la lectura como proxy de esa notificación (el gate ingenuo
+ * "¿tiene mensajes del damnificado sin leer? entonces ya fue avisado") rompe si el
+ * email falla: `sendEmail` es best-effort y no lanza, así que el gate asumiría que el
+ * agente fue avisado y no reintentaría jamás. Por eso son dos fuentes separadas, y
+ * `avisoPendiente` se marca SÓLO cuando el email se encola de verdad.
  */
 
 const MAX_TEXTO = 1000; // escalón del repo: pedidos 500 · gestiones 1000 · notas 2000
@@ -283,32 +280,33 @@ export const enviar = mutation({
       texto: contenido,
     });
 
-    // 8) GATE DE AVISO — "avisar una vez, hasta que lea".
+    // 8) GATE DE AVISO POR EMAIL — sólo AL AGENTE, "avisar una vez, hasta que lea".
     //
-    //    Consulta `chatEstado`, NO los mensajes sin leer (ver el encabezado). Si el
-    //    destinatario ya tiene un aviso pendiente de atender, no se le manda otro
-    //    email: 5 mensajes seguidos = 1 solo correo. Cuando lee (o escribe), su
-    //    `avisoPendiente` se limpia y el próximo mensaje vuelve a avisarle.
+    //    El DAMNIFICADO ya NO recibe email por mensajes de chat (REC-70): se entera
+    //    por el badge de no leídos in-app (deriva de `mensajes.leidoAt`, no de esto).
+    //    El aviso por email sólo va al AGENTE, cuando el damnificado responde.
     //
-    //    Un damnificado sin cuenta activada NO puede recibir el aviso: el link lo
-    //    llevaría a un login que todavía no puede pasar (`resolveRole` es fail-closed
-    //    con él). En ese caso el mensaje se guarda igual —lo va a leer al activarse—,
-    //    NO se manda el email y, sobre todo, NO se marca `avisoPendiente`: así el
-    //    próximo mensaje, ya con la cuenta activa, sí le avisa.
+    //    Para esa dirección se mantiene "avisar una vez": si el agente ya tiene un
+    //    aviso pendiente, no se le manda otro (5 mensajes = 1 correo); se limpia
+    //    cuando lee o escribe (`marcarLeidosDe`). El gate vive en `chatEstado`, NO en
+    //    "¿hay sin leer?", porque el email es best-effort (`sendEmail` no lanza) y ese
+    //    proxy no reintentaría si falla (ver el encabezado del módulo).
     //
-    //    RACE (dos envíos casi simultáneos): ambas transacciones leen y escriben la
-    //    misma fila de `chatEstado` → el OCC de Convex serializa y reintenta a la
-    //    perdedora, que ya ve `avisoPendiente = true` y no manda un segundo email.
-    const puedeRecibir = destinatario === "AGENTE" ? true : damnificado.cuentaActivada;
+    //    RACE (dos respuestas casi simultáneas del damnificado): ambas transacciones
+    //    leen y escriben la misma fila de `chatEstado` → el OCC de Convex serializa y
+    //    reintenta a la perdedora, que ya ve `avisoPendiente = true` y no manda un
+    //    segundo email.
+    const puedeRecibir = destinatario === "AGENTE";
     const yaAvisado = await tieneAvisoPendiente(ctx, casoId, destinatario);
     const avisoEnviado = puedeRecibir && !yaAvisado;
 
     if (avisoEnviado) {
-      // Email SIN fila en `notificaciones`, a propósito: el feed de "Mi caso" es un
-      // `.take(3)` de HITOS del caso (avances de etapa, pedidos) y una conversación
-      // lo taparía entero. Además esa fila tiene su propio `visto`, que sería una
-      // SEGUNDA verdad sobre lo mismo, desincronizable de `leidoAt`. El chat ya lleva
-      // su propio indicador de no leídos.
+      // Email SIN fila en `notificaciones`, a propósito: el chat NO entra al feed de
+      // novedades del agente (REC-68) — una conversación lo taparía, y esa fila
+      // tendría su propio `visto`, una SEGUNDA verdad sobre lo mismo, desincronizable
+      // de `leidoAt`. El chat ya lleva su propio indicador de no leídos. (`destinatario`
+      // acá es siempre "AGENTE"; la rama `damnificado.email` quedó inalcanzable, ver
+      // el gate arriba, pero se deja por robustez si se reactivara.)
       await ctx.scheduler.runAfter(0, internal.notificaciones.enviar, {
         email: destinatario === "AGENTE" ? agente.email : damnificado.email,
         casoId,

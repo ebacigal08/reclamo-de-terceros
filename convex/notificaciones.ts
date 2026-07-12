@@ -241,6 +241,10 @@ function plantilla(datos: DatosEmail, dest: Destinatario, casoId: Id<"casos">): 
       // "avisar una vez hasta que lea", así que un solo correo puede representar
       // cinco mensajes y citar uno mentiría; (b) no volcamos contenido del caso al
       // correo (mismo criterio que `email.ts`, que ni siquiera loguea el body).
+      //
+      // Desde REC-70 esto sólo se invoca con dest === "AGENTE" (el chat al damnificado
+      // ya no manda email; ver el gate en `mensajes.enviar`). La rama del damnificado
+      // queda inalcanzable pero se deja por robustez si se reactivara.
       return dest === "AGENTE"
         ? armar(
             `Mensaje nuevo — ${datos.damnificadoNombre}`,
