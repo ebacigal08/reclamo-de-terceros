@@ -38,7 +38,15 @@ export default function RecuperarPage() {
       await signIn("password", { email: email.trim().toLowerCase(), flow: "reset" });
       setPaso("codigo");
     } catch {
-      setError("No pudimos iniciar la recuperación. Revisá el email e intentá de nuevo.");
+      // Un solo mensaje para todos los fallos del paso: email inexistente, envío
+      // caído, o rate-limit (REC-69). No se puede distinguir el caso en el cliente
+      // —`@convex-dev/auth` envuelve el ConvexError del server al pasarlo por
+      // `auth:signIn`, así que no llega con `err.data`—, y tampoco conviene:
+      // separar los mensajes delataría si la cuenta existe. El copy cubre los tres
+      // (revisá el email / esperá si pediste de más / reintentá) sin afirmar cuál fue.
+      setError(
+        "No pudimos enviar el código. Revisá el email; si ya lo pediste varias veces, esperá unos minutos e intentá de nuevo.",
+      );
     } finally {
       setLoading(false);
     }
