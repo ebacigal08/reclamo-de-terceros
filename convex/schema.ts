@@ -300,20 +300,18 @@ export default defineSchema({
     //     badge (ficha, lista de casos y Mi caso) y `marcarLeidos`.
     .index("by_caso_autor_leido", ["casoId", "autorTipo", "leidoAt"]),
 
-  // ── Estado de aviso del chat, POR PARTICIPANTE (REC-34) ────────
-  // Fuente de verdad de la política "avisar una vez, hasta que lea".
+  // ── Estado de aviso del chat, POR PARTICIPANTE (REC-34; alcance REC-70) ────────
+  // Gate de la política "avisar una vez, hasta que lea" del email del chat, que
+  // desde REC-70 va SÓLO al AGENTE (cuando el damnificado responde): el damnificado
+  // ya no recibe email por mensajes, se entera por el badge de no leídos in-app. La
+  // fila del participante DAMNIFICADO queda siempre en false (nadie le encola aviso).
   //
-  // POR QUÉ NO ALCANZA `mensajes.leidoAt`: usar "¿tiene mensajes míos sin leer?"
-  // como proxy de "¿ya fue avisado?" confunde dos cosas distintas y produce bugs
-  // reales. (a) Damnificado sin cuenta activada —el estado por DEFECTO de un caso
-  // nuevo—: el 1er mensaje no manda email (el link iría a un login que no puede
-  // pasar) pero queda sin leer; al activarse, el 2º mensaje ve "hay sin leer" y
-  // tampoco avisa → nunca recibe aviso. (b) Si el email falla (sendEmail es
-  // best-effort y no lanza), el gate igual asume que fue avisado y no reintenta.
-  //
-  // `avisoPendiente` se pone en true SÓLO cuando el email se encola de verdad, y
-  // vuelve a false cuando ese participante lee (`marcarLeidos`) o escribe
-  // (`enviar` implica haber leído la conversación).
+  // POR QUÉ NO ALCANZA `mensajes.leidoAt`: usar "¿tiene mensajes sin leer?" como
+  // proxy de "¿ya fue avisado?" rompe si el email falla (sendEmail es best-effort y
+  // no lanza): el gate asumiría que ya avisó y no reintentaría. Por eso es una fuente
+  // de verdad separada; `avisoPendiente` se pone en true SÓLO cuando el email se
+  // encola de verdad, y vuelve a false cuando el agente lee (`marcarLeidos`) o
+  // escribe (`enviar` implica haber leído la conversación).
   //
   // Va en tabla propia y no como campos de `casos` porque `casos.get` hace spread
   // del caso: todo lo que se agregue ahí viaja a los dos roles.
