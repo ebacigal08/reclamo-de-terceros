@@ -3,7 +3,7 @@
 import { Component, ReactNode, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "convex/react";
-import { AlertTriangle, Bell, ChevronRight, Clock, Inbox, Plus, Search } from "lucide-react";
+import { AlertTriangle, ChevronRight, Clock, Inbox, Plus, Search } from "lucide-react";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { Badge, Button, EmptyState, Input, Skeleton } from "@/components/ui";
@@ -59,29 +59,10 @@ function CasosView() {
           </p>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          {/* Notificaciones: placeholder honesto. El centro de notificaciones
-              (y el conteo real de no leídas) es Fase 5; hasta entonces la
-              campana queda inactiva y SIN indicador, para no simular estado. */}
-          <button
-            type="button"
-            aria-label="Notificaciones (disponible pronto)"
-            title="Disponible pronto"
-            disabled
-            style={{
-              width: 40,
-              height: 40,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              background: "var(--bg-surface)",
-              border: "1px solid var(--border)",
-              borderRadius: "var(--radius-md)",
-              cursor: "not-allowed",
-              color: "var(--text-tertiary)",
-            }}
-          >
-            <Bell size={18} strokeWidth={1.5} />
-          </button>
+          {/* La campana deshabilitada ("Disponible pronto") se fue con REC-68: las
+              novedades del agente ahora viven en el sidebar, que es lo único global
+              del shell → se ven también desde una ficha, que es donde el agente pasa
+              el tiempo. Acá sólo quedaba simulando un estado que no existía. */}
           <Button variant="primary" iconLeft={<Plus size={17} />} onClick={irNuevo}>
             Nuevo caso
           </Button>
