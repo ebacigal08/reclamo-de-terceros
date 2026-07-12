@@ -336,4 +336,31 @@ export default defineSchema({
     motivo: motivoNotificacion,
     visto: v.boolean(),
   }).index("by_caso_destinatario", ["casoId", "destinatario"]),
+
+  // ── Rate-limit de envíos del código de reset, POR EMAIL (REC-69) ─
+  // Frena el bombardeo de la casilla de un usuario real y protege la reputación
+  // del dominio en Resend (los envíos repetidos a direcciones reales la queman).
+  //
+  // El enforcement vive en `passwordReset.sendVerificationRequest` —el ÚNICO
+  // punto en el camino real del envío—, porque `auth:signIn` es una action
+  // PÚBLICA: un guard de cliente o un wrapper serían bypasseables llamándola
+  // directo. NO hay IP disponible en el flujo de Convex Auth (sólo el email llega
+  // al hook), así que el límite es POR EMAIL: la protección significativa contra
+  // el bombardeo de una casilla. El envío sólo ocurre para cuentas existentes.
+  //
+  // `envios` guarda los timestamps (ms) de los envíos dentro de la ventana de
+  // 24h; `registrarEnvio` los poda en cada intento → ventana deslizante exacta
+  // sin cron de reseteo, y la lista queda acotada por el límite.
+  resetEnvios: defineTable({
+    email: v.string(), // normalizado con normalizeEmail
+    envios: v.array(v.number()),
+  })
+    // Leer SIEMPRE por este índice ANTES de escribir, en la misma mutation: el
+    // rango entra en el read-set y dos solicitudes concurrentes conflictúan en el
+    // OCC serializable (la perdedora reintenta y ve la fila), misma trampa que
+    // `chatEstado`. `registrarEnvio` además consolida con `.collect()` como
+    // defensa ante duplicados: si por lo que sea hubiera 2+ filas, `.unique()`
+    // ROMPERÍA el limiter (lanza), mientras que consolidar la unión de timestamps
+    // es correcto igual y se auto-cura.
+    .index("by_email", ["email"]),
 });
