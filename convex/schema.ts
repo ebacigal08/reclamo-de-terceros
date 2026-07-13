@@ -138,6 +138,16 @@ export default defineSchema({
     invitacionIntentoEn: v.optional(v.number()),
     invitacionEnviadaEn: v.optional(v.number()),
     invitacionFalloEn: v.optional(v.number()),
+    // QUIÉN produjo el último intento: el `solicitudId` del alta que lo reclamó, o
+    // ausente si lo reclamó un reenvío manual desde la ficha.
+    //
+    // Sirve para una sola pregunta, en el reintento idempotente del alta: "el envío que
+    // veo, ¿lo produjo ESTE alta?". La respuesta tiene que ser CAUSAL, no temporal —
+    // comparar `invitacionIntentoEn` contra `caso._creationTime` no sirve: el claim usa
+    // el `Date.now()` tomado al empezar la mutation y `_creationTime` lo asigna Convex al
+    // insertar el caso, después, así que el claim del propio alta puede quedar ANTERIOR
+    // al caso y la atribución fallaría justo hacia el lado que vuelve a mentir.
+    invitacionSolicitudId: v.optional(v.string()),
     cuentaActivada: v.boolean(),
     onboardingCompletado: v.boolean(),
   })

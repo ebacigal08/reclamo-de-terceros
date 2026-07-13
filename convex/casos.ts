@@ -441,23 +441,28 @@ type PlanInvitacion =
 /**
  * ¿El envío que figura en el damnificado lo produjo ESTE alta?
  *
- * El claim (`invitacionIntentoEn`) se escribe en la misma transacción que crea el caso,
- * así que un intento posterior a `_creationTime` del caso salió de este alta (o de un
- * reenvío hecho después desde la ficha — que también es un envío real del agente). Uno
- * anterior es de otra historia: un caso previo del mismo damnificado, por ejemplo.
+ * La pregunta es CAUSAL, así que la respuesta es una marca de identidad y no una
+ * comparación de tiempos: el claim guarda el `solicitudId` del alta que lo reclamó.
  *
- * La distinción importa en las DOS direcciones, y por eso no alcanza con mirar el estado
- * a secas: si el damnificado ya tenía una invitación entregada hace dos días y este alta
- * la omitió, reportar "ENVIADA" sería tan falso como reportar "OMITIDA" sobre un email
- * que este alta sí mandó.
+ * NO se puede resolver con timestamps (`invitacionIntentoEn >= caso._creationTime`): el
+ * claim usa el `Date.now()` que se toma al EMPEZAR la mutation, y `_creationTime` lo
+ * asigna Convex al insertar el caso —después de validar, resolver el damnificado y
+ * generar el correlativo—, así que el claim del propio alta puede quedar ANTERIOR al
+ * caso. La comparación daría `false` para un envío que este alta sí produjo, y el
+ * reintento volvería a reportar OMITIDA sobre un email ya entregado.
+ *
+ * La distinción importa en las DOS direcciones: si el damnificado ya tenía una invitación
+ * entregada de hace dos días —de otro caso— y este alta la omitió, reportar "ENVIADA"
+ * sería tan falso como reportar "OMITIDA" sobre un email que este alta sí mandó. Un
+ * reenvío manual desde la ficha limpia la marca, así que tampoco se atribuye al alta.
  */
 function envioPerteneceAEsteAlta(
   dam: Doc<"damnificados">,
-  caso: Doc<"casos">,
+  solicitudId: string,
 ): boolean {
   return (
     dam.invitacionIntentoEn !== undefined &&
-    dam.invitacionIntentoEn >= caso._creationTime
+    dam.invitacionSolicitudId === solicitudId
   );
 }
 
@@ -482,11 +487,14 @@ async function decidirInvitacion(
     necesitaAcceso: boolean;
     quiereEnviar: boolean;
     ahora: number;
+    /** El id de idempotencia del alta que está decidiendo. Queda grabado en el claim. */
+    solicitudId: string;
     /** Reintento: el envío que figura en el damnificado salió de este mismo alta. */
     yaEnvioEsteAlta?: boolean;
   },
 ): Promise<PlanInvitacion> {
-  const { dam, necesitaAcceso, quiereEnviar, ahora, yaEnvioEsteAlta } = args;
+  const { dam, necesitaAcceso, quiereEnviar, ahora, solicitudId, yaEnvioEsteAlta } =
+    args;
 
   if (!necesitaAcceso) return "NO_APLICA";
 
@@ -510,7 +518,12 @@ async function decidirInvitacion(
     return estado === "EN_CURSO" ? "ENVIO_EN_CURSO" : "YA_INVITADO_RECIENTE";
   }
 
-  await ctx.db.patch(dam._id, { invitacionIntentoEn: ahora }); // ← el claim
+  // El claim, con la marca de QUIÉN lo reclamó: es lo que permite que el reintento
+  // reconozca su propio envío sin depender de comparar timestamps.
+  await ctx.db.patch(dam._id, {
+    invitacionIntentoEn: ahora,
+    invitacionSolicitudId: solicitudId,
+  });
   return "INTENTAR";
 }
 
@@ -586,9 +599,10 @@ export const crearRegistro = internalMutation({
         necesitaAcceso: !dam.cuentaActivada,
         quiereEnviar: args.quiereEnviar,
         ahora,
+        solicitudId: args.solicitudId,
         // Si el intento anterior de ESTE alta ya entregó (o está entregando) el email,
         // eso manda sobre el checkbox: destildarlo ahora no puede deshacerlo.
-        yaEnvioEsteAlta: envioPerteneceAEsteAlta(dam, previo),
+        yaEnvioEsteAlta: envioPerteneceAEsteAlta(dam, args.solicitudId),
       });
 
       return {
@@ -735,6 +749,7 @@ export const crearRegistro = internalMutation({
       necesitaAcceso,
       quiereEnviar: args.quiereEnviar,
       ahora,
+      solicitudId: args.solicitudId,
     });
 
     return { casoId, numeroCaso, email, damnificadoId, token, plan };

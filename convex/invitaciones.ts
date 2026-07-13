@@ -183,6 +183,10 @@ export const prepararInvitacion = internalMutation({
     await ctx.db.patch(dam._id, {
       invitacionToken: token,
       invitacionIntentoEn: ahora, // ← el claim
+      // Este envío lo produjo la FICHA, no un alta: se borra la marca del alta que haya
+      // reclamado el intento anterior. Si no, el reintento idempotente de aquella alta
+      // se atribuiría un email que en realidad mandó el agente desde acá.
+      invitacionSolicitudId: undefined,
     });
 
     return { damnificadoId: dam._id, email: dam.email, token };
