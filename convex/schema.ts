@@ -156,10 +156,20 @@ export default defineSchema({
     cerrado: v.boolean(),
     resultadoCierre: v.optional(resultadoCierre),
     cerradoEn: v.optional(v.number()), // timestamp de cierre (REC-66); ausente en casos cerrados antes de REC-66
+    // Idempotencia del alta (REC-71). Lo genera el FRONT, uno por intento de alta,
+    // y lo reenvía igual si reintenta. Existe porque `casos.crear` es una action (para
+    // poder esperar la entrega del email) y las actions —a diferencia de las mutations—
+    // no tienen retry ni deduplicación del lado del cliente: si la conexión se corta
+    // DESPUÉS de que la transacción commiteó, el agente ve "no pudimos crear el caso"
+    // sobre un caso que YA existe, y al reintentar crearía un duplicado.
+    // Con esto, el reintento encuentra el caso por este id y devuelve ESE, sin crear
+    // nada. Optional: los casos previos a REC-71 (y el seed) no lo tienen.
+    solicitudId: v.optional(v.string()),
   })
     .index("by_agente", ["agenteId", "cerrado"])
     .index("by_damnificado", ["damnificadoId"])
-    .index("by_numeroCaso", ["numeroCaso"]),
+    .index("by_numeroCaso", ["numeroCaso"])
+    .index("by_solicitudId", ["solicitudId"]),
 
   // ── Relato guiado (wizard de 7 preguntas) ──────────────────────
   relatosSiniestro: defineTable({

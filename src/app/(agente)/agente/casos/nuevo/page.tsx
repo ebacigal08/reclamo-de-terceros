@@ -1,6 +1,6 @@
 "use client";
 
-import { CSSProperties, FormEvent, ReactNode, useState } from "react";
+import { CSSProperties, FormEvent, ReactNode, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAction, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
@@ -32,7 +32,8 @@ type EstadoInvitacion =
   | "FALLIDA"
   | "OMITIDA"
   | "NO_APLICA"
-  | "YA_INVITADO_RECIENTE";
+  | "YA_INVITADO_RECIENTE"
+  | "ENVIO_EN_CURSO";
 
 /** Extrae el mensaje legible de un ConvexError (ver convex: errores de formulario). */
 function mensajeError(err: unknown, fallback: string): string {
@@ -79,9 +80,25 @@ export default function NuevoCasoPage() {
     } | null
   >(null);
 
+  /**
+   * Id de idempotencia del alta (REC-71). Identifica un INTENTO, no un envío: si el
+   * alta falla y el agente vuelve a apretar "Crear caso" SIN tocar nada, se manda el
+   * mismo id y el server devuelve el caso que ya había creado, en vez de crear otro.
+   *
+   * Hace falta porque `casos.crear` es una action (para poder esperar la entrega del
+   * email) y las actions no tienen retry/dedup del cliente: si la conexión se corta
+   * después del commit, el agente ve un error sobre un caso que YA existe.
+   *
+   * Se descarta apenas el agente EDITA cualquier campo: en ese caso ya no está
+   * reintentando lo mismo, y devolverle el caso viejo (con los datos viejos) mientras
+   * él cree haber corregido algo sería peor que el duplicado.
+   */
+  const solicitudRef = useRef<string | null>(null);
+
   const limpiar = (campo: Campo) => {
     setErrores((prev) => (prev[campo] ? { ...prev, [campo]: undefined } : prev));
     if (topError) setTopError(null);
+    solicitudRef.current = null; // editó algo → es un alta distinta, no un reintento
   };
 
   function validar(): Errores {
@@ -106,6 +123,9 @@ export default function NuevoCasoPage() {
     setErrores({});
     setTopError(null);
     setLoading(true);
+    // Se genera una sola vez por intento: si este submit falla y el agente reintenta
+    // sin editar nada, viaja el MISMO id y el server dedupe en vez de crear otro caso.
+    solicitudRef.current ??= crypto.randomUUID();
     try {
       const res = await crear({
         nombre: nombre.trim(),
@@ -114,6 +134,7 @@ export default function NuevoCasoPage() {
         tipoSiniestro: tipo as TipoSiniestro,
         aseguradora: aseguradora.trim(),
         prioridad,
+        solicitudId: solicitudRef.current,
         // Se OMITE si el agente no tocó el checkbox → el default lo pone el server
         // (la env var), que es la única fuente de verdad.
         ...(invitarOverride !== null ? { enviarInvitacion: invitarOverride } : {}),
@@ -193,9 +214,10 @@ export default function NuevoCasoPage() {
                       : ", pero sí el aviso de que se abrió el caso."}
                   </>
                 )}
-                {exito.invitacion === "OMITIDA" && <>.</>}
-                {exito.invitacion === "FALLIDA" && <>.</>}
-                {exito.invitacion === "YA_INVITADO_RECIENTE" && <>.</>}
+                {(exito.invitacion === "OMITIDA" ||
+                  exito.invitacion === "FALLIDA" ||
+                  exito.invitacion === "YA_INVITADO_RECIENTE" ||
+                  exito.invitacion === "ENVIO_EN_CURSO") && <>.</>}
               </p>
             </div>
 
@@ -216,8 +238,14 @@ export default function NuevoCasoPage() {
             )}
             {exito.invitacion === "YA_INVITADO_RECIENTE" && (
               <Alert variant="warning" title="Ya tiene una invitación reciente">
-                Se le envió una hace menos de un minuto, así que no le mandamos otra.
+                Se le entregó una hace menos de un minuto, así que no le mandamos otra.
                 Podés reenviarla o copiar el link desde la ficha del caso.
+              </Alert>
+            )}
+            {exito.invitacion === "ENVIO_EN_CURSO" && (
+              <Alert variant="warning" title="Hay un envío de invitación en curso">
+                No mandamos otro para no duplicarlo. Mirá el estado en la ficha del caso;
+                si quedó fallido, vas a poder reintentarlo ahí mismo.
               </Alert>
             )}
 
@@ -331,7 +359,18 @@ export default function NuevoCasoPage() {
           <Divider />
 
           <FormSection title="Configuración">
-            <PrioritySelector value={prioridad} onChange={setPrioridad} disabled={loading} />
+            <PrioritySelector
+              value={prioridad}
+              onChange={(p) => {
+                setPrioridad(p);
+                // Cambiar la prioridad es EDITAR el alta: si no descartáramos el id, un
+                // reintento devolvería el caso ya creado con la prioridad vieja y el
+                // cambio se perdería en silencio. (El checkbox NO descarta el id: la
+                // invitación se re-decide en el reintento, así que se respeta igual.)
+                solicitudRef.current = null;
+              }}
+              disabled={loading}
+            />
           </FormSection>
 
           <div

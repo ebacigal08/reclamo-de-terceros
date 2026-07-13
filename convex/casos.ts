@@ -5,15 +5,11 @@ import {
   internalMutation,
 } from "./_generated/server";
 import type { MutationCtx } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { ConvexError, v } from "convex/values";
 import { internal } from "./_generated/api";
 import { resolveRole } from "./users";
-import {
-  enCooldownInvitacion,
-  normalizeEmail,
-  type MarcasInvitacion,
-} from "./lib";
+import { estadoInvitacion, normalizeEmail } from "./lib";
 import { crearNotificacion } from "./notificaciones";
 import { emailsAlDamnificadoActivos } from "./email";
 import { entregarYRegistrar } from "./invitaciones";
@@ -438,7 +434,43 @@ type PlanInvitacion =
   | "INTENTAR" // hay que entregar el email (y el claim ya quedó escrito)
   | "OMITIDA" // el agente destildó el checkbox
   | "NO_APLICA" // el damnificado ya tiene la cuenta activada
-  | "YA_INVITADO_RECIENTE"; // se le mandó una hace menos del cooldown
+  | "YA_INVITADO_RECIENTE" // se le entregó una hace menos del cooldown
+  | "ENVIO_EN_CURSO"; // hay un envío reclamado y todavía sin desenlace
+
+/**
+ * Decide qué hacer con la invitación y, si hay que enviarla, CLAMA el intento — todo
+ * dentro de la transacción que la llama. Chequear en un lado y escribir en otro sería
+ * un check-then-act: dos llamadas concurrentes pasarían las dos el chequeo.
+ *
+ * Lo llaman los dos caminos del alta —el normal y el de reintento idempotente— para
+ * que la política sea literalmente la misma y no pueda divergir.
+ */
+async function decidirInvitacion(
+  ctx: MutationCtx,
+  args: {
+    dam: Doc<"damnificados">;
+    necesitaAcceso: boolean;
+    quiereEnviar: boolean;
+    ahora: number;
+  },
+): Promise<PlanInvitacion> {
+  const { dam, necesitaAcceso, quiereEnviar, ahora } = args;
+
+  if (!necesitaAcceso) return "NO_APLICA";
+  if (!quiereEnviar) return "OMITIDA";
+
+  const { estado, enCooldown } = estadoInvitacion(dam, ahora);
+  if (enCooldown) {
+    // Un intento FALLIDO no entra acá (no consume cooldown): tras un fallo se reintenta
+    // en el acto. Y se distingue "entregada" de "en curso" porque decir "ya se le envió"
+    // sobre un envío que todavía no se sabe si salió sería la misma clase de mentira
+    // que REC-71 vino a eliminar.
+    return estado === "EN_CURSO" ? "ENVIO_EN_CURSO" : "YA_INVITADO_RECIENTE";
+  }
+
+  await ctx.db.patch(dam._id, { invitacionIntentoEn: ahora }); // ← el claim
+  return "INTENTAR";
+}
 
 /**
  * Alta transaccional del caso (REC-19) — el punto de entrada de todos los datos.
@@ -471,14 +503,58 @@ export const crearRegistro = internalMutation({
     prioridad: v.optional(prioridad),
     // Ya resuelto por la action (checkbox del agente, o el default de la env var).
     quiereEnviar: v.boolean(),
+    // Idempotencia: uno por INTENTO de alta, generado por el front y reenviado igual
+    // si reintenta. Ver el comentario de `casos.solicitudId` en schema.ts.
+    solicitudId: v.string(),
   },
   handler: async (ctx, args) => {
+    const ahora = Date.now();
+
     // 1) Autorización: sólo un agente autenticado (guard → Error, no es de formulario).
     const resolved = await resolveRole(ctx);
     if (!resolved || resolved.rol !== "agente") {
       throw new Error("No autorizado: se requiere una sesión de agente.");
     }
     const agenteId = resolved.agente._id;
+
+    // 1.bis) IDEMPOTENCIA. Si ya existe un caso con este `solicitudId`, esto es un
+    //        REINTENTO del mismo alta: el intento anterior commiteó pero su respuesta
+    //        nunca llegó al cliente (la action murió, o se cortó la conexión, durante la
+    //        llamada a Resend). Devolvemos ESE caso sin crear nada — sin esto, el agente
+    //        ve "no pudimos crear el caso" sobre un caso que ya existe y su reintento
+    //        genera un DUPLICADO con otro número de caso.
+    //
+    //        La invitación se re-decide con la MISMA función que el camino normal: si el
+    //        envío anterior quedó sin desenlace, el cooldown lo reporta como ENVIO_EN_CURSO
+    //        (no se manda otro email); si falló, se reintenta acá mismo.
+    const previo = await ctx.db
+      .query("casos")
+      .withIndex("by_solicitudId", (q) => q.eq("solicitudId", args.solicitudId))
+      .first();
+    if (previo) {
+      // Un solicitudId ajeno no puede devolver el caso de otro agente.
+      if (previo.agenteId !== agenteId) {
+        throw new Error("No autorizado: el caso no existe o no es tuyo.");
+      }
+      const dam = await ctx.db.get(previo.damnificadoId);
+      if (!dam) throw new Error("El caso existe pero no encontramos al damnificado.");
+
+      const plan = await decidirInvitacion(ctx, {
+        dam,
+        necesitaAcceso: !dam.cuentaActivada,
+        quiereEnviar: args.quiereEnviar,
+        ahora,
+      });
+
+      return {
+        casoId: previo._id,
+        numeroCaso: previo.numeroCaso,
+        email: dam.email,
+        damnificadoId: dam._id,
+        token: dam.invitacionToken,
+        plan,
+      };
+    }
 
     // 2) Validación de campos (defensa server; la UI también valida).
     const nombre = args.nombre.trim();
@@ -514,13 +590,9 @@ export const crearRegistro = internalMutation({
     }
 
     const existente = damnificadosMatch[0];
-    const ahora = Date.now();
     let damnificadoId: Id<"damnificados">;
     let necesitaAcceso: boolean; // el damnificado todavía no puede entrar al portal
     let token: string | undefined;
-    // Los 3 timestamps del último envío de invitación, para evaluar el cooldown con
-    // la MISMA regla que usa el reenvío desde la ficha (ver lib.ts).
-    let marcasPrevias: MarcasInvitacion = {};
 
     if (!existente) {
       // (a) No existe → crear con token. El token se genera SIEMPRE, se invite o
@@ -546,7 +618,6 @@ export const crearRegistro = internalMutation({
       }
       damnificadoId = existente._id;
       necesitaAcceso = true;
-      marcasPrevias = existente;
     } else {
       // (c) Existe y ya activado → reusar; NO hay invitación posible.
       damnificadoId = existente._id;
@@ -567,6 +638,7 @@ export const crearRegistro = internalMutation({
       etapa: "NUEVO",
       prioridad: args.prioridad ?? "MEDIA",
       cerrado: false,
+      solicitudId: args.solicitudId, // ← la marca que dedupe el reintento
     });
 
     // 5) Notificación de "caso abierto" para el damnificado. La FILA se crea
@@ -606,23 +678,19 @@ export const crearRegistro = internalMutation({
     //    on-demand: el claim tiene dos productores y si sólo uno respetara la regla,
     //    el rate-limit se puentearía por el camino más trivial que existe (crearle un
     //    segundo caso a un damnificado sin activar recién invitado).
-    let plan: PlanInvitacion;
-    if (!necesitaAcceso) {
-      plan = "NO_APLICA";
-    } else if (!args.quiereEnviar) {
-      plan = "OMITIDA";
-    } else if (enCooldownInvitacion(marcasPrevias, ahora)) {
-      // Ojo: un intento FALLIDO no cuenta como cooldown (ver `estadoInvitacion`). Si
-      // el último envío se cayó, acá se reintenta — decirle al agente "ya tiene una
-      // invitación reciente" por un email que nunca salió sería la misma mentira que
-      // REC-71 vino a eliminar.
-      plan = "YA_INVITADO_RECIENTE";
-    } else {
-      await ctx.db.patch(damnificadoId, { invitacionIntentoEn: ahora }); // ← el claim
-      plan = "INTENTAR";
-    }
-    // OMITIDA / NO_APLICA no tocan el claim: no hubo intento, así que la ficha sigue
-    // diciendo "nunca se le envió la invitación" — que es la verdad.
+    //
+    //    Es el MISMO helper que usa el camino de reintento idempotente de arriba, para
+    //    que la política no pueda divergir entre los dos. OMITIDA / NO_APLICA no tocan
+    //    el claim: no hubo intento, así que la ficha sigue diciendo "nunca se le envió
+    //    la invitación" — que es la verdad.
+    const dam = await ctx.db.get(damnificadoId);
+    if (!dam) throw new Error("No encontramos al damnificado recién resuelto.");
+    const plan = await decidirInvitacion(ctx, {
+      dam,
+      necesitaAcceso,
+      quiereEnviar: args.quiereEnviar,
+      ahora,
+    });
 
     return { casoId, numeroCaso, email, damnificadoId, token, plan };
   },
@@ -645,7 +713,8 @@ type ResultadoAlta = {
     | "FALLIDA" // el caso se creó, el email NO salió → reintentar desde la ficha
     | "OMITIDA" // el agente destildó el checkbox
     | "NO_APLICA" // el damnificado ya tenía cuenta activa
-    | "YA_INVITADO_RECIENTE"; // ya tiene una invitación reciente en su casilla
+    | "YA_INVITADO_RECIENTE" // ya tiene una invitación reciente ENTREGADA
+    | "ENVIO_EN_CURSO"; // hay un envío reclamado y todavía sin desenlace
 };
 
 /**
@@ -660,6 +729,12 @@ type ResultadoAlta = {
  * front decía "se envió una invitación" —porque leía "se agendó"— y no había
  * reintento ni forma de reenviar. Ahora el veredicto que ve el agente es lo que
  * realmente contestó Resend.
+ *
+ * El precio de ser action: a diferencia de las mutations, NO tiene retry ni dedup
+ * del lado del cliente. Si la conexión se corta después de que `crearRegistro`
+ * commiteó, el agente ve un error sobre un caso que YA existe, y su reintento crearía
+ * un duplicado. Por eso el alta es IDEMPOTENTE por `solicitudId` (ver schema.ts): el
+ * reintento devuelve el mismo caso en vez de crear otro.
  *
  * La action NO decide nada sobre la invitación: eso lo resuelve y lo clama
  * `crearRegistro` dentro de la transacción. Acá sólo se entrega y se reporta.
@@ -676,6 +751,10 @@ export const crear = action({
     // el front lo omite mientras no haya una decisión consciente, así que el default
     // vive en un solo lugar y es fail-safe.
     enviarInvitacion: v.optional(v.boolean()),
+    // Idempotencia del alta: uno por INTENTO, generado por el front, reenviado igual
+    // en el reintento. Si el cliente no lo manda, se genera uno acá: el alta funciona
+    // igual, pero SIN protección contra el duplicado por corte de conexión.
+    solicitudId: v.optional(v.string()),
   },
   handler: async (ctx, args): Promise<ResultadoAlta> => {
     const quiereEnviar = args.enviarInvitacion ?? emailsAlDamnificadoActivos();
@@ -688,6 +767,9 @@ export const crear = action({
       aseguradora: args.aseguradora,
       prioridad: args.prioridad,
       quiereEnviar,
+      // Un id vacío haría colapsar TODAS las altas del agente en el mismo registro
+      // (la primera dedupearía a las siguientes). Se trata como "no vino".
+      solicitudId: args.solicitudId?.trim() || crypto.randomUUID(),
     });
 
     const dto = (invitacion: ResultadoAlta["invitacion"]): ResultadoAlta => ({
