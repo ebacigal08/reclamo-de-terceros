@@ -1,12 +1,20 @@
 "use client";
 
-import { CSSProperties, FormEvent, ReactNode, useState } from "react";
+import { CSSProperties, FormEvent, ReactNode, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useMutation } from "convex/react";
+import { useAction, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
 import { ArrowLeft, CheckCircle2, Loader2, Mail, Plus } from "lucide-react";
 import { api } from "@convex/_generated/api";
-import { Alert, Button, Input, PrioritySelector, Select } from "@/components/ui";
+import type { Id } from "@convex/_generated/dataModel";
+import {
+  Alert,
+  Button,
+  Checkbox,
+  Input,
+  PrioritySelector,
+  Select,
+} from "@/components/ui";
 import {
   PRIORIDAD_DEFAULT,
   RUTAS,
@@ -18,6 +26,15 @@ import {
 type Campo = "nombre" | "email" | "telefono" | "tipo" | "aseguradora";
 type Errores = Partial<Record<Campo, string>>;
 
+/** Los cinco desenlaces posibles de la invitación (ver convex/casos.ts). */
+type EstadoInvitacion =
+  | "ENVIADA"
+  | "FALLIDA"
+  | "OMITIDA"
+  | "NO_APLICA"
+  | "YA_INVITADO_RECIENTE"
+  | "ENVIO_EN_CURSO";
+
 /** Extrae el mensaje legible de un ConvexError (ver convex: errores de formulario). */
 function mensajeError(err: unknown, fallback: string): string {
   if (err instanceof ConvexError && typeof err.data === "string") return err.data;
@@ -28,7 +45,14 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function NuevoCasoPage() {
   const router = useRouter();
-  const crear = useMutation(api.casos.crear);
+  // Action, no mutation (REC-71): el alta ESPERA la entrega real de la invitación,
+  // así que puede decirnos si Resend la aceptó o no.
+  const crear = useAction(api.casos.crear);
+
+  // ¿Están activos los avisos automáticos al damnificado? Gobierna el DEFAULT del
+  // checkbox: si el interruptor está apagado, el alta no invita salvo que lo pidas.
+  const emailsActivos = useQuery(api.notificaciones.emailsDamnificadoActivos);
+  const flagResuelto = emailsActivos !== undefined;
 
   const [nombre, setNombre] = useState("");
   const [email, setEmail] = useState("");
@@ -37,16 +61,44 @@ export default function NuevoCasoPage() {
   const [aseguradora, setAseguradora] = useState("");
   const [prioridad, setPrioridad] = useState<Prioridad>(PRIORIDAD_DEFAULT);
 
+  // `null` = el agente NO tocó el checkbox → decide el server con la env var. Sólo
+  // si hay una decisión CONSCIENTE se manda el override; nunca se inventa un
+  // true/false desde una query todavía sin resolver.
+  const [invitarOverride, setInvitarOverride] = useState<boolean | null>(null);
+  const invitarChecked = invitarOverride ?? emailsActivos ?? false;
+
   const [errores, setErrores] = useState<Errores>({});
   const [topError, setTopError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [exito, setExito] = useState<
-    { email: string; nombre: string; invitacionEnviada: boolean; numeroCaso: string } | null
+    {
+      email: string;
+      nombre: string;
+      invitacion: EstadoInvitacion;
+      numeroCaso: string;
+      casoId: Id<"casos">;
+    } | null
   >(null);
+
+  /**
+   * Id de idempotencia del alta (REC-71). Identifica un INTENTO, no un envío: si el
+   * alta falla y el agente vuelve a apretar "Crear caso" SIN tocar nada, se manda el
+   * mismo id y el server devuelve el caso que ya había creado, en vez de crear otro.
+   *
+   * Hace falta porque `casos.crear` es una action (para poder esperar la entrega del
+   * email) y las actions no tienen retry/dedup del cliente: si la conexión se corta
+   * después del commit, el agente ve un error sobre un caso que YA existe.
+   *
+   * Se descarta apenas el agente EDITA cualquier campo: en ese caso ya no está
+   * reintentando lo mismo, y devolverle el caso viejo (con los datos viejos) mientras
+   * él cree haber corregido algo sería peor que el duplicado.
+   */
+  const solicitudRef = useRef<string | null>(null);
 
   const limpiar = (campo: Campo) => {
     setErrores((prev) => (prev[campo] ? { ...prev, [campo]: undefined } : prev));
     if (topError) setTopError(null);
+    solicitudRef.current = null; // editó algo → es un alta distinta, no un reintento
   };
 
   function validar(): Errores {
@@ -71,6 +123,9 @@ export default function NuevoCasoPage() {
     setErrores({});
     setTopError(null);
     setLoading(true);
+    // Se genera una sola vez por intento: si este submit falla y el agente reintenta
+    // sin editar nada, viaja el MISMO id y el server dedupe en vez de crear otro caso.
+    solicitudRef.current ??= crypto.randomUUID();
     try {
       const res = await crear({
         nombre: nombre.trim(),
@@ -79,15 +134,23 @@ export default function NuevoCasoPage() {
         tipoSiniestro: tipo as TipoSiniestro,
         aseguradora: aseguradora.trim(),
         prioridad,
+        solicitudId: solicitudRef.current,
+        // Se OMITE si el agente no tocó el checkbox → el default lo pone el server
+        // (la env var), que es la única fuente de verdad.
+        ...(invitarOverride !== null ? { enviarInvitacion: invitarOverride } : {}),
       });
       setExito({
         email: res.email,
         nombre: nombre.trim(),
-        invitacionEnviada: res.invitacionEnviada,
+        invitacion: res.invitacion,
         numeroCaso: res.numeroCaso,
+        casoId: res.casoId,
       });
-      // Confirmación breve y redirección a la ficha del caso recién creado.
-      setTimeout(() => router.push(RUTAS.agente.caso(res.casoId)), 1200);
+      // Si algo salió mal con la invitación, el agente tiene que poder LEERLO: nada
+      // de redirigir a los 1200ms por encima de un error.
+      if (res.invitacion === "ENVIADA" || res.invitacion === "NO_APLICA") {
+        setTimeout(() => router.push(RUTAS.agente.caso(res.casoId)), 1200);
+      }
     } catch (err) {
       setTopError(mensajeError(err, "No pudimos crear el caso. Intentá de nuevo."));
       setLoading(false);
@@ -137,20 +200,68 @@ export default function NuevoCasoPage() {
               </p>
               <p style={{ margin: "10px 0 0", fontSize: "var(--text-body-size)", color: "var(--text-secondary)", lineHeight: 1.55 }}>
                 Se dio de alta el caso de <strong style={{ color: "var(--text-primary)" }}>{exito.nombre}</strong>
-                {exito.invitacionEnviada ? (
+                {exito.invitacion === "ENVIADA" && (
                   <>
-                    {" "}y se envió una invitación a{" "}
+                    {" "}y se le envió una invitación a{" "}
                     <strong style={{ color: "var(--text-primary)" }}>{exito.email}</strong> para que acceda al sistema.
                   </>
-                ) : (
-                  <>. El damnificado ya tiene cuenta, no se reenvió la invitación.</>
                 )}
+                {exito.invitacion === "NO_APLICA" && (
+                  <>
+                    . Ya tiene una cuenta activa, así que no se le envió invitación
+                    {emailsActivos === false
+                      ? " ni ningún otro email (los avisos automáticos están apagados)."
+                      : ", pero sí el aviso de que se abrió el caso."}
+                  </>
+                )}
+                {(exito.invitacion === "OMITIDA" ||
+                  exito.invitacion === "FALLIDA" ||
+                  exito.invitacion === "YA_INVITADO_RECIENTE" ||
+                  exito.invitacion === "ENVIO_EN_CURSO") && <>.</>}
               </p>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 9, color: "var(--text-tertiary)", fontSize: "var(--text-body-sm-size)", marginTop: 4 }}>
-              <Loader2 size={15} className="animate-spin" />
-              Redirigiendo a la ficha del caso…
-            </div>
+
+            {/* El caso SIEMPRE quedó creado. Lo que puede haber fallado es el email,
+                y eso el agente tiene que poder leerlo (y actuar), no verlo pasar
+                mientras la pantalla redirige sola. */}
+            {exito.invitacion === "FALLIDA" && (
+              <Alert variant="error" title="No pudimos enviar la invitación">
+                El caso se creó igual. Enviala de nuevo o copiá el link de activación
+                desde la ficha del caso.
+              </Alert>
+            )}
+            {exito.invitacion === "OMITIDA" && (
+              <Alert variant="info" title="No se envió la invitación">
+                Cuando quieras dar acceso a {exito.nombre}, podés enviarle la invitación
+                o copiar el link de activación desde la ficha del caso.
+              </Alert>
+            )}
+            {exito.invitacion === "YA_INVITADO_RECIENTE" && (
+              <Alert variant="warning" title="Ya tiene una invitación reciente">
+                Se le entregó una hace menos de un minuto, así que no le mandamos otra.
+                Podés reenviarla o copiar el link desde la ficha del caso.
+              </Alert>
+            )}
+            {exito.invitacion === "ENVIO_EN_CURSO" && (
+              <Alert variant="warning" title="Hay un envío de invitación en curso">
+                No mandamos otro para no duplicarlo. Mirá el estado en la ficha del caso;
+                si quedó fallido, vas a poder reintentarlo ahí mismo.
+              </Alert>
+            )}
+
+            {exito.invitacion === "ENVIADA" || exito.invitacion === "NO_APLICA" ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 9, color: "var(--text-tertiary)", fontSize: "var(--text-body-sm-size)", marginTop: 4 }}>
+                <Loader2 size={15} className="animate-spin" />
+                Redirigiendo a la ficha del caso…
+              </div>
+            ) : (
+              <Button
+                variant="primary"
+                onClick={() => router.push(RUTAS.agente.caso(exito.casoId))}
+              >
+                Ir a la ficha del caso
+              </Button>
+            )}
           </div>
         </div>
       </div>
@@ -248,13 +359,24 @@ export default function NuevoCasoPage() {
           <Divider />
 
           <FormSection title="Configuración">
-            <PrioritySelector value={prioridad} onChange={setPrioridad} disabled={loading} />
+            <PrioritySelector
+              value={prioridad}
+              onChange={(p) => {
+                setPrioridad(p);
+                // Cambiar la prioridad es EDITAR el alta: si no descartáramos el id, un
+                // reintento devolvería el caso ya creado con la prioridad vieja y el
+                // cambio se perdería en silencio. (El checkbox NO descarta el id: la
+                // invitación se re-decide en el reintento, así que se respeta igual.)
+                solicitudRef.current = null;
+              }}
+              disabled={loading}
+            />
           </FormSection>
 
           <div
             style={{
               display: "flex",
-              alignItems: "center",
+              alignItems: "flex-start",
               gap: 10,
               marginTop: 22,
               padding: "12px 14px",
@@ -263,12 +385,25 @@ export default function NuevoCasoPage() {
               borderRadius: "var(--radius-md)",
             }}
           >
-            <span style={{ color: "var(--primary-600)", display: "flex", flexShrink: 0 }}>
+            <span style={{ color: "var(--primary-600)", display: "flex", flexShrink: 0, marginTop: 1 }}>
               <Mail size={17} />
             </span>
-            <span style={{ fontSize: "var(--text-body-sm-size)", color: "var(--primary-700)", lineHeight: 1.45 }}>
-              Si el damnificado todavía no tiene una cuenta activa, va a recibir un email de invitación para acceder al sistema.
-            </span>
+            <Checkbox
+              label="Enviar invitación por email"
+              checked={invitarChecked}
+              // Deshabilitado hasta saber el default: si dejáramos togglear antes,
+              // el estado visible podría no ser el que se va a aplicar.
+              disabled={loading || !flagResuelto}
+              onChange={(e) => setInvitarOverride(e.target.checked)}
+              helperText={
+                emailsActivos === false
+                  ? "Los avisos automáticos por email al damnificado están apagados en este entorno. Si no enviás la invitación ahora, vas a poder enviarla —o copiar el link de activación— desde la ficha del caso. Si ya tiene cuenta activa, no recibe ningún email."
+                  : // Ojo: el checkbox sólo gobierna la INVITACIÓN. A un damnificado que
+                    // ya tiene cuenta no se lo invita, pero igual le llega el aviso de
+                    // "caso abierto" (eso lo gobierna el interruptor, no este check).
+                    "Sólo aplica si el damnificado todavía no tiene cuenta. Si ya la tiene, no se lo invita, pero igual recibe el aviso de que se abrió el caso."
+              }
+            />
           </div>
         </div>
 
@@ -281,6 +416,10 @@ export default function NuevoCasoPage() {
             size="lg"
             type="submit"
             loading={loading}
+            // Sin el flag resuelto no sabemos si el alta invitaría o no: crear a
+            // ciegas podría mandarle un email al damnificado sin que el agente lo
+            // haya decidido. Es un instante (la query resuelve por WebSocket).
+            disabled={!flagResuelto}
             iconLeft={loading ? undefined : <Plus size={17} />}
           >
             {loading ? "Creando caso…" : "Crear caso"}

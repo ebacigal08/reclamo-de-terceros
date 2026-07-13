@@ -4,7 +4,13 @@ import type { Id } from "./_generated/dataModel";
 import { v, ConvexError, type Infer } from "convex/values";
 import { internal } from "./_generated/api";
 import { resolveRole } from "./users";
-import { baseUrl, emailTexto, renderEmailHtml, sendEmail } from "./email";
+import {
+  baseUrl,
+  emailsAlDamnificadoActivos,
+  emailTexto,
+  renderEmailHtml,
+  sendEmail,
+} from "./email";
 
 /**
  * Motor de notificaciones al damnificado (y al agente) — REC-28.
@@ -22,9 +28,12 @@ import { baseUrl, emailTexto, renderEmailHtml, sendEmail } from "./email";
  * Seguridad (regla del módulo, ver convex/users.ts): la identidad se DERIVA de
  * la sesión con `resolveRole`; nunca se acepta id de identidad del cliente.
  *
- * NOTA sobre invitación y reset de contraseña: NO pasan por este motor. El
- * email de invitación (`invitaciones.enviarInvitacion`) y el provider de reset
- * (`passwordReset.ts`) son REC-65; sólo van a reusar `email.sendEmail`.
+ * NOTA sobre invitación y reset de contraseña: NO pasan por este motor. El email de
+ * invitación (`invitaciones.entregarInvitacion`) y el provider de reset
+ * (`passwordReset.ts`) son REC-65 y usan `email.sendEmailOrThrow` directo. Eso no es
+ * un detalle: como no pasan por `enviar`, el interruptor de REC-71 —que silencia los
+ * avisos automáticos al damnificado— NO puede afectarlos. Quedan a salvo POR
+ * CONSTRUCCIÓN, no porque alguien se acuerde de no romperlos.
  */
 
 // ── Validators (mirror local; MANTENER SINCRONIZADO con schema.ts) ──
@@ -280,8 +289,45 @@ export const enviar = internalAction({
     datos: datosEmail,
   },
   handler: async (_ctx, { email, casoId, destinatario: dest, datos }) => {
+    // Interruptor de avisos al damnificado (REC-71). El corte va ACÁ porque es
+    // el ÚNICO consumidor de `sendEmail`: pasan por este action tanto lo que
+    // encola `crearNotificacion` como el encolado directo del chat, así que un
+    // solo guard los cubre a los dos (y a cualquiera que se agregue después).
+    //
+    // Corta por DESTINATARIO, no por motivo: el motivo no alcanza para deducir a
+    // quién va (NUEVO_MENSAJE va a los dos roles). Y por lo mismo, la invitación y
+    // el reset quedan intactos POR CONSTRUCCIÓN: salen por `sendEmailOrThrow`, que
+    // no pasa por acá — no dependen de que alguien se acuerde de no romperlos.
+    //
+    // Sólo se suprime el EMAIL: la fila de `notificaciones` ya se insertó en la
+    // mutation (antes del runAfter), así que el feed in-app sigue intacto.
+    if (dest === "DAMNIFICADO" && !emailsAlDamnificadoActivos()) {
+      // Ruidoso a propósito: un email que desaparece en silencio es imposible de
+      // depurar. Sin la dirección, igual que el resto del módulo (PII).
+      console.log(
+        `[email][SILENCIADO] motivo=${datos.motivo} destinatario=DAMNIFICADO caso=${casoId}`,
+      );
+      return;
+    }
     const { subject, text, html } = plantilla(datos, dest, casoId);
     await sendEmail({ to: email, subject, text, html, motivo: datos.motivo });
+  },
+});
+
+/**
+ * ¿Están activos los avisos automáticos por email al damnificado? (REC-71)
+ *
+ * La consume el checkbox "Enviar invitación por email" del alta, para que su valor
+ * por defecto lo dicte el mismo interruptor que gobierna todo lo demás (una sola
+ * fuente de verdad, en las dos capas). Devuelve SÓLO un booleano: nunca el nombre
+ * ni el valor crudo de la env var.
+ */
+export const emailsDamnificadoActivos = query({
+  args: {},
+  handler: async (ctx): Promise<boolean | null> => {
+    const resolved = await resolveRole(ctx);
+    if (!resolved || resolved.rol !== "agente") return null; // fail-closed
+    return emailsAlDamnificadoActivos();
   },
 });
 

@@ -112,7 +112,42 @@ export default defineSchema({
     telefono: v.string(),
     // Credenciales gestionadas por Convex Auth (authAccounts), no acá.
     invitacionToken: v.optional(v.string()),
+    // El ciclo de vida de un envío de invitación son TRES hechos distintos, y por
+    // eso son tres campos (REC-71). No se pueden colapsar en menos:
+    //
+    //   invitacionIntentoEn  → se INTENTÓ. Se escribe ANTES de llamar a Resend, en
+    //                          la misma mutation que lo chequea → es el claim atómico
+    //                          del cooldown (sin él, dos envíos concurrentes pasarían
+    //                          los dos el chequeo y llegarían dos emails).
+    //   invitacionEnviadaEn  → Resend lo ACEPTÓ. Se escribe después de entregar.
+    //   invitacionFalloEn    → Resend lo RECHAZÓ. Se escribe después de fallar.
+    //
+    // El estado se DERIVA comparando el intento contra sus dos posibles desenlaces
+    // (ver `estadoInvitacion` en lib.ts):
+    //   sin intento                        → NUNCA se le envió
+    //   entregada >= intento               → ENTREGADA
+    //   fallo     >= intento               → FALLIDA      ← evidencia persistida
+    //   ninguno de los dos                 → EN_CURSO (o una action que murió)
+    //
+    // Por qué NO alcanzan dos campos: sin `invitacionFalloEn`, "en curso" y "falló"
+    // son indistinguibles (los dos son "intento sin entrega"), y hay que tratarlos
+    // AL REVÉS — un envío en curso debe bloquear otro (duplicado), y uno fallido
+    // NO debe bloquear el reintento. Colapsarlos hacía que, tras un fallo, el sistema
+    // rechazara el reintento diciendo "ya se le envió una invitación": exactamente la
+    // clase de mentira que REC-71 vino a eliminar.
+    invitacionIntentoEn: v.optional(v.number()),
     invitacionEnviadaEn: v.optional(v.number()),
+    invitacionFalloEn: v.optional(v.number()),
+    // QUIÉN produjo el último intento: el `solicitudId` del alta que lo reclamó, o
+    // ausente si lo reclamó un reenvío manual desde la ficha.
+    //
+    // Sirve para una sola pregunta, en el reintento idempotente del alta: "el envío que
+    // veo, ¿lo produjo ESTE alta?". La respuesta tiene que ser CAUSAL, no temporal —
+    // comparar `invitacionIntentoEn` contra `caso._creationTime` no sirve: el claim usa
+    // el `Date.now()` tomado al empezar la mutation y `_creationTime` lo asigna Convex al
+    // insertar el caso, después, así que el claim del propio alta puede quedar ANTERIOR
+    // al caso y la atribución fallaría justo hacia el lado que vuelve a mentir.
+    invitacionSolicitudId: v.optional(v.string()),
     cuentaActivada: v.boolean(),
     onboardingCompletado: v.boolean(),
   })
@@ -131,10 +166,20 @@ export default defineSchema({
     cerrado: v.boolean(),
     resultadoCierre: v.optional(resultadoCierre),
     cerradoEn: v.optional(v.number()), // timestamp de cierre (REC-66); ausente en casos cerrados antes de REC-66
+    // Idempotencia del alta (REC-71). Lo genera el FRONT, uno por intento de alta,
+    // y lo reenvía igual si reintenta. Existe porque `casos.crear` es una action (para
+    // poder esperar la entrega del email) y las actions —a diferencia de las mutations—
+    // no tienen retry ni deduplicación del lado del cliente: si la conexión se corta
+    // DESPUÉS de que la transacción commiteó, el agente ve "no pudimos crear el caso"
+    // sobre un caso que YA existe, y al reintentar crearía un duplicado.
+    // Con esto, el reintento encuentra el caso por este id y devuelve ESE, sin crear
+    // nada. Optional: los casos previos a REC-71 (y el seed) no lo tienen.
+    solicitudId: v.optional(v.string()),
   })
     .index("by_agente", ["agenteId", "cerrado"])
     .index("by_damnificado", ["damnificadoId"])
-    .index("by_numeroCaso", ["numeroCaso"]),
+    .index("by_numeroCaso", ["numeroCaso"])
+    .index("by_solicitudId", ["solicitudId"]),
 
   // ── Relato guiado (wizard de 7 preguntas) ──────────────────────
   relatosSiniestro: defineTable({
