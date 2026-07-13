@@ -45,6 +45,8 @@ Copiá `.env.example` a `.env.local`. `npx convex dev` completa `NEXT_PUBLIC_CON
   - `NEXT_PUBLIC_CONVEX_URL` — URL del deployment de **producción** de Convex (persistente, la usa el runtime de middleware/server).
 - **Variables en el deployment de PRODUCCIÓN de Convex** (dashboard de Convex, NO Railway):
   - Convex Auth: `JWT_PRIVATE_KEY`, `JWKS`, `SITE_URL` (= dominio público de Railway). Se generan con `npx @convex-dev/auth` apuntando a producción.
+  - Email: `RESEND_API_KEY`, `EMAIL_FROM` (remitente de un dominio verificado).
+  - `SILENCIAR_EMAILS_DAMNIFICADO` *(opcional, REC-71)* — `true` silencia los avisos automáticos por email al damnificado (caso abierto, avance de etapa, nuevo pedido, caso cerrado). Sirve para operar el CRM con datos reales sin escribirle solo al cliente. **Ausente = emails encendidos.** No afecta los emails al agente ni el reset de contraseña. **Sobre la invitación:** no la bloquea, pero define el default del checkbox del alta — con el flag puesto, un alta que no lo tilde no invita, y el damnificado queda sin acceso hasta que le mandes la invitación (o el link) desde la ficha. Una invitación explícita se envía siempre. Se prende y apaga sin redeploy: `npx convex env set|remove SILENCIAR_EMAILS_DAMNIFICADO`.
   - **NO** setear `SEED_ENABLED` ni `DEPLOYMENT_ENV=dev`: así el seed demo (`convex/seed.ts`) queda bloqueado en prod.
 
 ### Pasos para publicar

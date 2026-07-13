@@ -60,3 +60,82 @@ export function esFechaReal(iso: string): boolean {
   const d = new Date(`${iso}T00:00:00Z`);
   return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === iso;
 }
+
+// ── Envío de invitación: estado y cooldown (REC-71) ──────────────
+/** Ventana mínima entre dos envíos de invitación al MISMO damnificado. */
+export const COOLDOWN_INVITACION_MS = 60_000;
+
+/** Los tres timestamps del ciclo de vida de un envío (ver schema.ts). */
+export type MarcasInvitacion = {
+  invitacionIntentoEn?: number;
+  invitacionEnviadaEn?: number;
+  invitacionFalloEn?: number;
+};
+
+export type EstadoEnvioInvitacion =
+  | "NUNCA" // no se intentó nunca
+  | "ENTREGADA" // el último intento fue aceptado por Resend
+  | "FALLIDA" // el último intento fue rechazado por Resend
+  | "EN_CURSO"; // se intentó y todavía no se sabe (o la action murió)
+
+/**
+ * Deriva en qué estado quedó el ÚLTIMO intento de envío, comparándolo con sus dos
+ * posibles desenlaces. Es la única fuente de esa lectura: la usan el cooldown, los
+ * dos productores y la ficha, así que no puede haber dos interpretaciones distintas
+ * de los mismos tres campos.
+ */
+export function estadoInvitacion(
+  m: MarcasInvitacion,
+  ahora: number = Date.now(),
+): { estado: EstadoEnvioInvitacion; enCooldown: boolean } {
+  const intento = m.invitacionIntentoEn;
+  if (intento === undefined) return { estado: "NUNCA", enCooldown: false };
+
+  const entregada = (m.invitacionEnviadaEn ?? 0) >= intento;
+  const fallida = (m.invitacionFalloEn ?? 0) >= intento;
+
+  const estado: EstadoEnvioInvitacion = entregada
+    ? "ENTREGADA"
+    : fallida
+      ? "FALLIDA"
+      : "EN_CURSO";
+
+  // Un intento FALLIDO no consume cooldown: si Resend rechazó el email, el agente
+  // tiene que poder reintentar YA — es lo que el propio mensaje de error le dice que
+  // haga. Bloquearlo 60 s y encima contestarle "ya se le envió una invitación" sería
+  // mentirle sobre un correo que nunca salió.
+  //
+  // Un intento EN CURSO sí bloquea: es lo que evita que dos llamadas concurrentes
+  // (dos pestañas, dos POST al endpoint) manden dos emails. Si la action murió sin
+  // resolver, el bloqueo se cura solo al vencer la ventana.
+  //
+  // Y una ENTREGA reciente también bloquea: no le llenamos la casilla al damnificado.
+  const enCooldown =
+    estado !== "FALLIDA" && ahora - intento < COOLDOWN_INVITACION_MS;
+
+  return { estado, enCooldown };
+}
+
+/**
+ * ¿Hay que bloquear un nuevo envío de invitación a este damnificado?
+ *
+ * Vive acá, y no en el módulo que lo estrenó, porque el claim del cooldown tiene
+ * DOS productores —`casos.crearRegistro` (alta) e `invitaciones.prepararInvitacion`
+ * (reenvío desde la ficha)— y ambos tienen que aplicar EXACTAMENTE la misma regla.
+ * Con una copia por módulo, el rate-limit se puentea por el camino más trivial:
+ * crearle un segundo caso a un damnificado sin activar recién invitado.
+ *
+ * Lo que difiere entre los dos productores es la REACCIÓN, no la regla: la ficha
+ * lanza ConvexError (apretaste un botón que dice "enviar"), el alta lo reporta como
+ * un estado más del resultado (pediste crear un caso; el email es un accesorio).
+ *
+ * El chequeo y la escritura del claim van en la MISMA mutation: es lo que lo hace
+ * atómico contra dos llamadas concurrentes (una gana, la otra reintenta por OCC,
+ * ve el timestamp nuevo y corta).
+ */
+export function enCooldownInvitacion(
+  m: MarcasInvitacion,
+  ahora: number,
+): boolean {
+  return estadoInvitacion(m, ahora).enCooldown;
+}

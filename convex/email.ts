@@ -36,6 +36,47 @@ export function baseUrl(): string {
   return (process.env.SITE_URL ?? "http://localhost:3000").replace(/\/+$/, "");
 }
 
+// ── Interruptor de avisos automáticos al damnificado (REC-71) ────────────────
+/** Env var que silencia los avisos automáticos al damnificado. */
+export const VAR_SILENCIO = "SILENCIAR_EMAILS_DAMNIFICADO";
+
+/**
+ * ¿Se le mandan al damnificado los emails AUTOMÁTICOS del caso (caso abierto,
+ * avance de etapa, nuevo pedido, caso cerrado)? Permite operar el CRM con datos
+ * reales sin escribirle solo al cliente, y volver atrás sin deploy de código.
+ *
+ * Alcance, con precisión:
+ *
+ *  - APAGA los 4 avisos automáticos al damnificado (caso abierto, avance de etapa,
+ *    nuevo pedido, caso cerrado), en `notificaciones.enviar`.
+ *  - NO afecta los emails al AGENTE (pedido respondido, plazo próximo, chat).
+ *  - NO PUEDE bloquear la INVITACIÓN ni el RESET de contraseña: salen por
+ *    `sendEmailOrThrow`, que no pasa por ese guard → intactos POR CONSTRUCCIÓN.
+ *  - PERO sí define el valor por DEFECTO del checkbox "Enviar invitación por email"
+ *    del alta (`casos.crear`: `args.enviarInvitacion ?? emailsAlDamnificadoActivos()`).
+ *    O sea: con el interruptor puesto, un alta que no diga nada NO invita. Una
+ *    invitación EXPLÍCITA —el checkbox tildado, o el botón de la ficha— se manda
+ *    igual, siempre. El interruptor cambia el default, nunca veta un acto explícito.
+ *  - NO afecta el feed in-app: las filas de `notificaciones` se crean igual.
+ *
+ * El nombre es NEGATIVO a propósito: así "ausente = emails encendidos" cae solo y
+ * nadie se olvida de reactivarlos. Sólo `"true"`/`"1"` silencian; cualquier otro
+ * valor (incluido un typo) deja los emails ACTIVOS, que es el comportamiento
+ * histórico. El canary de que el silencio está puesto es humano y está a la vista:
+ * el checkbox de "Nuevo caso" viene desmarcado.
+ *
+ * Para apagar/prender:  npx convex env set|remove SILENCIAR_EMAILS_DAMNIFICADO
+ */
+export function emailsAlDamnificadoActivos(): boolean {
+  const raw = process.env[VAR_SILENCIO];
+  if (raw === undefined || raw === "") return true;
+  const valor = raw.trim().toLowerCase();
+  if (valor === "true" || valor === "1") return false;
+  if (valor === "false" || valor === "0") return true;
+  console.warn(`[email] ${VAR_SILENCIO}="${raw}" no reconocido → asumo ACTIVOS`);
+  return true;
+}
+
 /** Recorta un mensaje para el log/el error (no volcamos bodies enteros). */
 function acotar(s: string): string {
   return s.length > 200 ? `${s.slice(0, 200)}…` : s;

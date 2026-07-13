@@ -32,6 +32,7 @@ import { RespuestasAseguradoraCard } from "./RespuestasAseguradoraCard";
 import { GestionesCard } from "./GestionesCard";
 import { NotasInternasCard } from "./NotasInternasCard";
 import { ChatCard } from "./ChatCard";
+import { AccesoDamnificado } from "./AccesoDamnificado";
 
 // DTO de la ficha (deriva del retorno de la query → siempre en sync). `null`
 // (no-encontrado/no-dueño) se maneja aparte; acá el shape del caso presente.
@@ -505,6 +506,10 @@ function FichaDetalle({ caso }: { caso: Ficha }) {
                 <DataRow icon={<Users size={17} />} label="Nombre completo" value={dam.nombre} />
                 <DataRow icon={<Mail size={17} />} label="Email" value={dam.email} />
                 <DataRow icon={<Phone size={17} />} label="Teléfono" value={dam.telefono} mono last />
+                {/* Acceso al portal (REC-71). Va acá dentro y no en una card propia:
+                    "cómo entra esta persona al sistema" son datos de la persona. El
+                    componente se auto-oculta si la cuenta ya está activada. */}
+                {!dam.cuentaActivada && <AccesoDamnificado casoId={caso._id} />}
               </>
             ) : (
               <div style={{ padding: "10px 0", fontSize: "var(--text-body-sm-size)", color: "var(--text-tertiary)" }}>

@@ -1,11 +1,22 @@
-import { query, mutation, internalMutation } from "./_generated/server";
+import {
+  query,
+  mutation,
+  action,
+  internalMutation,
+} from "./_generated/server";
 import type { MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { ConvexError, v } from "convex/values";
 import { internal } from "./_generated/api";
 import { resolveRole } from "./users";
-import { normalizeEmail } from "./lib";
+import {
+  enCooldownInvitacion,
+  normalizeEmail,
+  type MarcasInvitacion,
+} from "./lib";
 import { crearNotificacion } from "./notificaciones";
+import { emailsAlDamnificadoActivos } from "./email";
+import { entregarYRegistrar } from "./invitaciones";
 
 /**
  * Funciones del Caso.
@@ -420,21 +431,37 @@ export async function generarNumeroCaso(
 }
 
 /**
- * Alta pública de un caso (REC-19) — el punto de entrada de todos los datos.
+ * Qué se decidió hacer con la invitación, resuelto DENTRO de la transacción del
+ * alta. La action de arriba no decide: ejecuta lo que esto le dice.
+ */
+type PlanInvitacion =
+  | "INTENTAR" // hay que entregar el email (y el claim ya quedó escrito)
+  | "OMITIDA" // el agente destildó el checkbox
+  | "NO_APLICA" // el damnificado ya tiene la cuenta activada
+  | "YA_INVITADO_RECIENTE"; // se le mandó una hace menos del cooldown
+
+/**
+ * Alta transaccional del caso (REC-19) — el punto de entrada de todos los datos.
  *
- * Contrato transaccional: crea o reusa el damnificado por email, genera y
- * PERSISTE el `invitacionToken` cuando corresponde, da de alta el caso en
- * etapa NUEVO y la notificación CASO_ABIERTO — TODO en esta única transacción
- * (atómica: si algo lanza, rollback completo). La ENTREGA de la invitación se
- * agenda con `scheduler.runAfter` (se encola sólo si la mutation commitea); el
- * email real es REC-65 (ver `invitaciones.enviarInvitacion`).
+ * INTERNA a propósito (REC-71): la envuelve la action `crear`, que es la que el
+ * cliente llama. Acá vive TODO lo que tiene que ser atómico —crear o reusar el
+ * damnificado por email, el `invitacionToken`, el correlativo `numeroCaso`, el caso,
+ * la fila CASO_ABIERTO y el CLAIM del cooldown de invitación—; la action sólo entrega
+ * el email después. No se puede mover esto a la action: `generarNumeroCaso` corre
+ * inline y la unicidad del correlativo se apoya en el aislamiento serializable / los
+ * reintentos por OCC de Convex.
+ *
+ * También vive acá TODA la política de invitación (a quién, si corresponde, si el
+ * cooldown lo permite) y su claim, por la misma razón: si la decisión la tomara la
+ * action, entre el chequeo y la escritura habría una ventana → sería un check-then-act,
+ * no un rate-limit.
  *
  * Seguridad (regla del módulo): la identidad del agente se DERIVA de la sesión
  * con `resolveRole`; nunca se acepta `agenteId` del cliente. Los errores de
  * formulario/negocio usan `ConvexError` (mensaje legible en el cliente);
  * `Error` queda sólo para el guard de sesión.
  */
-export const crear = mutation({
+export const crearRegistro = internalMutation({
   args: {
     nombre: v.string(),
     email: v.string(),
@@ -442,6 +469,8 @@ export const crear = mutation({
     tipoSiniestro,
     aseguradora: v.string(),
     prioridad: v.optional(prioridad),
+    // Ya resuelto por la action (checkbox del agente, o el default de la env var).
+    quiereEnviar: v.boolean(),
   },
   handler: async (ctx, args) => {
     // 1) Autorización: sólo un agente autenticado (guard → Error, no es de formulario).
@@ -485,36 +514,43 @@ export const crear = mutation({
     }
 
     const existente = damnificadosMatch[0];
+    const ahora = Date.now();
     let damnificadoId: Id<"damnificados">;
-    let invitar: boolean;
+    let necesitaAcceso: boolean; // el damnificado todavía no puede entrar al portal
     let token: string | undefined;
+    // Los 3 timestamps del último envío de invitación, para evaluar el cooldown con
+    // la MISMA regla que usa el reenvío desde la ficha (ver lib.ts).
+    let marcasPrevias: MarcasInvitacion = {};
+
     if (!existente) {
-      // (a) No existe → crear con token e invitar.
+      // (a) No existe → crear con token. El token se genera SIEMPRE, se invite o
+      //     no: si el agente no manda el email, va a querer copiar el link.
       token = crypto.randomUUID();
       damnificadoId = await ctx.db.insert("damnificados", {
         nombre,
         email,
         telefono,
         invitacionToken: token,
-        invitacionEnviadaEn: Date.now(),
         cuentaActivada: false,
         onboardingCompletado: false,
       });
-      invitar = true;
+      necesitaAcceso = true;
     } else if (!existente.cuentaActivada) {
-      // (b) Existe y sin activar → reusar y regenerar token (invalida de facto
-      //     el anterior: el link viejo deja de resolver) para reenviar la invitación.
-      token = crypto.randomUUID();
-      await ctx.db.patch(existente._id, {
-        invitacionToken: token,
-        invitacionEnviadaEn: Date.now(),
-      });
+      // (b) Existe y sin activar → REUSAR el token, no regenerarlo (REC-71).
+      //     Antes se regeneraba en cada alta, lo que invalidaba de facto el link
+      //     anterior: ahora que el agente puede COPIAR ese link y mandarlo por su
+      //     cuenta (WhatsApp), regenerarlo le mataría en silencio un link ya enviado.
+      token = existente.invitacionToken ?? crypto.randomUUID();
+      if (!existente.invitacionToken) {
+        await ctx.db.patch(existente._id, { invitacionToken: token });
+      }
       damnificadoId = existente._id;
-      invitar = true;
+      necesitaAcceso = true;
+      marcasPrevias = existente;
     } else {
-      // (c) Existe y ya activado → reusar; NO regenerar token, NO invitar.
+      // (c) Existe y ya activado → reusar; NO hay invitación posible.
       damnificadoId = existente._id;
-      invitar = false;
+      necesitaAcceso = false;
     }
 
     // 4) Alta del caso. `generarNumeroCaso` corre INLINE acá, dentro de esta
@@ -533,26 +569,24 @@ export const crear = mutation({
       cerrado: false,
     });
 
-    // 5) Notificación de "caso abierto" para el damnificado. El registro se
-    //    crea siempre; el EMAIL depende de si además va una invitación:
-    if (invitar && token) {
+    // 5) Notificación de "caso abierto" para el damnificado. La FILA se crea
+    //    siempre, en las tres ramas; lo único condicional es el email.
+    if (necesitaAcceso) {
       // (a/b) Damnificado nuevo o sin activar: registramos la novedad pero NO
-      //       mandamos el email de "caso abierto" — la invitación (abajo) ya le
-      //       anuncia el caso y le da acceso. Evita el doble mail casi idéntico.
+      //       mandamos el email de "caso abierto" — la invitación ya le anuncia el
+      //       caso y le da acceso. Evita el doble mail casi idéntico.
       await ctx.db.insert("notificaciones", {
         destinatario: "DAMNIFICADO",
         casoId,
         motivo: "CASO_ABIERTO",
         visto: false,
       });
-      await ctx.scheduler.runAfter(0, internal.invitaciones.enviarInvitacion, {
-        email,
-        token,
-      });
     } else {
       // (c) Damnificado con cuenta ya activada (p. ej. su segundo caso): no hay
       //     invitación, así que acá SÍ va el email de "tu caso fue abierto"
-      //     (antes este escenario no enviaba nada — bug que REC-28 corrige).
+      //     (antes este escenario no enviaba nada — bug que REC-28 corrige). Si el
+      //     interruptor de REC-71 está apagado, el guard de `notificaciones.enviar`
+      //     suprime el email; la fila se crea igual.
       await crearNotificacion(ctx, {
         casoId,
         destinatario: "DAMNIFICADO",
@@ -561,7 +595,123 @@ export const crear = mutation({
       });
     }
 
-    return { casoId, numeroCaso, email, invitacionEnviada: invitar };
+    // 6) Decisión y CLAIM de la invitación (REC-71) — dentro de esta transacción.
+    //
+    //    El claim (`invitacionIntentoEn`) se escribe ANTES de que la action intente
+    //    entregar. Si no, un fallo de Resend daría "FALLIDA" en la pantalla de éxito
+    //    pero SIN RASTRO en la base: al abrir la ficha diría "nunca se le envió", y
+    //    el fallo moriría en una pantalla efímera — justo el bug que REC-71 mata.
+    //
+    //    Y el cooldown se aplica ACÁ TAMBIÉN, con el MISMO helper que usa el reenvío
+    //    on-demand: el claim tiene dos productores y si sólo uno respetara la regla,
+    //    el rate-limit se puentearía por el camino más trivial que existe (crearle un
+    //    segundo caso a un damnificado sin activar recién invitado).
+    let plan: PlanInvitacion;
+    if (!necesitaAcceso) {
+      plan = "NO_APLICA";
+    } else if (!args.quiereEnviar) {
+      plan = "OMITIDA";
+    } else if (enCooldownInvitacion(marcasPrevias, ahora)) {
+      // Ojo: un intento FALLIDO no cuenta como cooldown (ver `estadoInvitacion`). Si
+      // el último envío se cayó, acá se reintenta — decirle al agente "ya tiene una
+      // invitación reciente" por un email que nunca salió sería la misma mentira que
+      // REC-71 vino a eliminar.
+      plan = "YA_INVITADO_RECIENTE";
+    } else {
+      await ctx.db.patch(damnificadoId, { invitacionIntentoEn: ahora }); // ← el claim
+      plan = "INTENTAR";
+    }
+    // OMITIDA / NO_APLICA no tocan el claim: no hubo intento, así que la ficha sigue
+    // diciendo "nunca se le envió la invitación" — que es la verdad.
+
+    return { casoId, numeroCaso, email, damnificadoId, token, plan };
+  },
+});
+
+/**
+ * Lo ÚNICO que sale al cliente en el alta.
+ *
+ * DTO explícito y mínimo, construido campo por campo: `crearRegistro` devuelve además
+ * `token` y `damnificadoId`, que son INTERNOS. El token es una credencial de activación
+ * (ver `invitaciones.accesoDamnificado`), así que no puede viajar por un spread
+ * accidental en la respuesta pública del alta.
+ */
+type ResultadoAlta = {
+  casoId: Id<"casos">;
+  numeroCaso: string;
+  email: string;
+  invitacion:
+    | "ENVIADA" // Resend la aceptó
+    | "FALLIDA" // el caso se creó, el email NO salió → reintentar desde la ficha
+    | "OMITIDA" // el agente destildó el checkbox
+    | "NO_APLICA" // el damnificado ya tenía cuenta activa
+    | "YA_INVITADO_RECIENTE"; // ya tiene una invitación reciente en su casilla
+};
+
+/**
+ * Alta pública de un caso (REC-19 → REC-71).
+ *
+ * Es una ACTION que envuelve la mutation transaccional `crearRegistro` y, si
+ * corresponde invitar, ESPERA la entrega real del email.
+ *
+ * Antes era una mutation, y una mutation sólo puede `scheduler.runAfter`: la
+ * invitación se disparaba después del commit, sin poder esperarla, con
+ * `sendEmailOrThrow` (que lanza). Si Resend fallaba, el caso se creaba igual, el
+ * front decía "se envió una invitación" —porque leía "se agendó"— y no había
+ * reintento ni forma de reenviar. Ahora el veredicto que ve el agente es lo que
+ * realmente contestó Resend.
+ *
+ * La action NO decide nada sobre la invitación: eso lo resuelve y lo clama
+ * `crearRegistro` dentro de la transacción. Acá sólo se entrega y se reporta.
+ */
+export const crear = action({
+  args: {
+    nombre: v.string(),
+    email: v.string(),
+    telefono: v.string(),
+    tipoSiniestro,
+    aseguradora: v.string(),
+    prioridad: v.optional(prioridad),
+    // Override explícito del agente (el checkbox). Si NO viene, decide la env var:
+    // el front lo omite mientras no haya una decisión consciente, así que el default
+    // vive en un solo lugar y es fail-safe.
+    enviarInvitacion: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args): Promise<ResultadoAlta> => {
+    const quiereEnviar = args.enviarInvitacion ?? emailsAlDamnificadoActivos();
+
+    const r = await ctx.runMutation(internal.casos.crearRegistro, {
+      nombre: args.nombre,
+      email: args.email,
+      telefono: args.telefono,
+      tipoSiniestro: args.tipoSiniestro,
+      aseguradora: args.aseguradora,
+      prioridad: args.prioridad,
+      quiereEnviar,
+    });
+
+    const dto = (invitacion: ResultadoAlta["invitacion"]): ResultadoAlta => ({
+      casoId: r.casoId,
+      numeroCaso: r.numeroCaso,
+      email: r.email,
+      invitacion,
+    });
+
+    if (r.plan !== "INTENTAR") return dto(r.plan);
+    if (!r.token) return dto("FALLIDA"); // inalcanzable: INTENTAR implica token
+
+    // Mismo helper que usa el botón de la ficha: entrega, registra el desenlace real
+    // (entregado o fallido) y devuelve qué contestó Resend. ENVIADA/FALLIDA reflejan
+    // eso y nada más. El fallo queda PERSISTIDO, así que la ficha lo muestra al abrirla
+    // —no muere en esta pantalla— y el reintento no queda bloqueado por el cooldown.
+    const entregado = await entregarYRegistrar(ctx, {
+      damnificadoId: r.damnificadoId,
+      email: r.email,
+      token: r.token,
+      casoId: r.casoId,
+    });
+
+    return dto(entregado ? "ENVIADA" : "FALLIDA");
   },
 });
 

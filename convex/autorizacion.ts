@@ -54,3 +54,36 @@ export async function exigirCasoAutorizadoDual(
   }
   return autorizado;
 }
+
+// ── Variante SOLO-AGENTE ─────────────────────────────────────────────────────
+/**
+ * Agente dueño del caso. Es el guard de las bitácoras y de todo lo que el
+ * damnificado no debe poder tocar ni leer.
+ *
+ * El módulo ya contrastaba en su JSDoc "el guard de las bitácoras (solo-agente)" con
+ * el dual, pero nunca tuvo la variante: el triplete `resolveRole` + `db.get(casoId)` +
+ * `caso.agenteId !== agente._id` terminó open-codeado en notasInternas, gestiones,
+ * respuestasAseguradora, pedidos y casos. Vive acá para que "cómo se deriva que un
+ * caso es de un agente" tenga UN solo lugar.
+ *
+ * Fail-closed a `null`, y MISMO trato para "no hay sesión", "sos damnificado", "el
+ * caso no existe" y "el caso es ajeno" → no filtra la existencia de casos ajenos.
+ */
+export async function casoDeAgente(ctx: QueryCtx, casoId: Id<"casos">) {
+  const resolved = await resolveRole(ctx);
+  if (!resolved || resolved.rol !== "agente") return null;
+
+  const caso = await ctx.db.get(casoId);
+  if (!caso || caso.agenteId !== resolved.agente._id) return null;
+
+  return { agente: resolved.agente, caso };
+}
+
+/** Versión que LANZA. Mismo mensaje para inexistente y ajeno. */
+export async function exigirCasoDeAgente(ctx: QueryCtx, casoId: Id<"casos">) {
+  const autorizado = await casoDeAgente(ctx, casoId);
+  if (!autorizado) {
+    throw new Error("No autorizado: el caso no existe o no es tuyo.");
+  }
+  return autorizado;
+}

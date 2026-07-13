@@ -112,7 +112,32 @@ export default defineSchema({
     telefono: v.string(),
     // Credenciales gestionadas por Convex Auth (authAccounts), no acá.
     invitacionToken: v.optional(v.string()),
+    // El ciclo de vida de un envío de invitación son TRES hechos distintos, y por
+    // eso son tres campos (REC-71). No se pueden colapsar en menos:
+    //
+    //   invitacionIntentoEn  → se INTENTÓ. Se escribe ANTES de llamar a Resend, en
+    //                          la misma mutation que lo chequea → es el claim atómico
+    //                          del cooldown (sin él, dos envíos concurrentes pasarían
+    //                          los dos el chequeo y llegarían dos emails).
+    //   invitacionEnviadaEn  → Resend lo ACEPTÓ. Se escribe después de entregar.
+    //   invitacionFalloEn    → Resend lo RECHAZÓ. Se escribe después de fallar.
+    //
+    // El estado se DERIVA comparando el intento contra sus dos posibles desenlaces
+    // (ver `estadoInvitacion` en lib.ts):
+    //   sin intento                        → NUNCA se le envió
+    //   entregada >= intento               → ENTREGADA
+    //   fallo     >= intento               → FALLIDA      ← evidencia persistida
+    //   ninguno de los dos                 → EN_CURSO (o una action que murió)
+    //
+    // Por qué NO alcanzan dos campos: sin `invitacionFalloEn`, "en curso" y "falló"
+    // son indistinguibles (los dos son "intento sin entrega"), y hay que tratarlos
+    // AL REVÉS — un envío en curso debe bloquear otro (duplicado), y uno fallido
+    // NO debe bloquear el reintento. Colapsarlos hacía que, tras un fallo, el sistema
+    // rechazara el reintento diciendo "ya se le envió una invitación": exactamente la
+    // clase de mentira que REC-71 vino a eliminar.
+    invitacionIntentoEn: v.optional(v.number()),
     invitacionEnviadaEn: v.optional(v.number()),
+    invitacionFalloEn: v.optional(v.number()),
     cuentaActivada: v.boolean(),
     onboardingCompletado: v.boolean(),
   })
