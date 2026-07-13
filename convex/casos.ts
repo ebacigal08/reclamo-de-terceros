@@ -432,10 +432,34 @@ export async function generarNumeroCaso(
  */
 type PlanInvitacion =
   | "INTENTAR" // hay que entregar el email (y el claim ya quedó escrito)
-  | "OMITIDA" // el agente destildó el checkbox
+  | "OMITIDA" // el agente destildó el checkbox y NO hubo envío en este alta
   | "NO_APLICA" // el damnificado ya tiene la cuenta activada
+  | "YA_ENTREGADA" // este alta YA entregó la invitación (en el intento anterior)
   | "YA_INVITADO_RECIENTE" // se le entregó una hace menos del cooldown
   | "ENVIO_EN_CURSO"; // hay un envío reclamado y todavía sin desenlace
+
+/**
+ * ¿El envío que figura en el damnificado lo produjo ESTE alta?
+ *
+ * El claim (`invitacionIntentoEn`) se escribe en la misma transacción que crea el caso,
+ * así que un intento posterior a `_creationTime` del caso salió de este alta (o de un
+ * reenvío hecho después desde la ficha — que también es un envío real del agente). Uno
+ * anterior es de otra historia: un caso previo del mismo damnificado, por ejemplo.
+ *
+ * La distinción importa en las DOS direcciones, y por eso no alcanza con mirar el estado
+ * a secas: si el damnificado ya tenía una invitación entregada hace dos días y este alta
+ * la omitió, reportar "ENVIADA" sería tan falso como reportar "OMITIDA" sobre un email
+ * que este alta sí mandó.
+ */
+function envioPerteneceAEsteAlta(
+  dam: Doc<"damnificados">,
+  caso: Doc<"casos">,
+): boolean {
+  return (
+    dam.invitacionIntentoEn !== undefined &&
+    dam.invitacionIntentoEn >= caso._creationTime
+  );
+}
 
 /**
  * Decide qué hacer con la invitación y, si hay que enviarla, CLAMA el intento — todo
@@ -444,6 +468,12 @@ type PlanInvitacion =
  *
  * Lo llaman los dos caminos del alta —el normal y el de reintento idempotente— para
  * que la política sea literalmente la misma y no pueda divergir.
+ *
+ * `yaEnvioEsteAlta` sólo lo pasa el camino de REINTENTO, y es lo que impide la mentira
+ * más fea que quedaba: el primer intento entrega el email, se corta la conexión, el
+ * agente DESTILDA el checkbox y reintenta → sin esto, `!quiereEnviar` devolvía OMITIDA
+ * y la pantalla decía "no se envió la invitación" sobre un correo que el damnificado ya
+ * tenía en la casilla. Destildar no puede deshacer un email que ya salió.
  */
 async function decidirInvitacion(
   ctx: MutationCtx,
@@ -452,14 +482,26 @@ async function decidirInvitacion(
     necesitaAcceso: boolean;
     quiereEnviar: boolean;
     ahora: number;
+    /** Reintento: el envío que figura en el damnificado salió de este mismo alta. */
+    yaEnvioEsteAlta?: boolean;
   },
 ): Promise<PlanInvitacion> {
-  const { dam, necesitaAcceso, quiereEnviar, ahora } = args;
+  const { dam, necesitaAcceso, quiereEnviar, ahora, yaEnvioEsteAlta } = args;
 
   if (!necesitaAcceso) return "NO_APLICA";
-  if (!quiereEnviar) return "OMITIDA";
 
   const { estado, enCooldown } = estadoInvitacion(dam, ahora);
+
+  // Un envío ya consumado por este alta gana sobre el checkbox: el checkbox expresa una
+  // intención, y esto es un hecho. Sólo FALLIDA y NUNCA dejan que la intención decida
+  // (no hay nada consumado que contradecir).
+  if (yaEnvioEsteAlta) {
+    if (estado === "ENTREGADA") return "YA_ENTREGADA";
+    if (estado === "EN_CURSO") return "ENVIO_EN_CURSO";
+  }
+
+  if (!quiereEnviar) return "OMITIDA";
+
   if (enCooldown) {
     // Un intento FALLIDO no entra acá (no consume cooldown): tras un fallo se reintenta
     // en el acto. Y se distingue "entregada" de "en curso" porque decir "ya se le envió"
@@ -544,6 +586,9 @@ export const crearRegistro = internalMutation({
         necesitaAcceso: !dam.cuentaActivada,
         quiereEnviar: args.quiereEnviar,
         ahora,
+        // Si el intento anterior de ESTE alta ya entregó (o está entregando) el email,
+        // eso manda sobre el checkbox: destildarlo ahora no puede deshacerlo.
+        yaEnvioEsteAlta: envioPerteneceAEsteAlta(dam, previo),
       });
 
       return {
@@ -778,6 +823,10 @@ export const crear = action({
       email: r.email,
       invitacion,
     });
+
+    // El intento anterior de este mismo alta ya había entregado la invitación (y la
+    // respuesta nunca llegó al cliente). El alta SÍ la envió: reportarlo como tal.
+    if (r.plan === "YA_ENTREGADA") return dto("ENVIADA");
 
     if (r.plan !== "INTENTAR") return dto(r.plan);
     if (!r.token) return dto("FALLIDA"); // inalcanzable: INTENTAR implica token
