@@ -10,6 +10,7 @@ import { ConvexError, v } from "convex/values";
 import { internal } from "./_generated/api";
 import { resolveRole } from "./users";
 import { estadoInvitacion, normalizeEmail } from "./lib";
+import { urlDeDocumento } from "./documentos";
 import { crearNotificacion } from "./notificaciones";
 import { emailsAlDamnificadoActivos } from "./email";
 import { entregarYRegistrar } from "./invitaciones";
@@ -309,15 +310,17 @@ export const get = query({
         completo: relatoDoc.completo,
         completadoEn: relatoDoc.completadoEn ?? null,
       },
-      documentos: documentos.map((d) => ({
-        _id: d._id,
-        nombreArchivo: d.nombreArchivo,
-        subidoPor: d.subidoPor,
-        tipoMime: d.tipoMime ?? null,
-        tamanoBytes: d.tamanoBytes ?? null,
-        url: d.url ?? null,
-        creadoEn: d._creationTime,
-      })),
+      documentos: await Promise.all(
+        documentos.map(async (d) => ({
+          _id: d._id,
+          nombreArchivo: d.nombreArchivo,
+          subidoPor: d.subidoPor,
+          tipoMime: d.tipoMime ?? null,
+          tamanoBytes: d.tamanoBytes ?? null,
+          url: await urlDeDocumento(ctx, d),
+          creadoEn: d._creationTime,
+        })),
+      ),
       pedidos: pedidos.map((p) => ({
         _id: p._id,
         descripcion: p.descripcion,

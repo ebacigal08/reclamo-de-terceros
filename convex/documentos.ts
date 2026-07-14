@@ -1,4 +1,6 @@
 import { query, mutation } from "./_generated/server";
+import type { QueryCtx } from "./_generated/server";
+import type { Doc } from "./_generated/dataModel";
 import { v, ConvexError } from "convex/values";
 import { resolveRole } from "./users";
 import { exigirCasoAutorizadoDual } from "./autorizacion";
@@ -7,8 +9,8 @@ import { exigirCasoAutorizadoDual } from "./autorizacion";
  * REC-23 · Carga de documentos y evidencias. Primer uso de Convex File Storage
  * en el proyecto. Flujo canónico: (1) `generarUploadUrl` da una URL de subida;
  * (2) el cliente hace POST del archivo y obtiene un `storageId`; (3) `registrar`
- * valida la metadata REAL del archivo (no confía en el cliente), inserta el
- * `documentos` y persiste la `url`. La lista se lee con `misDocumentos`.
+ * valida la metadata REAL del archivo (no confía en el cliente) e inserta el
+ * `documentos`. La lista se lee con `misDocumentos`.
  *
  * Seguridad (regla del módulo, igual que `pedidos.ts` / `casos.get`):
  *  - La identidad y la pertenencia se DERIVAN de la sesión con `resolveRole`;
@@ -85,6 +87,30 @@ function motivoRechazoArchivo(
 const getCasoAutorizado = exigirCasoAutorizadoDual;
 
 /**
+ * URL pública del archivo, RESUELTA EN LECTURA (REC-72). Única fuente de verdad
+ * para los dos lectores: `misDocumentos` (acá) y `casos.get` (la ficha del agente).
+ *
+ * Por qué no se persiste, aunque persistirla sería más barato: una URL de storage
+ * incluye el HOST DEL DEPLOYMENT. Guardarla convierte un dato derivado en un dato
+ * que miente apenas el caso cambia de deployment: al migrar (export/import), los
+ * blobs viajan y los `storageId` se preservan, pero un string guardado NO se
+ * reescribe → las filas seguirían apuntando al deployment viejo. Y el fallo es
+ * SILENCIOSO: los links siguen funcionando mientras el deployment viejo esté vivo,
+ * y se rompen recién cuando se apaga. Resolviéndola acá, la URL siempre pertenece
+ * al deployment que la sirve, y el problema no puede volver en la próxima migración.
+ *
+ * El fallback a `doc.url` cubre las filas viejas (pre-REC-72), que la traen
+ * persistida; por eso el campo sigue en el schema.
+ */
+export async function urlDeDocumento(
+  ctx: QueryCtx,
+  doc: Doc<"documentos">,
+): Promise<string | null> {
+  if (doc.storageId) return await ctx.storage.getUrl(doc.storageId);
+  return doc.url ?? null;
+}
+
+/**
  * Documentos del caso del damnificado autenticado + estado del caso. Sin args:
  * el caso se DERIVA de la sesión (el más reciente, igual que `casos.miCaso`).
  * `null` si no hay sesión de damnificado; `{ caso: null, documentos: [] }` si el
@@ -114,15 +140,17 @@ export const misDocumentos = query({
 
     return {
       caso: { _id: caso._id, cerrado: caso.cerrado },
-      documentos: documentos.map((d) => ({
-        _id: d._id,
-        nombreArchivo: d.nombreArchivo,
-        subidoPor: d.subidoPor,
-        tipoMime: d.tipoMime ?? null,
-        tamanoBytes: d.tamanoBytes ?? null,
-        url: d.url ?? null,
-        creadoEn: d._creationTime,
-      })),
+      documentos: await Promise.all(
+        documentos.map(async (d) => ({
+          _id: d._id,
+          nombreArchivo: d.nombreArchivo,
+          subidoPor: d.subidoPor,
+          tipoMime: d.tipoMime ?? null,
+          tamanoBytes: d.tamanoBytes ?? null,
+          url: await urlDeDocumento(ctx, d),
+          creadoEn: d._creationTime,
+        })),
+      ),
     };
   },
 });
@@ -173,6 +201,9 @@ export const registrar = mutation({
 
     const nombre = nombreArchivo.trim();
     const contentType = metadata.contentType ?? "";
+    // Se calcula para VALIDAR (una URL nula delata un blob que no existe), pero
+    // NO se persiste: ver `urlDeDocumento`. Guardarla ataría la fila al host de
+    // ESTE deployment y mentiría después de una migración.
     const url = await ctx.storage.getUrl(storageId);
 
     // Un único punto de decisión → un único delete+throw (no se olvida limpiar).
@@ -186,7 +217,6 @@ export const registrar = mutation({
       casoId,
       nombreArchivo: nombre,
       storageId,
-      url: url ?? undefined,
       tipoMime: metadata.contentType ?? undefined,
       tamanoBytes: metadata.size,
       subidoPor: resolved.rol === "agente" ? "AGENTE" : "DAMNIFICADO",
