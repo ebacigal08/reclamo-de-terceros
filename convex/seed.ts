@@ -22,13 +22,25 @@ import { generarNumeroCaso } from "./casos";
  * La contraseña demo es un dato de DESARROLLO, no un secreto productivo.
  */
 
-// OJO: `agente@amparo.ar` es la credencial de login de la demo, pero NO es una
-// dirección real — Resend ya la tiene en su lista de supresión (rebotó), así que los
-// emails al agente (PEDIDO_RESPONDIDO, PLAZO_PROXIMO, NUEVO_MENSAJE de REC-34)
-// simplemente no se entregan. No hace daño nuevo (suprimido = ni se intenta), pero si
-// querés VER los correos del lado agente, apuntá `SEED_AGENT_EMAIL` a una casilla real.
-// No se cambió el default para no romper la credencial de login documentada.
+// `agente@amparo.ar` es la credencial de LOGIN de la demo, y NO es una dirección real:
+// Resend la tiene en su lista de supresión (rebotó). Se mantiene como identidad para no
+// romper la credencial documentada.
+//
+// ⚠️ Acá había un comentario que decía que esto "no hace daño (suprimido = ni se
+// intenta)". ERA FALSO, y salió caro (REC-73): en producción el agente pasó meses sin
+// recibir NINGÚN aviso —plazo por vencer, pedido respondido, chat— y el sistema los
+// daba por avisados. El cron llegó a marcar plazos como `avisadoAlAgente: true` con el
+// email muriendo en la supresión: el estado decía "avisado" y el agente nunca se enteró.
+//
+// Por eso el destino de los avisos ahora es un campo aparte (`agentes.emailNotificaciones`,
+// ver `emailDeAvisos` en lib.ts): la identidad puede seguir siendo falsa, pero los avisos
+// van a una casilla que existe.
 const EMAIL_AGENTE = process.env.SEED_AGENT_EMAIL ?? "agente@amparo.ar";
+// Casilla REAL donde el agente demo recibe los avisos. Opcional, pero conviene setearla
+// en cualquier deployment que mande emails de verdad: sin ella, cada aviso al agente es
+// un rebote más contra un dominio suprimido — y esos rebotes le pegan a la reputación
+// del MISMO dominio remitente que usa producción para invitaciones y resets.
+const EMAIL_AVISOS_AGENTE = process.env.SEED_AGENT_NOTIF_EMAIL;
 const NOMBRE_AGENTE = "María Gómez";
 
 type DominioResumen = {
@@ -138,6 +150,10 @@ export const insertarDominioDemo = internalMutation({
     const agenteId = await ctx.db.insert("agentes", {
       nombre: NOMBRE_AGENTE,
       email,
+      // Ausente ⇒ los avisos van a `email` (que en la demo es la casilla suprimida).
+      emailNotificaciones: EMAIL_AVISOS_AGENTE
+        ? normalizeEmail(EMAIL_AVISOS_AGENTE)
+        : undefined,
     });
 
     // Alias `+` de una casilla REAL, no `@example.com`.

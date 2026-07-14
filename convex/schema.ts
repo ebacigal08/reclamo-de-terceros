@@ -101,7 +101,24 @@ export default defineSchema({
   // ── El profesional que gestiona los casos ──────────────────────
   agentes: defineTable({
     nombre: v.string(),
+    // IDENTIDAD. Es la mitad derecha del match de rol de `resolveRole`
+    // (`users.email` ↔ `agentes.email`) y es fail-closed: si se desincronizan,
+    // el login sigue andando (depende de `authAccounts`) pero la app entera se
+    // le cierra al agente. NO es, necesariamente, dónde recibe los avisos.
     email: v.string(),
+    // ENTREGA (REC-73). Dónde recibe los avisos por email, si es distinto de su
+    // identidad. Nació porque el agente de producción es la identidad demo
+    // `agente@amparo.ar`: una dirección que no existe, que rebotó, y que Resend
+    // tiene SUPRIMIDA → durante meses NINGÚN aviso al agente se entregó (plazo
+    // por vencer, pedido respondido, chat), en silencio y sin rastro.
+    //
+    // Separar entrega de identidad evita la cirugía de migrar los tres campos que
+    // hoy contienen el email (authAccounts.providerAccountId = login, users.email
+    // + agentes.email = rol) en sincronía y a mano.
+    //
+    // Ausente ⇒ cae en `email` (el comportamiento histórico). Se lee SIEMPRE con
+    // `emailDeAvisos()` de `lib.ts`, nunca a mano.
+    emailNotificaciones: v.optional(v.string()),
     // Las credenciales las gestiona Convex Auth (tabla authAccounts), no acá.
   }).index("by_email", ["email"]),
 

@@ -11,6 +11,32 @@ export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
+/**
+ * A qué dirección se le manda un email AL AGENTE (REC-73).
+ *
+ * Es el ÚNICO lugar que decide el destino de un aviso al agente. Los tres
+ * productores (`plazos`, `pedidos`, `mensajes`) pasan por acá; un cuarto que se
+ * olvide vuelve, en silencio, a la dirección de identidad — que en producción es
+ * `agente@amparo.ar`, inexistente y suprimida en Resend. "En silencio" es
+ * exactamente la enfermedad que este helper cura, así que no lo inlinees.
+ *
+ * OJO con el `??`, que es la trampa obvia: `"" ?? email` devuelve `""`, no
+ * `email` — el `??` sólo atrapa null/undefined. Una fila con la cadena vacía
+ * mandaría los avisos a una dirección inválida: el mismo agujero, otro disfraz.
+ * Por eso el chequeo es de TRUTHINESS, no de nulidad. (`configurarEmailNotificaciones`
+ * ya rechaza la cadena vacía; esto es la segunda línea de defensa.)
+ *
+ * `email` (identidad) NO se toca acá: `resolveRole`, el guard de unicidad del
+ * alta y `contarPorEmail` siguen usándolo. Eso es identidad, no entrega.
+ */
+export function emailDeAvisos(agente: {
+  email: string;
+  emailNotificaciones?: string;
+}): string {
+  const propio = agente.emailNotificaciones?.trim();
+  return propio ? propio : agente.email;
+}
+
 // ── Fechas de calendario (ISO YYYY-MM-DD) ────────────────────────
 // Viven acá, y no en el módulo que las estrenó (respuestasAseguradora, REC-31),
 // porque las usan los guards de "fecha no futura" de VARIAS tablas y tienen que
