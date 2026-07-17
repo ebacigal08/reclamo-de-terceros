@@ -4,6 +4,7 @@ import type { Id } from "./_generated/dataModel";
 import { v, ConvexError } from "convex/values";
 import { internal } from "./_generated/api";
 import { casoAutorizadoDual, exigirCasoAutorizadoDual } from "./autorizacion";
+import { emailDeAvisos } from "./lib";
 
 /**
  * REC-34 · Chat interno agente ↔ damnificado, por caso.
@@ -308,7 +309,7 @@ export const enviar = mutation({
       // acá es siempre "AGENTE"; la rama `damnificado.email` quedó inalcanzable, ver
       // el gate arriba, pero se deja por robustez si se reactivara.)
       await ctx.scheduler.runAfter(0, internal.notificaciones.enviar, {
-        email: destinatario === "AGENTE" ? agente.email : damnificado.email,
+        email: destinatario === "AGENTE" ? emailDeAvisos(agente) : damnificado.email,
         casoId,
         destinatario,
         datos: { motivo: "NUEVO_MENSAJE", damnificadoNombre: damnificado.nombre },

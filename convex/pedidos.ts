@@ -2,6 +2,7 @@ import { query, mutation } from "./_generated/server";
 import { v, ConvexError } from "convex/values";
 import { resolveRole } from "./users";
 import { crearNotificacion } from "./notificaciones";
+import { emailDeAvisos } from "./lib";
 
 /**
  * REC-24 · "Solicitar documentación" — el agente le pide un documento o info al
@@ -192,7 +193,7 @@ export const responder = mutation({
     await crearNotificacion(ctx, {
       casoId: caso._id,
       destinatario: "AGENTE",
-      email: agente.email,
+      email: emailDeAvisos(agente),
       datos: { motivo: "PEDIDO_RESPONDIDO", descripcion: pedido.descripcion },
     });
 
