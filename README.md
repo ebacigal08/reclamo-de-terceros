@@ -31,31 +31,56 @@ Copiá `.env.example` a `.env.local`. `npx convex dev` completa `NEXT_PUBLIC_CON
 
 ## Arquitectura de deploy
 
-- **Convex** NO se hostea en Railway: corre en **Convex Cloud**. Se despliega con `npx convex deploy`.
-- **Railway** hostea la app **Next.js**. El build de producción despliega Convex y luego buildea Next en un solo paso:
+**Convex** no se hostea en Railway: corre en **Convex Cloud**. **Railway** hostea la app **Next.js** y, en el mismo build, despliega las funciones de Convex.
 
-  ```
-  npx convex deploy --cmd 'npm run build'
-  ```
+### Los tres deployments
 
-  (ya configurado en `railway.json`).
+| Deployment | Tipo | Para qué | Quién lo despliega |
+|---|---|---|---|
+| producción | `prod` | Lo que usan los clientes (`portal-reclamos.com`) | **Railway**, en cada push a `main` |
+| `staging` | `prod` | Probar cambios de backend **antes** de mergear | `npm run deploy:staging` |
+| dev (`hardy-impala-296`) | `dev` | El sandbox de cada desarrollador | `npx convex dev` |
 
-- **Variables en Railway** (servicio):
-  - `CONVEX_DEPLOY_KEY` — clave de deploy de **producción** de Convex (dashboard → Settings → Deploy Keys). El build (`convex deploy --cmd`) la usa e inyecta `NEXT_PUBLIC_CONVEX_URL` en el build.
-  - `NEXT_PUBLIC_CONVEX_URL` — URL del deployment de **producción** de Convex (persistente, la usa el runtime de middleware/server).
-- **Variables en el deployment de PRODUCCIÓN de Convex** (dashboard de Convex, NO Railway):
-  - Convex Auth: `JWT_PRIVATE_KEY`, `JWKS`, `SITE_URL` (= dominio público de Railway). Se generan con `npx @convex-dev/auth` apuntando a producción.
-  - Email: `RESEND_API_KEY`, `EMAIL_FROM` (remitente de un dominio verificado).
-  - `SILENCIAR_EMAILS_DAMNIFICADO` *(opcional, REC-71)* — `true` silencia los avisos automáticos por email al damnificado (caso abierto, avance de etapa, nuevo pedido, caso cerrado). Sirve para operar el CRM con datos reales sin escribirle solo al cliente. **Ausente = emails encendidos.** No afecta los emails al agente ni el reset de contraseña. **Sobre la invitación:** no la bloquea, pero define el default del checkbox del alta — con el flag puesto, un alta que no lo tilde no invita, y el damnificado queda sin acceso hasta que le mandes la invitación (o el link) desde la ficha. Una invitación explícita se envía siempre. Se prende y apaga sin redeploy: `npx convex env set|remove SILENCIAR_EMAILS_DAMNIFICADO`.
-  - **NO** setear `SEED_ENABLED` ni `DEPLOYMENT_ENV=dev`: así el seed demo (`convex/seed.ts`) queda bloqueado en prod.
+> **Regla: `npx convex dev` nunca toca producción.** Hasta REC-72 sí la tocaba — el deployment `dev` del desarrollador *era* el backend de producción. Si volvés a ver un `.env.local` apuntando al deployment que sirve a los clientes, algo se rompió.
 
-### Pasos para publicar
+### La invariante del deploy: front y backend, juntos o nada
 
-1. `git push` a GitHub (rama `main`).
-2. Convex **producción**: `npx convex deploy` una vez y `npx @convex-dev/auth` (genera claves de auth + `SITE_URL` = dominio de Railway).
-3. En Railway: New Project → Deploy from GitHub repo (rama `main`).
-4. Setear en el servicio `CONVEX_DEPLOY_KEY` y `NEXT_PUBLIC_CONVEX_URL` (URL de Convex prod).
-5. Railway usa el build/start de `railway.json`. A partir de ahí, **auto-deploy en cada push a `main`**.
+El build corre `bash scripts/build.sh` (ver `railway.json`), que:
+
+1. Con `CONVEX_DEPLOY_KEY` → despliega las funciones de Convex y buildea el front **contra ese mismo deployment** (`convex deploy --cmd-url-env-var-name NEXT_PUBLIC_CONVEX_URL --cmd 'npm run build'`).
+2. Sin ella → **falla**. A propósito.
+
+Ese `exit 1` es el corazón de REC-72. Antes, el build sin deploy key buildeaba sólo el front y salía **verde**: cada push publicaba un front nuevo contra el backend viejo. Así se rompió el alta de casos al mergear REC-71 (una `useQuery` contra una función inexistente revienta el render). Un deploy a medias ya no puede pasar por silencio.
+
+**Variables en el servicio de Railway** — las dos tienen que apuntar **al mismo deployment**:
+
+- `CONVEX_DEPLOY_KEY` — a qué deployment se publican las funciones.
+- `NEXT_PUBLIC_CONVEX_URL` — la que lee el **runtime** del server (`src/middleware.ts`). El bundle del cliente la recibe inyectada por el deploy; el server la lee del entorno. Si las dos no coinciden, **el cliente le habla a un backend y el middleware a otro**: `scripts/verificar-deploy.mjs` corre como `prebuild` y falla el build si eso pasa.
+- `ALLOW_FRONTEND_ONLY_BUILD` — **escotilla de rollback, no un modo de operación.** Con `=1` el build vuelve a publicar sólo el front, sin backend. Existe para poder volver atrás un cutover; **borrala apenas termines**. El guard falla si la encuentra junto con `CONVEX_DEPLOY_KEY`.
+
+**Variables en el deployment de Convex** (dashboard de Convex o `npx convex env set`, **no** Railway):
+
+- Convex Auth: `JWT_PRIVATE_KEY`, `JWKS`, `SITE_URL` (= dominio público). Se generan **por deployment** con `npx @convex-dev/auth`.
+- Email: `RESEND_API_KEY`, `EMAIL_FROM` (remitente de un dominio verificado).
+- `SILENCIAR_EMAILS_DAMNIFICADO` *(opcional, REC-71)* — `true` silencia los avisos automáticos por email al damnificado (caso abierto, avance de etapa, nuevo pedido, caso cerrado). Sirve para operar el CRM con datos reales sin escribirle solo al cliente. **Ausente = emails encendidos.** No afecta los emails al agente ni el reset de contraseña. **Sobre la invitación:** no la bloquea, pero define el default del checkbox del alta — con el flag puesto, un alta que no lo tilde no invita, y el damnificado queda sin acceso hasta que le mandes la invitación (o el link) desde la ficha. Una invitación explícita se envía siempre. Se prende y apaga sin redeploy: `npx convex env set|remove SILENCIAR_EMAILS_DAMNIFICADO`.
+- **NO** setear `SEED_ENABLED` ni `DEPLOYMENT_ENV=dev` en producción: son el doble guard que bloquea el seed demo (`convex/seed.ts`). Por lo mismo, **nunca copies el env de un deployment a otro en bloque**.
+
+> ⚠️ `npx convex env set` **sin flag de destino sigue al `.env.local`**. Poné siempre `--prod` o `--deployment <nombre>`. (Ojo: el CLI de `@convex-dev/auth` usa `--deployment-name`, no `--deployment`.)
+
+### Probar un cambio de backend antes de mergear
+
+`.env.staging.local` (no se versiona) tiene la deploy key de `staging`:
+
+```bash
+npm run deploy:staging                                              # publica las funciones a staging
+NEXT_PUBLIC_CONVEX_URL=https://<staging>.convex.cloud npm run dev   # front local contra staging
+```
+
+Next no pisa las variables que ya vienen del shell, así que eso le gana al `.env.local` sin tener que tocarlo.
+
+### Cutover a producción
+
+El paso de "producción vive en un deployment `dev`" a la topología de arriba está en **[`docs/cutover-prod.md`](docs/cutover-prod.md)**: secuencia, landmines, rollback y verificación.
 
 ## Estructura
 

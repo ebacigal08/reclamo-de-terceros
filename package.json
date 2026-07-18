@@ -9,10 +9,14 @@
   "scripts": {
     "dev": "next dev",
     "dev:convex": "convex dev",
+    "prebuild": "node scripts/verificar-deploy.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "typecheck:convex": "tsc -p convex/tsconfig.json",
+    "deploy:staging": "convex deploy --env-file .env.staging.local",
+    "dev:staging": "convex dev --once --env-file .env.staging.local"
   },
   "dependencies": {
     "@auth/core": "^0.41.2",
