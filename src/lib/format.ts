@@ -77,6 +77,35 @@ export function formatTamano(bytes: number | null | undefined): string {
   return `${redondeado.toLocaleString("es-AR")} MB`;
 }
 
+/**
+ * ¿El documento es una imagen? (por MIME o por extensión, para docs cuyo
+ * `tipoMime` quedó `null`). Se usa sólo para elegir el ícono/miniatura, no para
+ * decidir si el navegador la puede pintar (para eso, `esPreviewableEnNavegador`).
+ */
+export function esImagen(tipoMime: string | null, nombre: string): boolean {
+  if (tipoMime && tipoMime.startsWith("image/")) return true;
+  return /\.(jpe?g|png|heic)$/i.test(nombre);
+}
+
+/**
+ * ¿El navegador puede previsualizar este archivo inline? Sólo JPG/PNG (que
+ * `<img>` pinta) y PDF (via `<iframe>`). **HEIC/HEIF quedan afuera**: los
+ * navegadores no los renderizan, y su `tipoMime` puede venir `null` (se aceptó
+ * por extensión) → por eso se descartan también por extensión. Cualquier otro
+ * formato → sólo descarga. El `tipoMime` puede faltar, así que hay fallback por
+ * extensión del nombre.
+ */
+export function esPreviewableEnNavegador(tipoMime: string | null, nombre: string): boolean {
+  const n = nombre.toLowerCase();
+  if (/\.(heic|heif)$/.test(n) || tipoMime === "image/heic" || tipoMime === "image/heif") {
+    return false;
+  }
+  if (tipoMime === "image/jpeg" || tipoMime === "image/png" || tipoMime === "application/pdf") {
+    return true;
+  }
+  return /\.(jpe?g|png|pdf)$/.test(n);
+}
+
 /** Iniciales para avatares (ej: "Lucía Fernández" → "LF"). */
 export function iniciales(nombre: string): string {
   return nombre

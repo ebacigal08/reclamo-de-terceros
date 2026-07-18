@@ -23,7 +23,7 @@ import {
   EXTENSIONES_ACEPTADAS,
   RUTAS,
 } from "@/lib/constants";
-import { formatFecha, formatTamano } from "@/lib/format";
+import { esImagen, formatFecha, formatTamano } from "@/lib/format";
 import { Alert, Button, EmptyState, Skeleton } from "@/components/ui";
 
 // Espejo de la proyección de `documentos.misDocumentos` (SIN `storageId`).
@@ -107,11 +107,6 @@ function subirConProgreso(
     xhr.onabort = () => reject(new DOMException("Subida cancelada", "AbortError"));
     xhr.send(file);
   });
-}
-
-function esImagen(tipoMime: string | null, nombre: string): boolean {
-  if (tipoMime && tipoMime.startsWith("image/")) return true;
-  return /\.(jpe?g|png|heic)$/i.test(nombre);
 }
 
 export function DocumentosView() {

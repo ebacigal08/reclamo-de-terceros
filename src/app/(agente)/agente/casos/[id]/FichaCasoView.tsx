@@ -13,8 +13,6 @@ import {
   CheckCircle2,
   ChevronRight,
   Clock,
-  FileText,
-  FolderOpen,
   Inbox,
   Mail,
   Phone,
@@ -33,6 +31,7 @@ import { GestionesCard } from "./GestionesCard";
 import { NotasInternasCard } from "./NotasInternasCard";
 import { ChatCard } from "./ChatCard";
 import { AccesoDamnificado } from "./AccesoDamnificado";
+import { DocumentosCard } from "./DocumentosCard";
 
 // DTO de la ficha (deriva del retorno de la query → siempre en sync). `null`
 // (no-encontrado/no-dueño) se maneja aparte; acá el shape del caso presente.
@@ -420,29 +419,8 @@ function FichaDetalle({ caso }: { caso: Ficha }) {
             )}
           </SectionCard>
 
-          {/* Documentos */}
-          <SectionCard
-            title="Documentos y evidencias"
-            right={
-              <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--text-tertiary)" }}>
-                {caso.documentos.length} archivo{caso.documentos.length === 1 ? "" : "s"}
-              </span>
-            }
-          >
-            {caso.documentos.length ? (
-              <div>
-                {caso.documentos.map((doc) => (
-                  <DocRow key={doc._id} doc={doc} damnificadoNombre={dam?.nombre ?? ""} />
-                ))}
-              </div>
-            ) : (
-              <CenteredEmpty
-                icon={<FolderOpen size={24} strokeWidth={1.5} />}
-                title="Sin documentos todavía"
-                description="Cuando el damnificado suba archivos o vos los cargues, van a aparecer acá."
-              />
-            )}
-          </SectionCard>
+          {/* Documentos (REC-75): preview + descarga en DocumentosCard */}
+          <DocumentosCard documentos={caso.documentos} damnificadoNombre={dam?.nombre ?? ""} />
 
           {/* Pedidos */}
           <SectionCard
@@ -634,51 +612,6 @@ function DataRow({
           }}
         >
           {value}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function DocRow({
-  doc,
-  damnificadoNombre,
-}: {
-  doc: Ficha["documentos"][number];
-  damnificadoNombre: string;
-}) {
-  const por = doc.subidoPor === "AGENTE" ? "vos" : damnificadoNombre || "el damnificado";
-  return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 12,
-        padding: "10px 0",
-        borderBottom: "1px solid var(--divider)",
-      }}
-    >
-      <span
-        style={{
-          width: 34,
-          height: 34,
-          borderRadius: "var(--radius-md)",
-          background: "var(--primary-50)",
-          color: "var(--primary-600)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          flexShrink: 0,
-        }}
-      >
-        <FileText size={17} />
-      </span>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: "var(--text-body-sm-size)", fontWeight: 600, color: "var(--text-primary)", wordBreak: "break-word" }}>
-          {doc.nombreArchivo}
-        </div>
-        <div style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
-          {formatFecha(doc.creadoEn)} · Subido por {por}
         </div>
       </div>
     </div>
