@@ -12,7 +12,6 @@ import {
   Check,
   CheckCircle2,
   ChevronRight,
-  Clock,
   Inbox,
   Mail,
   Phone,
@@ -32,6 +31,7 @@ import { NotasInternasCard } from "./NotasInternasCard";
 import { ChatCard } from "./ChatCard";
 import { AccesoDamnificado } from "./AccesoDamnificado";
 import { DocumentosCard } from "./DocumentosCard";
+import { RelatoCard } from "./RelatoCard";
 
 // DTO de la ficha (deriva del retorno de la query → siempre en sync). `null`
 // (no-encontrado/no-dueño) se maneja aparte; acá el shape del caso presente.
@@ -82,18 +82,6 @@ const captionStyle: CSSProperties = {
   fontWeight: 600,
 };
 
-const iconTile = (bg: string, color: string): CSSProperties => ({
-  width: 36,
-  height: 36,
-  borderRadius: "var(--radius-full)",
-  background: bg,
-  color,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  flexShrink: 0,
-});
-
 // ── Entrada: error boundary (padre del que llama useQuery) ────────
 export function FichaCasoView({ casoId }: { casoId: string }) {
   return (
@@ -142,7 +130,6 @@ function FichaDetalle({ caso }: { caso: Ficha }) {
   const puedeAvanzar = !caso.cerrado && idx < IDX_EN_NEGOCIACION;
   const nextLabel = puedeAvanzar ? ETAPAS[idx + 1].labelAgente : null;
   const dam = caso.damnificado;
-  const relatoCompleto = caso.relato?.completo === true;
   const alerta = alertaContextual(caso);
 
   async function onConfirmarAvance() {
@@ -376,48 +363,10 @@ function FichaDetalle({ caso }: { caso: Ficha }) {
       <div style={{ display: "grid", gridTemplateColumns: "1.9fr 1fr", gap: 20, alignItems: "start" }}>
         {/* Columna izquierda */}
         <div style={{ display: "flex", flexDirection: "column", gap: 20, minWidth: 0 }}>
-          {/* Relato */}
-          <SectionCard
-            title="Relato del siniestro"
-            right={
-              relatoCompleto ? (
-                <Button variant="ghost" size="sm" disabled title="Disponible pronto">
-                  Ver relato
-                </Button>
-              ) : undefined
-            }
-          >
-            {relatoCompleto ? (
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <span style={iconTile("var(--success-50)", "var(--success-600)")}>
-                  <CheckCircle2 size={18} />
-                </span>
-                <div>
-                  <div style={{ fontSize: "var(--text-body-size)", fontWeight: 600, color: "var(--text-primary)" }}>
-                    Relato completado
-                  </div>
-                  <div style={{ fontSize: "var(--text-body-sm-size)", color: "var(--text-secondary)" }}>
-                    El damnificado describió el siniestro
-                    {caso.relato?.completadoEn ? ` · ${formatFecha(caso.relato.completadoEn)}` : ""}
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <span style={iconTile("var(--warning-50)", "var(--warning-600)")}>
-                  <Clock size={18} />
-                </span>
-                <div>
-                  <div style={{ fontSize: "var(--text-body-size)", fontWeight: 600, color: "var(--text-primary)" }}>
-                    Relato pendiente
-                  </div>
-                  <div style={{ fontSize: "var(--text-body-sm-size)", color: "var(--text-secondary)" }}>
-                    El damnificado todavía no completó el relato del siniestro.
-                  </div>
-                </div>
-              </div>
-            )}
-          </SectionCard>
+          {/* Relato del siniestro (REC-76): las 7 preguntas→respuestas del
+              damnificado, siempre visibles. Estado "pendiente" si no hay relato
+              o no está completo. */}
+          <RelatoCard relato={caso.relato} />
 
           {/* Documentos (REC-75): preview + descarga en DocumentosCard */}
           <DocumentosCard documentos={caso.documentos} damnificadoNombre={dam?.nombre ?? ""} />
