@@ -18,6 +18,7 @@ import type * as email from "../email.js";
 import type * as gestiones from "../gestiones.js";
 import type * as http from "../http.js";
 import type * as invitaciones from "../invitaciones.js";
+import type * as itemsDocumentacion from "../itemsDocumentacion.js";
 import type * as lib from "../lib.js";
 import type * as mensajes from "../mensajes.js";
 import type * as notasInternas from "../notasInternas.js";
@@ -28,6 +29,7 @@ import type * as plazos from "../plazos.js";
 import type * as relato from "../relato.js";
 import type * as respuestasAseguradora from "../respuestasAseguradora.js";
 import type * as seed from "../seed.js";
+import type * as tiposDocumento from "../tiposDocumento.js";
 import type * as users from "../users.js";
 
 import type {
@@ -47,6 +49,7 @@ declare const fullApi: ApiFromModules<{
   gestiones: typeof gestiones;
   http: typeof http;
   invitaciones: typeof invitaciones;
+  itemsDocumentacion: typeof itemsDocumentacion;
   lib: typeof lib;
   mensajes: typeof mensajes;
   notasInternas: typeof notasInternas;
@@ -57,6 +60,7 @@ declare const fullApi: ApiFromModules<{
   relato: typeof relato;
   respuestasAseguradora: typeof respuestasAseguradora;
   seed: typeof seed;
+  tiposDocumento: typeof tiposDocumento;
   users: typeof users;
 }>;
 

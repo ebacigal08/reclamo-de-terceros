@@ -271,7 +271,7 @@ export const get = query({
     // por índice (`by_caso` / `by_caso_fecha`), en paralelo; el orden lo da el
     // propio índice: documentos/pedidos por `_creationTime` asc, plazos por
     // `fechaVencimiento` asc.
-    const [damnificadoDoc, relatoDoc, documentos, pedidos, plazos] =
+    const [damnificadoDoc, relatoDoc, documentos, pedidos, plazos, items] =
       await Promise.all([
         ctx.db.get(caso.damnificadoId),
         ctx.db
@@ -290,7 +290,34 @@ export const get = query({
           .query("plazos")
           .withIndex("by_caso_fecha", (q) => q.eq("casoId", casoId))
           .collect(),
+        ctx.db
+          .query("itemsDocumentacion")
+          .withIndex("by_caso", (q) => q.eq("casoId", casoId))
+          .collect(),
       ]);
+
+    // Documentos proyectados una sola vez (url async) y agrupados por `itemId`,
+    // para derivar "recibido" del checklist sin queries extra (REC-77).
+    const docsProyectados = await Promise.all(
+      documentos.map(async (d) => ({
+        _id: d._id,
+        nombreArchivo: d.nombreArchivo,
+        subidoPor: d.subidoPor,
+        tipoMime: d.tipoMime ?? null,
+        tamanoBytes: d.tamanoBytes ?? null,
+        url: await urlDeDocumento(ctx, d),
+        creadoEn: d._creationTime,
+        itemId: d.itemId ?? null,
+      })),
+    );
+    const docsPorItem = new Map<string, typeof docsProyectados>();
+    for (const d of docsProyectados) {
+      if (d.itemId) {
+        const arr = docsPorItem.get(d.itemId) ?? [];
+        arr.push(d);
+        docsPorItem.set(d.itemId, arr);
+      }
+    }
 
     return {
       ...caso,
@@ -310,17 +337,33 @@ export const get = query({
         completo: relatoDoc.completo,
         completadoEn: relatoDoc.completadoEn ?? null,
       },
-      documentos: await Promise.all(
-        documentos.map(async (d) => ({
-          _id: d._id,
-          nombreArchivo: d.nombreArchivo,
-          subidoPor: d.subidoPor,
-          tipoMime: d.tipoMime ?? null,
-          tamanoBytes: d.tamanoBytes ?? null,
-          url: await urlDeDocumento(ctx, d),
-          creadoEn: d._creationTime,
-        })),
-      ),
+      documentos: docsProyectados.map((d) => ({
+        _id: d._id,
+        nombreArchivo: d.nombreArchivo,
+        subidoPor: d.subidoPor,
+        tipoMime: d.tipoMime,
+        tamanoBytes: d.tamanoBytes,
+        url: d.url,
+        creadoEn: d.creadoEn,
+      })),
+      // Checklist tipado (REC-77). `recibido` DERIVADO = ≥1 documento vinculado.
+      itemsDocumentacion: items.map((it) => {
+        const linked = docsPorItem.get(it._id) ?? [];
+        return {
+          _id: it._id,
+          tipoDocumento: it.tipoDocumento,
+          etiqueta: it.etiqueta ?? null,
+          recibido: linked.length > 0,
+          documentos: linked.map((d) => ({
+            _id: d._id,
+            nombreArchivo: d.nombreArchivo,
+            url: d.url,
+            subidoPor: d.subidoPor,
+            tipoMime: d.tipoMime,
+            tamanoBytes: d.tamanoBytes,
+          })),
+        };
+      }),
       pedidos: pedidos.map((p) => ({
         _id: p._id,
         descripcion: p.descripcion,
@@ -368,7 +411,7 @@ export const miCaso = query({
 
     // Enriquecimiento SÓLO tras tener el caso, por índice y en paralelo (igual
     // que `casos.get`). `novedades`: las 3 más recientes del damnificado.
-    const [relato, pedidos, novedades] = await Promise.all([
+    const [relato, pedidos, novedades, items, documentos] = await Promise.all([
       ctx.db
         .query("relatosSiniestro")
         .withIndex("by_caso", (q) => q.eq("casoId", caso._id))
@@ -384,7 +427,38 @@ export const miCaso = query({
         )
         .order("desc")
         .take(3),
+      ctx.db
+        .query("itemsDocumentacion")
+        .withIndex("by_caso", (q) => q.eq("casoId", caso._id))
+        .collect(),
+      ctx.db
+        .query("documentos")
+        .withIndex("by_caso", (q) => q.eq("casoId", caso._id))
+        .collect(),
     ]);
+
+    // Checklist tipado (REC-77): sólo los documentos vinculados a un ítem
+    // (resolvemos url únicamente para esos), agrupados por ítem. Proyección
+    // estricta: nunca `storageId`.
+    const docsLinkeados = await Promise.all(
+      documentos
+        .filter((d) => d.itemId)
+        .map(async (d) => ({
+          itemId: d.itemId!,
+          _id: d._id,
+          nombreArchivo: d.nombreArchivo,
+          url: await urlDeDocumento(ctx, d),
+          subidoPor: d.subidoPor,
+          tipoMime: d.tipoMime ?? null,
+          tamanoBytes: d.tamanoBytes ?? null,
+        })),
+    );
+    const linkPorItem = new Map<string, typeof docsLinkeados>();
+    for (const d of docsLinkeados) {
+      const arr = linkPorItem.get(d.itemId) ?? [];
+      arr.push(d);
+      linkPorItem.set(d.itemId, arr);
+    }
 
     return {
       // Proyección estricta (NO `...caso`): sólo lo que el hub necesita.
@@ -400,6 +474,23 @@ export const miCaso = query({
       pedidosPendientes: pedidos
         .filter((p) => !p.respondido)
         .map((p) => ({ _id: p._id, descripcion: p.descripcion })),
+      itemsDocumentacion: items.map((it) => {
+        const linked = linkPorItem.get(it._id) ?? [];
+        return {
+          _id: it._id,
+          tipoDocumento: it.tipoDocumento,
+          etiqueta: it.etiqueta ?? null,
+          recibido: linked.length > 0,
+          documentos: linked.map((d) => ({
+            _id: d._id,
+            nombreArchivo: d.nombreArchivo,
+            url: d.url,
+            subidoPor: d.subidoPor,
+            tipoMime: d.tipoMime,
+            tamanoBytes: d.tamanoBytes,
+          })),
+        };
+      }),
       novedades: novedades.map((n) => ({
         _id: n._id,
         motivo: n.motivo,

@@ -32,6 +32,7 @@ import { ChatCard } from "./ChatCard";
 import { AccesoDamnificado } from "./AccesoDamnificado";
 import { DocumentosCard } from "./DocumentosCard";
 import { RelatoCard } from "./RelatoCard";
+import { ChecklistDocumentacionCard } from "./ChecklistDocumentacionCard";
 
 // DTO de la ficha (deriva del retorno de la query → siempre en sync). `null`
 // (no-encontrado/no-dueño) se maneja aparte; acá el shape del caso presente.
@@ -371,6 +372,9 @@ function FichaDetalle({ caso }: { caso: Ficha }) {
           {/* Documentos (REC-75): preview + descarga en DocumentosCard */}
           <DocumentosCard documentos={caso.documentos} damnificadoNombre={dam?.nombre ?? ""} />
 
+          {/* Checklist tipado de documentación (REC-77) */}
+          <ChecklistDocumentacionCard casoId={caso._id} items={caso.itemsDocumentacion} cerrado={caso.cerrado} />
+
           {/* Pedidos */}
           <SectionCard
             title="Pedidos de documentación"
@@ -700,10 +704,10 @@ function FichaSkeleton() {
       </div>
       <Skeleton height={118} radius="var(--radius-lg)" style={{ marginBottom: 20 }} />
       <div style={{ display: "grid", gridTemplateColumns: "1.9fr 1fr", gap: 20, alignItems: "start" }}>
-        {/* Columna izquierda: relato, documentos, pedidos, respuestas (REC-31),
-            gestiones (REC-32), notas internas (REC-33). */}
+        {/* Columna izquierda: relato, documentos, checklist (REC-77), pedidos,
+            respuestas (REC-31), gestiones (REC-32), notas internas (REC-33). */}
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-          {[0, 1, 2, 3, 4, 5].map((i) => (
+          {[0, 1, 2, 3, 4, 5, 6].map((i) => (
             <CardSkeleton key={i} />
           ))}
         </div>

@@ -1,6 +1,7 @@
 import { defineSchema, defineTable } from "convex/server";
 import { authTables } from "@convex-dev/auth/server";
 import { v } from "convex/values";
+import { tipoDocumentoValidator } from "./tiposDocumento";
 
 /**
  * Esquema de la base de datos — Amparo CRM (MVP).
@@ -217,6 +218,24 @@ export default defineSchema({
     tipoMime: v.optional(v.string()),
     tamanoBytes: v.optional(v.number()),
     subidoPor,
+    // Vínculo opcional a un ítem del checklist (REC-77). Ausente ⇒ documento
+    // "general" (subida libre, comportamiento histórico). Presente ⇒ satisface
+    // ese ítem (→ "recibido", derivado). Un archivo satisface a lo sumo UN ítem.
+    itemId: v.optional(v.id("itemsDocumentacion")),
+  })
+    .index("by_caso", ["casoId"])
+    // Qué documentos satisfacen un ítem (estado "recibido" derivado) y para
+    // bloquear el borrado de un ítem ya recibido (REC-77).
+    .index("by_item", ["itemId"]),
+
+  // ── Checklist tipado de documentación por caso (REC-77) ────────
+  // El agente arma la lista; cada ítem está "pendiente" hasta que hay ≥1
+  // `documentos` con este `itemId` ("recibido" es DERIVADO, no se guarda).
+  // `etiqueta` sólo para el tipo OTROS (descripción libre).
+  itemsDocumentacion: defineTable({
+    casoId: v.id("casos"),
+    tipoDocumento: tipoDocumentoValidator,
+    etiqueta: v.optional(v.string()),
   }).index("by_caso", ["casoId"]),
 
   // ── Pedidos de documentación del agente al damnificado ─────────
