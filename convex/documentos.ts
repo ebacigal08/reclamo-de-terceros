@@ -181,14 +181,29 @@ export const registrar = mutation({
     casoId: v.id("casos"),
     storageId: v.id("_storage"),
     nombreArchivo: v.string(),
+    // Vínculo opcional a un ítem del checklist (REC-77). Ausente ⇒ subida general.
+    itemId: v.optional(v.id("itemsDocumentacion")),
   },
-  handler: async (ctx, { casoId, storageId, nombreArchivo }) => {
+  handler: async (ctx, { casoId, storageId, nombreArchivo, itemId }) => {
     // 1) Sesión + pertenencia. Si falla → Error, SIN tocar storage (ver encabezado).
     const { resolved, caso } = await getCasoAutorizado(ctx, casoId);
 
     // 2) Caso cerrado → rechazo SIN borrar (mismo motivo de seguridad).
     if (caso.cerrado) {
       throw new ConvexError("Este caso está cerrado; no se pueden subir documentos.");
+    }
+
+    // 2b) Vínculo a un ítem del checklist (REC-77): validar ANTES de leer metadata
+    //     e insertar. Ya está confirmado que el usuario está autorizado al `casoId`
+    //     (getCasoAutorizado, dual); exigir además `item.casoId === casoId` → ningún
+    //     rol puede vincular a ítems de otro caso. NO cambia la validación de archivo
+    //     de abajo (no abre bypass). No borra blob: mismo motivo que los guards de
+    //     arriba (la API no tiene ownership del blob).
+    if (itemId) {
+      const item = await ctx.db.get(itemId);
+      if (!item || item.casoId !== casoId) {
+        throw new Error("Documento de checklist inválido: no pertenece a este caso.");
+      }
     }
 
     // 3) Dueño confirmado + caso abierto: recién ahora validamos el archivo que
@@ -220,6 +235,7 @@ export const registrar = mutation({
       tipoMime: metadata.contentType ?? undefined,
       tamanoBytes: metadata.size,
       subidoPor: resolved.rol === "agente" ? "AGENTE" : "DAMNIFICADO",
+      ...(itemId ? { itemId } : {}),
     });
     return { documentoId };
   },

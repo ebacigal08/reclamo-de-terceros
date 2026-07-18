@@ -23,6 +23,7 @@ import { ETAPAS, MOTIVO_NOTIFICACION_TEXTO, RUTAS } from "@/lib/constants";
 import { formatFecha } from "@/lib/format";
 import { Button, EmptyState, Skeleton, Stepper } from "@/components/ui";
 import { ChatSection } from "./ChatSection";
+import { ChecklistSection } from "./ChecklistSection";
 
 // DTO derivado de `casos.miCaso` (siempre en sync con el backend).
 // `undefined`=cargando, `null`=sin sesión de damnificado / sin caso.
@@ -101,7 +102,7 @@ function MiCasoContent() {
 function MiCasoHub({ data }: { data: Hub }) {
   const router = useRouter();
   const { signOut } = useAuthActions();
-  const { caso, nombre, relato, pedidosPendientes, novedades } = data;
+  const { caso, nombre, relato, pedidosPendientes, itemsDocumentacion, novedades } = data;
 
   // Marcar como leídas las novedades que este feed muestra (REC-28). El anti
   // doble-disparo es por ids (no un booleano global): si durante el mismo mount
@@ -211,6 +212,10 @@ function MiCasoHub({ data }: { data: Hub }) {
       {/* Chat con el agente (REC-34). Arriba de documentos: si hay mensajes sin leer,
           tienen que verse sin scrollear hasta el final. */}
       <ChatSection casoId={caso._id} />
+
+      {/* Checklist tipado que armó el agente (REC-77). Se auto-oculta si no hay
+          ítems. Distinto de "Mis documentos" (subida general, abajo). */}
+      <ChecklistSection casoId={caso._id} items={itemsDocumentacion} cerrado={caso.cerrado} />
 
       {/* Acceso a documentos — siempre visible */}
       <section style={sectionStyle}>
