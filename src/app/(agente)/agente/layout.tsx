@@ -4,6 +4,7 @@ import { convexAuthNextjsToken } from "@convex-dev/auth/nextjs/server";
 import { api } from "@convex/_generated/api";
 import { RUTAS } from "@/lib/constants";
 import { Sidebar } from "@/components/layout/Sidebar";
+import { ShellErrorBoundary } from "@/components/layout/ShellErrorBoundary";
 
 /**
  * Shell del Agente — registro denso, desktop, sidebar navy (design system Amparo).
@@ -21,9 +22,11 @@ export default async function AgenteLayout({
   if (!me || me.rol !== "agente") redirect(RUTAS.login);
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh" }}>
-      <Sidebar nombre={me.nombre} casosActivos={me.casosActivos} />
-      <main style={{ flex: 1, background: "var(--bg-page)", minWidth: 0 }}>{children}</main>
-    </div>
+    <ShellErrorBoundary>
+      <div style={{ display: "flex", minHeight: "100vh" }}>
+        <Sidebar nombre={me.nombre} casosActivos={me.casosActivos} />
+        <main style={{ flex: 1, background: "var(--bg-page)", minWidth: 0 }}>{children}</main>
+      </div>
+    </ShellErrorBoundary>
   );
 }

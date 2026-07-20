@@ -124,9 +124,16 @@ function MiCasoHub({ data }: { data: Hub }) {
   }, [novedades, marcarVistas]);
 
   async function cerrarSesion() {
-    // Esperar el signOut antes de navegar: no deja la sesión visible (igual que la Sidebar del agente).
-    await signOut();
-    router.replace(RUTAS.login);
+    // Cerrar sesión no debe poder "fallar" hacia el usuario: se espera el signOut
+    // (no deja la sesión visible), pero si rechaza igual navegamos a /login en el
+    // finally — la sesión ya quedó en un estado inconsistente de todos modos.
+    try {
+      await signOut();
+    } catch {
+      // best-effort: se traga el fallo; el redirect del finally corre igual.
+    } finally {
+      router.replace(RUTAS.login);
+    }
   }
 
   // Fallback defensivo: si la etapa fuese desconocida, no rompemos el progreso.
@@ -391,8 +398,15 @@ function MiCasoSinCaso() {
   const { signOut } = useAuthActions();
 
   async function cerrarSesion() {
-    await signOut();
-    router.replace(RUTAS.login);
+    // Igual que en el hub / el shell del agente: si signOut rechaza, navegamos
+    // a /login en el finally de todos modos (cerrar sesión no debe poder fallar).
+    try {
+      await signOut();
+    } catch {
+      // best-effort: se traga el fallo; el redirect del finally corre igual.
+    } finally {
+      router.replace(RUTAS.login);
+    }
   }
 
   return (

@@ -39,9 +39,16 @@ export function Sidebar({
   const noVistas = novedades?.noVistas ?? 0;
 
   async function cerrarSesion() {
-    // Esperar el signOut antes de navegar: evita dejar la sesión visible.
-    await signOut();
-    router.replace(RUTAS.login);
+    // Cerrar sesión no debe poder "fallar" hacia el usuario: se espera el signOut
+    // (no deja la sesión visible), pero si rechaza igual navegamos a /login en el
+    // finally — la sesión ya quedó en un estado inconsistente de todos modos.
+    try {
+      await signOut();
+    } catch {
+      // best-effort: se traga el fallo; el redirect del finally corre igual.
+    } finally {
+      router.replace(RUTAS.login);
+    }
   }
 
   return (
