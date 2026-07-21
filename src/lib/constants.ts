@@ -139,6 +139,7 @@ export const ARCHIVO_MAX_BYTES = 10 * 1024 * 1024; // 10 MB
 
 // ── Rutas ────────────────────────────────────────────────────────
 export const RUTAS = {
+  raiz: "/",
   login: "/login",
   recuperar: "/recuperar",
   activar: (token: string) => `/activar/${token}`,

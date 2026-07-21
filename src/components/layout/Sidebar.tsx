@@ -2,7 +2,7 @@
 
 import { ReactNode } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useQuery } from "convex/react";
 import { Archive, Bell, FolderKanban, LogOut } from "lucide-react";
@@ -22,7 +22,6 @@ export function Sidebar({
   casosActivos: number;
 }) {
   const pathname = usePathname();
-  const router = useRouter();
   const { signOut } = useAuthActions();
   // "Histórico" es un sub-path de "/agente/casos", así que se resuelve primero y
   // se excluye de "Casos" para no marcar ambas entradas. "Casos" cubre lista +
@@ -39,15 +38,18 @@ export function Sidebar({
   const noVistas = novedades?.noVistas ?? 0;
 
   async function cerrarSesion() {
-    // Cerrar sesión no debe poder "fallar" hacia el usuario: se espera el signOut
-    // (no deja la sesión visible), pero si rechaza igual navegamos a /login en el
-    // finally — la sesión ya quedó en un estado inconsistente de todos modos.
+    // Cerrar sesión no debe poder "fallar" hacia el usuario. Navegación DURA a la
+    // raíz `/` (window.location, NO router.replace): un document load re-evalúa
+    // middleware + resolver con la cookie httpOnly ya borrada por signOut → al estar
+    // deslogueado, `/` redirige a /login. La soft-nav rebotaba porque la sesión todavía
+    // se leía autenticada durante la transición cliente. Va en finally: si signOut
+    // rechaza, salimos igual.
     try {
       await signOut();
     } catch {
       // best-effort: se traga el fallo; el redirect del finally corre igual.
     } finally {
-      router.replace(RUTAS.login);
+      window.location.replace(RUTAS.raiz);
     }
   }
 
