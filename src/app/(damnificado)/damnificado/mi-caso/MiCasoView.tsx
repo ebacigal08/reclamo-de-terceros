@@ -124,15 +124,18 @@ function MiCasoHub({ data }: { data: Hub }) {
   }, [novedades, marcarVistas]);
 
   async function cerrarSesion() {
-    // Cerrar sesión no debe poder "fallar" hacia el usuario: se espera el signOut
-    // (no deja la sesión visible), pero si rechaza igual navegamos a /login en el
-    // finally — la sesión ya quedó en un estado inconsistente de todos modos.
+    // Cerrar sesión no debe poder "fallar" hacia el usuario. Navegación DURA a la
+    // raíz `/` (window.location, NO router.replace): un document load re-evalúa
+    // middleware + resolver con la cookie httpOnly ya borrada por signOut → al estar
+    // deslogueado, `/` redirige a /login. La soft-nav rebotaba porque la sesión todavía
+    // se leía autenticada durante la transición cliente. Va en finally: si signOut
+    // rechaza, salimos igual.
     try {
       await signOut();
     } catch {
       // best-effort: se traga el fallo; el redirect del finally corre igual.
     } finally {
-      router.replace(RUTAS.login);
+      window.location.replace(RUTAS.raiz);
     }
   }
 
@@ -394,18 +397,18 @@ function MiCasoSkeleton() {
 }
 
 function MiCasoSinCaso() {
-  const router = useRouter();
   const { signOut } = useAuthActions();
 
   async function cerrarSesion() {
-    // Igual que en el hub / el shell del agente: si signOut rechaza, navegamos
-    // a /login en el finally de todos modos (cerrar sesión no debe poder fallar).
+    // Navegación DURA a la raíz `/` (igual que el hub / el shell del agente): tras
+    // signOut, un document load re-evalúa middleware + resolver con la cookie httpOnly
+    // ya borrada → deslogueado, `/` redirige a /login. Evita el rebote de la soft-nav.
     try {
       await signOut();
     } catch {
       // best-effort: se traga el fallo; el redirect del finally corre igual.
     } finally {
-      router.replace(RUTAS.login);
+      window.location.replace(RUTAS.raiz);
     }
   }
 
