@@ -91,6 +91,10 @@ const motivoNotificacion = v.union(
   v.literal("PLAZO_PROXIMO"),
   v.literal("PEDIDO_RESPONDIDO"),
   v.literal("CASO_CERRADO"),
+  // REC-74 · alerta in-app al agente cuando un aviso por email NO se entregó
+  // (rebote/queja/fallo detectado por webhook). Es sólo in-app: se inserta directo
+  // (no pasa por `datosNotificacion`/`enviar`, así que no manda email).
+  v.literal("AVISO_NO_ENTREGADO"),
 );
 
 export default defineSchema({
@@ -251,7 +255,12 @@ export default defineSchema({
     casoId: v.id("casos"),
     descripcion: v.string(),
     fechaVencimiento: v.string(), // ISO date (YYYY-MM-DD)
+    // LEGACY (REC-29): "intento encolado", NO verdad de entrega. Hoy sólo lo usa
+    // `reabrirAvisos`. La ENTREGA real vive en `entregasEmail` (REC-74).
     avisadoAlAgente: v.boolean(),
+    // REC-74 · "último INTENTO de aviso" (ms). Driver de la cadencia de recordatorio
+    // (cada 3 días) del cron. No dice si se entregó — eso lo saben los webhooks.
+    ultimoAvisoEn: v.optional(v.number()),
   })
     .index("by_caso", ["casoId"])
     // Permite tomar el plazo más próximo de un caso por orden de índice,
@@ -259,7 +268,10 @@ export default defineSchema({
     .index("by_caso_fecha", ["casoId", "fechaVencimiento"])
     // Job de alertas (REC-29): plazos no avisados con vencimiento próximo, sin
     // escanear toda la tabla —> q.eq("avisadoAlAgente", false).lte("fechaVencimiento", limite).
-    .index("by_avisado_fecha", ["avisadoAlAgente", "fechaVencimiento"]),
+    .index("by_avisado_fecha", ["avisadoAlAgente", "fechaVencimiento"])
+    // REC-74 · el cron ahora recorre por vencimiento (todos los ≤ hoy+3), no por el
+    // booleano legacy: así puede REAVISAR los que siguen venciendo (cadencia C2).
+    .index("by_fecha", ["fechaVencimiento"]),
 
   // ── Respuestas de la aseguradora (REC-31) · SÓLO AGENTE ────────
   // Bitácora interna: qué ofreció o resolvió la aseguradora en cada instancia.
@@ -442,4 +454,43 @@ export default defineSchema({
     // ROMPERÍA el limiter (lanza), mientras que consolidar la unión de timestamps
     // es correcto igual y se auto-cura.
     .index("by_email", ["email"]),
+
+  // ── REC-74 · Entrega REAL de los emails (webhooks de Resend) ──────
+  // La VERDAD de si un aviso llegó vive acá, no en flags "avisado" que sólo saben
+  // que se INTENTÓ. Se correlaciona por el `id` que devuelve Resend al enviar
+  // (`resendId`), y los eventos del webhook la completan. Upsert bidireccional: la
+  // fila la crea el que llegue primero (envío o webhook), porque Resend entrega los
+  // eventos at-least-once y sin orden garantizado; por eso el contexto del envío
+  // (motivo/destinatario/casoId/to) es opcional (una fila creada por un evento
+  // huérfano aún no lo tiene).
+  entregasEmail: defineTable({
+    resendId: v.string(),
+    motivo: v.optional(v.string()),
+    destinatario: v.optional(destinatario),
+    casoId: v.optional(v.id("casos")),
+    to: v.optional(v.string()),
+    aceptadoEn: v.optional(v.number()), // Resend respondió 200 (encolado)
+    // Desenlaces reales, con el timestamp de `payload.created_at` del evento.
+    entregadoEn: v.optional(v.number()),
+    rebotadoEn: v.optional(v.number()),
+    quejadoEn: v.optional(v.number()),
+    falladoEn: v.optional(v.number()),
+    // ¿Ya se creó la alerta in-app al agente por no-entrega? (idempotencia)
+    alertaCreada: v.optional(v.boolean()),
+  }).index("by_resend_id", ["resendId"]),
+
+  // ── REC-74 · Log de eventos de webhook de Resend (dedup + auditoría) ─
+  // Resend puede entregar el MISMO evento más de una vez → se deduplica por `svixId`
+  // (el header `svix-id`). Guarda cuándo OCURRIÓ (`createdAtEvento`, de
+  // `payload.created_at`) y cuándo lo RECIBIÓ Convex (`recibidoEn`), porque el orden
+  // no está garantizado.
+  eventosResend: defineTable({
+    svixId: v.string(),
+    resendId: v.string(),
+    tipo: v.string(), // "delivered" | "bounced" | "complained" | "failed"
+    createdAtEvento: v.optional(v.number()),
+    recibidoEn: v.number(),
+  })
+    .index("by_svix_id", ["svixId"])
+    .index("by_resend_id", ["resendId"]),
 });

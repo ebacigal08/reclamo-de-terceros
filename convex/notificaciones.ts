@@ -288,7 +288,7 @@ export const enviar = internalAction({
     // directo con `scheduler.runAfter`).
     datos: datosEmail,
   },
-  handler: async (_ctx, { email, casoId, destinatario: dest, datos }) => {
+  handler: async (ctx, { email, casoId, destinatario: dest, datos }) => {
     // Interruptor de avisos al damnificado (REC-71). El corte va ACÁ porque es
     // el ÚNICO consumidor de `sendEmail`: pasan por este action tanto lo que
     // encola `crearNotificacion` como el encolado directo del chat, así que un
@@ -310,7 +310,24 @@ export const enviar = internalAction({
       return;
     }
     const { subject, text, html } = plantilla(datos, dest, casoId);
-    await sendEmail({ to: email, subject, text, html, motivo: datos.motivo });
+    const resendId = await sendEmail({ to: email, subject, text, html, motivo: datos.motivo });
+    // REC-74 · registrar el envío para correlacionarlo con los webhooks de entrega.
+    // Best-effort: un fallo del registro no debe voltear el envío ya hecho.
+    if (resendId) {
+      try {
+        await ctx.runMutation(internal.entregas.registrar, {
+          resendId,
+          motivo: datos.motivo,
+          destinatario: dest,
+          casoId,
+          to: email,
+        });
+      } catch (err) {
+        console.error(
+          `[entregas] no se pudo registrar el envío ${resendId}: ${String(err)}`,
+        );
+      }
+    }
   },
 });
 

@@ -105,7 +105,9 @@ type ArgsEnvio = {
   motivo: string;
 };
 
-type Entrega = { ok: true } | { ok: false; detalle: string };
+// REC-74 · el `id` que devuelve Resend en el 200 se usa para correlacionar el
+// envío con los eventos del webhook (entrega/rebote/fallo).
+type Entrega = { ok: true; id?: string } | { ok: false; detalle: string };
 
 /**
  * Hace el POST a Resend y devuelve el resultado. NO lanza y NO loguea (eso lo
@@ -127,7 +129,9 @@ async function entregar({ to, subject, text, html }: ArgsEnvio): Promise<Entrega
       body: JSON.stringify({ from, to, subject, text, html }),
     });
     if (!res.ok) return { ok: false, detalle: `${res.status} ${await resumenError(res)}` };
-    return { ok: true };
+    // El 200 trae `{ id }`: se conserva para correlacionar con el webhook (REC-74).
+    const body = (await res.json().catch(() => null)) as { id?: string } | null;
+    return { ok: true, id: body?.id };
   } catch (err) {
     return { ok: false, detalle: acotar(err instanceof Error ? err.message : String(err)) };
   }
@@ -137,15 +141,18 @@ async function entregar({ to, subject, text, html }: ArgsEnvio): Promise<Entrega
  * Envío best-effort (notificaciones). Degrada a log sin `RESEND_API_KEY` y nunca
  * lanza; un fallo se loguea (sin asunto ni cuerpo) y se traga.
  */
-export async function sendEmail(args: ArgsEnvio): Promise<void> {
+export async function sendEmail(args: ArgsEnvio): Promise<string | null> {
   if (!process.env.RESEND_API_KEY) {
     console.log(`[email][DEV] motivo=${args.motivo} → ${args.to}`);
-    return;
+    return null;
   }
   const r = await entregar(args);
   if (!r.ok) {
     console.error(`[email] fallo motivo=${args.motivo} → ${args.to}: ${r.detalle}`);
+    return null;
   }
+  // Devuelve el `id` de Resend (o null) para registrar la entrega (REC-74).
+  return r.id ?? null;
 }
 
 /**

@@ -136,12 +136,11 @@ export const listMine = query({
           .query("plazos")
           .withIndex("by_caso_fecha", (q) => q.eq("casoId", caso._id))
           .collect();
-        // "Inminente" (REC-18): ALGÚN plazo a ≤3 días —incluye vencidos, sin
-        // cota inferior— que además NO fue avisado al agente (avisadoAlAgente
-        // se marcará con el job de alertas de Fase 5; hoy siempre es false).
-        const inminente = plazos.some(
-          (p) => !p.avisadoAlAgente && p.fechaVencimiento <= limiteISO,
-        );
+        // "Inminente" (REC-18 · REC-74): ALGÚN plazo a ≤3 días —incluye vencidos,
+        // sin cota inferior—. Ya NO depende de `avisadoAlAgente`: el badge persiste
+        // mientras el plazo siga venciendo (la ENTREGA real vive en `entregasEmail`,
+        // no en un flag). Los casos cerrados ya quedan afuera (query `cerrado=false`).
+        const inminente = plazos.some((p) => p.fechaVencimiento <= limiteISO);
         // Mensajes del chat (REC-34) que le mandó el DAMNIFICADO y el agente todavía
         // no leyó (`leidoAt` ausente). Va acá, y no en una query aparte, porque ésta
         // es la pantalla donde el agente aterriza: sin el indicador tendría que abrir
