@@ -11,6 +11,31 @@
 #
 set -euo pipefail
 
+# ── Guard de PR environments (REC-85) ───────────────────────────────────────
+# Railway crea un environment EFÍMERO por cada PR, y nace clonando las variables
+# de production — CONVEX_DEPLOY_KEY incluida. Sin este guard, cada push a una
+# rama con PR abierto corría `convex deploy` y publicaba el backend EN
+# PRODUCCIÓN: sin merge, sin revisión y sin que nadie lo notara. No es teórico —
+# el backend de REC-74 estuvo vivo en prod dos días antes de mergearse, y se
+# descubrió de casualidad. Salió gratis porque su schema era aditivo; un cambio
+# de firma habría roto el front de prod, que es el incidente de REC-71.
+#
+# Acá se buildea SÓLO el front: es lo correcto para un preview, que además
+# apunta al backend de prod por la NEXT_PUBLIC_CONVEX_URL que heredó. NO se
+# falla a propósito (como sí se hace cuando falta la deploy key): un check rojo
+# en el PR empuja a "arreglarlo" devolviendo la key, que es justo lo que este
+# guard existe para evitar.
+#
+# Si RAILWAY_ENVIRONMENT_NAME no está (build local, o Railway renombra la
+# variable), no se cambia nada: sólo se saltea el deploy cuando SABEMOS que el
+# environment no es production. El toggle de PR environments de Railway se puede
+# volver a prender en cualquier momento; esto vive en el repo y no.
+if [ -n "${RAILWAY_ENVIRONMENT_NAME:-}" ] && [ "${RAILWAY_ENVIRONMENT_NAME}" != "production" ]; then
+  echo "→ Environment '${RAILWAY_ENVIRONMENT_NAME}' ≠ production: build SOLO del front."
+  echo "→ El backend de Convex NO se despliega desde un PR environment (REC-85)."
+  exec npm run build
+fi
+
 if [ -n "${CONVEX_DEPLOY_KEY:-}" ]; then
   # La URL de RUNTIME (la que Railway tiene seteada y que lee el middleware del
   # server) hay que capturarla ACÁ, porque `convex deploy --cmd-url-env-var-name`

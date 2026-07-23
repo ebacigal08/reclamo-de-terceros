@@ -27,6 +27,22 @@ const enCI = Boolean(
 );
 if (!enCI) process.exit(0);
 
+// ── PR environment (REC-85) ────────────────────────────────────────────────
+// build.sh ya decidió no desplegar el backend desde acá, así que no hay URL
+// inyectada por `convex deploy` contra qué comparar: los chequeos de abajo no
+// aplican y fallarían por una razón equivocada. El front del preview apunta al
+// backend de prod a propósito. Va ANTES de leer la deploy key y la escotilla,
+// porque un PR environment las hereda las dos y dispararía el error de
+// "estado sin sentido".
+const entorno = process.env.RAILWAY_ENVIRONMENT_NAME;
+if (entorno && entorno !== "production") {
+  console.warn(
+    `\n⚠ Environment "${entorno}" ≠ production: build sólo del front,\n` +
+      "⚠ sin desplegar Convex. El backend NO se publica desde un PR (REC-85).\n",
+  );
+  process.exit(0);
+}
+
 const deployKey = process.env.CONVEX_DEPLOY_KEY;
 const escotilla = process.env.ALLOW_FRONTEND_ONLY_BUILD === "1";
 
