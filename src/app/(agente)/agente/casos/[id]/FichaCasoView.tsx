@@ -28,7 +28,6 @@ import { CenteredEmpty, SectionCard, fechaLocal } from "./fichaUi";
 import { RespuestasAseguradoraCard } from "./RespuestasAseguradoraCard";
 import { GestionesCard } from "./GestionesCard";
 import { NotasInternasCard } from "./NotasInternasCard";
-import { ChatCard } from "./ChatCard";
 import { AccesoDamnificado } from "./AccesoDamnificado";
 import { DocumentosCard } from "./DocumentosCard";
 import { RelatoCard } from "./RelatoCard";
@@ -420,17 +419,6 @@ function FichaDetalle({ caso }: { caso: Ficha }) {
 
         {/* Columna derecha */}
         <div style={{ display: "flex", flexDirection: "column", gap: 20, minWidth: 0 }}>
-          {/* Chat (REC-34) — PRIMERA card de la derecha, a propósito: la columna
-              izquierda ya tiene 6 cards y un chat en la séptima posición quedaría a
-              cuatro scrolls del encabezado. Un chat que el agente no ve está muerto.
-              A diferencia de las 3 bitácoras, esto lo LEE el damnificado — la card lo
-              marca en pantalla, como espejo del chip "Privada" de Notas internas. */}
-          <ChatCard
-            casoId={caso._id}
-            damnificadoNombre={dam?.nombre ?? ""}
-            damnificadoActivado={dam?.cuentaActivada ?? true}
-          />
-
           <SectionCard title="Damnificado" pad="6px 18px 10px">
             {dam ? (
               <>
