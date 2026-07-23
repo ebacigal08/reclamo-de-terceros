@@ -1,5 +1,11 @@
 /**
- * REC-74 · Verificación de la firma de los webhooks de Resend (Svix).
+ * REC-74 · Protocolo de los webhooks de Resend: verificación de firma (Svix) y
+ * mapeo de los tipos de evento.
+ *
+ * Este módulo NO importa nada (ni siquiera del runtime de Convex) a propósito:
+ * así se puede ejercitar desde Node (`scripts/webhook-mapeo.test.mjs`), cosa que
+ * con `http.ts` no se puede — arrastra `_generated/server`, `auth`, y registra
+ * rutas al cargarse.
  *
  * Resend firma sus webhooks con el esquema de Svix. Se verifica a mano con Web
  * Crypto (`crypto.subtle`, HMAC-SHA256) — el runtime default de Convex ya expone
@@ -15,6 +21,29 @@ export const VAR_WEBHOOK_SECRET = "RESEND_WEBHOOK_SECRET";
 
 /** Anti-replay: el `svix-timestamp` debe estar dentro de esta ventana. */
 const TOLERANCIA_MS = 5 * 60_000;
+
+export type TipoEvento = "delivered" | "bounced" | "complained" | "failed";
+
+/** Mapea el `type` del evento de Resend a nuestro `tipo`. `null` = irrelevante. */
+export function mapearTipo(type: unknown): TipoEvento | null {
+  switch (type) {
+    case "email.delivered":
+      return "delivered";
+    case "email.bounced":
+      return "bounced";
+    case "email.complained":
+      return "complained";
+    case "email.failed":
+      return "failed";
+    // Casilla SUPRIMIDA en Resend: es el modo de falla EXACTO de REC-73 —Resend
+    // acepta el envío, devuelve un id y lo descarta en silencio, sin rebote—, o
+    // sea justo el agujero que REC-74 vino a tapar. Se trata como no-entrega.
+    case "email.suppressed":
+      return "failed";
+    default:
+      return null;
+  }
+}
 
 function base64ToBytes(b64: string): Uint8Array<ArrayBuffer> {
   const bin = atob(b64);

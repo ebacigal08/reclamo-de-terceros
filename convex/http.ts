@@ -2,28 +2,10 @@ import { httpRouter } from "convex/server";
 import { httpAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { auth } from "./auth";
-import { verificarFirmaResend } from "./resendWebhook";
+import { mapearTipo, verificarFirmaResend } from "./resendWebhook";
 
 /** Rutas HTTP de Convex (se sirven en el dominio `.convex.site`, NO `.convex.cloud`). */
 const http = httpRouter();
-
-type TipoEvento = "delivered" | "bounced" | "complained" | "failed";
-
-/** Mapea el `type` del evento de Resend a nuestro `tipo`. `null` = irrelevante. */
-function mapearTipo(type: unknown): TipoEvento | null {
-  switch (type) {
-    case "email.delivered":
-      return "delivered";
-    case "email.bounced":
-      return "bounced";
-    case "email.complained":
-      return "complained";
-    case "email.failed":
-      return "failed";
-    default:
-      return null;
-  }
-}
 
 /** Parsea un timestamp ISO a ms. Fallback `Date.now()`: no descartamos el evento
  *  por un timestamp ilegible (el `recibidoEn` de `eventosResend` igual queda fiable). */

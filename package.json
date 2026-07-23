@@ -13,6 +13,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/*.test.mjs",
     "typecheck": "tsc --noEmit",
     "typecheck:convex": "tsc -p convex/tsconfig.json",
     "deploy:staging": "convex deploy --env-file .env.staging.local",
