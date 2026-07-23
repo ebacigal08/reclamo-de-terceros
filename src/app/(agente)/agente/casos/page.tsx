@@ -7,7 +7,7 @@ import { AlertTriangle, ChevronRight, Clock, Inbox, Plus, Search } from "lucide-
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { Badge, Button, EmptyState, Input, Skeleton } from "@/components/ui";
-import { ETAPAS, PRIORIDADES, RUTAS, TIPOS_SINIESTRO, TOPE_BADGE_MENSAJES } from "@/lib/constants";
+import { ETAPAS, PRIORIDADES, RUTAS, TIPOS_SINIESTRO } from "@/lib/constants";
 import { estadoPlazo, formatFecha, hoyLocalISO } from "@/lib/format";
 
 const COLS = "1.7fr 1fr 1.5fr 0.9fr 1.15fr 0.85fr 28px";
@@ -128,8 +128,6 @@ type Fila = {
   prioridad: string;
   vencimiento: string | null;
   inminente: boolean;
-  /** Mensajes del chat que mandó el damnificado y el agente no leyó (REC-34). */
-  mensajesNoLeidos: number;
   creadoEn: number;
 };
 
@@ -212,18 +210,6 @@ function CaseRow({ c, onOpen }: { c: Fila; onOpen: (id: Id<"casos">) => void }) 
           <span style={{ fontSize: "var(--text-body-size)", fontWeight: 600, color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
             {c.damnificadoNombre}
           </span>
-          {/* Mensajes sin leer (REC-34). Va acá, junto al nombre, y NO como columna
-              nueva: agregar una columna obligaría a tocar `COLS` y el skeleton, que
-              la espeja. Esta pantalla es donde el agente aterriza — sin este badge
-              tendría que abrir caso por caso para descubrir quién le escribió. */}
-          {c.mensajesNoLeidos > 0 && (
-            <span
-              aria-label={`${c.mensajesNoLeidos} mensajes sin leer`}
-              style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", minWidth: 18, height: 18, padding: "0 5px", borderRadius: "var(--radius-full)", background: "var(--primary-600)", color: "var(--text-on-primary)", fontSize: 10, fontWeight: 700, flexShrink: 0 }}
-            >
-              {c.mensajesNoLeidos > TOPE_BADGE_MENSAJES ? `${TOPE_BADGE_MENSAJES}+` : c.mensajesNoLeidos}
-            </span>
-          )}
         </div>
         <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-tertiary)", marginTop: 1 }}>{c.numeroCaso}</div>
       </div>

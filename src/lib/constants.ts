@@ -89,12 +89,6 @@ export const GESTION_MAX_DESCRIPCION = 1000;
 // convex/notasInternas.ts (el server valida igual).
 export const NOTA_MAX_TEXTO = 2000;
 
-// ── Chat agente ↔ damnificado (REC-34) · DUAL-ROL ────────────────
-/** Espejo de MAX_TEXTO en convex/mensajes.ts (el server valida igual). */
-export const MENSAJE_MAX_TEXTO = 1000;
-/** A partir de acá el badge de no leídos muestra "9+" (espeja el tope del server). */
-export const TOPE_BADGE_MENSAJES = 9;
-
 // ── Motivos de notificación → texto humano para el damnificado ───
 export const MOTIVO_NOTIFICACION_TEXTO: Record<string, string> = {
   CASO_ABIERTO: "Tu caso fue abierto por tu agente",

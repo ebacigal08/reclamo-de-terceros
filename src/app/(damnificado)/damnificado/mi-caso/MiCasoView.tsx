@@ -22,7 +22,6 @@ import { api } from "@convex/_generated/api";
 import { ETAPAS, MOTIVO_NOTIFICACION_TEXTO, RUTAS } from "@/lib/constants";
 import { formatFecha } from "@/lib/format";
 import { Button, EmptyState, Skeleton, Stepper } from "@/components/ui";
-import { ChatSection } from "./ChatSection";
 import { ChecklistSection } from "./ChecklistSection";
 
 // DTO derivado de `casos.miCaso` (siempre en sync con el backend).
@@ -218,10 +217,6 @@ function MiCasoHub({ data }: { data: Hub }) {
         )}
       </section>
       )}
-
-      {/* Chat con el agente (REC-34). Arriba de documentos: si hay mensajes sin leer,
-          tienen que verse sin scrollear hasta el final. */}
-      <ChatSection casoId={caso._id} />
 
       {/* Checklist tipado que armó el agente (REC-77). Se auto-oculta si no hay
           ítems. Distinto de "Mis documentos" (subida general, abajo). */}
