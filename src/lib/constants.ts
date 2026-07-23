@@ -106,15 +106,17 @@ export const MOTIVO_NOTIFICACION_TEXTO: Record<string, string> = {
   CASO_CERRADO: "Tu reclamo fue cerrado",
 };
 
-// ── Motivos → texto para el AGENTE (REC-68) ──────────────────────
+// ── Motivos → texto para el AGENTE (REC-68 · REC-74) ─────────────
 // Distintos a los del damnificado: el mismo motivo se lee al revés según de qué lado
-// estés ("Recibimos tu respuesta" vs "Un damnificado respondió tu pedido"). Sólo
-// están los dos motivos que hoy tienen `destinatario: "AGENTE"`; el resto no le
-// llega. Los mensajes del chat NO están acá a propósito (no se persisten como
-// notificación — ver `datosSoloEmail` en convex/notificaciones.ts).
+// estés ("Recibimos tu respuesta" vs "Un damnificado respondió tu pedido"). Están los
+// motivos que llegan con `destinatario: "AGENTE"`. Los mensajes del chat NO están acá
+// a propósito (no se persisten como notificación — ver `datosSoloEmail` en
+// convex/notificaciones.ts).
 export const MOTIVO_NOTIFICACION_AGENTE: Record<string, string> = {
   PEDIDO_RESPONDIDO: "Un damnificado respondió tu pedido",
   PLAZO_PROXIMO: "Hay un plazo próximo a vencer",
+  // REC-74 · un aviso por email al agente no se entregó (rebote/queja/fallo).
+  AVISO_NO_ENTREGADO: "No pudimos entregar un aviso por email — revisá tu casilla",
 };
 
 // ── Relato del siniestro · las 7 preguntas del wizard (REC-22) ───

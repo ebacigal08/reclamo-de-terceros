@@ -4,7 +4,7 @@ import { CSSProperties, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
-import { Bell, ChevronRight, Clock, Inbox, Send } from "lucide-react";
+import { Bell, ChevronRight, Clock, Inbox, MailWarning, Send } from "lucide-react";
 import { api } from "@convex/_generated/api";
 import { EmptyState, Skeleton } from "@/components/ui";
 import { MOTIVO_NOTIFICACION_AGENTE, RUTAS } from "@/lib/constants";
@@ -37,6 +37,7 @@ type Novedad = NonNullable<
 const ICONO_MOTIVO: Record<string, typeof Send> = {
   PEDIDO_RESPONDIDO: Send,
   PLAZO_PROXIMO: Clock,
+  AVISO_NO_ENTREGADO: MailWarning,
 };
 
 export function NovedadesView() {
