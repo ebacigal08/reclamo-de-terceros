@@ -29,6 +29,15 @@ deployment de producción del proyecto, o el de la deploy key). Por eso no alcan
 - [ ] Sabés el valor de `EMAIL_FROM` que hoy tiene `hardy-impala-296`.
 - [ ] **Railway: no hay PR environments** que hereden `CONVEX_DEPLOY_KEY`. Si los
       hubiera, un build de PR publicaría funciones **en producción**.
+      > **Esto PASÓ (23-jul-2026, REC-85).** Los PR environments estaban activos: nacen
+      > clonando las variables de production, así que heredaban la deploy key y cada push
+      > a una rama con PR abierto publicaba el backend en `tame-cardinal-367`, sin merge.
+      > El backend de REC-74 estuvo vivo en prod dos días antes de mergearse.
+      >
+      > `scripts/build.sh` ahora **se defiende solo**: si `RAILWAY_ENVIRONMENT_NAME` está
+      > seteada y no es `production`, buildea **sólo el front** y no toca Convex (cubierto
+      > por `scripts/build-guard.test.mjs`). Igual conviene tener el toggle de PR
+      > environments apagado: el guard es la segunda línea, no la única.
 - [ ] Elegiste el horario: **justo después de las 12:00 UTC** (ver "El doble cron").
 
 > **Los flags de destino NO se llaman igual en todos los CLIs.** `convex env`,
