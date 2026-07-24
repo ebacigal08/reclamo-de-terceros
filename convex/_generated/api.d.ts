@@ -17,6 +17,7 @@ import type * as documentos from "../documentos.js";
 import type * as email from "../email.js";
 import type * as entregas from "../entregas.js";
 import type * as gestiones from "../gestiones.js";
+import type * as historialEtapas from "../historialEtapas.js";
 import type * as http from "../http.js";
 import type * as invitaciones from "../invitaciones.js";
 import type * as itemsDocumentacion from "../itemsDocumentacion.js";
@@ -50,6 +51,7 @@ declare const fullApi: ApiFromModules<{
   email: typeof email;
   entregas: typeof entregas;
   gestiones: typeof gestiones;
+  historialEtapas: typeof historialEtapas;
   http: typeof http;
   invitaciones: typeof invitaciones;
   itemsDocumentacion: typeof itemsDocumentacion;

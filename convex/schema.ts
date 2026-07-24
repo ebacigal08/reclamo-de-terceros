@@ -40,6 +40,15 @@ const etapa = v.union(
   v.literal("CERRADO"),
 );
 
+// Dirección de un cambio de etapa, para el audit log (REC-82). Semántica
+// inequívoca: AVANCE/RETROCESO son movimientos dentro del pipeline; CIERRE es el
+// paso terminal a CERRADO (desde `casos.cerrar`), que NO se mezcla con AVANCE.
+const direccionCambioEtapa = v.union(
+  v.literal("AVANCE"),
+  v.literal("RETROCESO"),
+  v.literal("CIERRE"),
+);
+
 const prioridad = v.union(
   v.literal("ALTA"),
   v.literal("MEDIA"),
@@ -347,6 +356,27 @@ export default defineSchema({
     // donde la fecha es un campo del usuario). La consulta por este índice
     // devuelve en orden de creación ascendente y la UI invierte para mostrar la
     // más reciente arriba.
+    .index("by_caso", ["casoId"]),
+
+  // ── Historial de cambios de etapa (REC-82) · SÓLO AGENTE ───────
+  // Audit log APPEND-ONLY de los cambios de estado del caso: quién lo movió, de qué
+  // etapa a cuál y en qué dirección. Antes no había NINGÚN registro (el único rastro
+  // era la notificación AVANCE_ETAPA al damnificado y el timestamp `cerradoEn`).
+  //
+  // Igual que gestiones/notasInternas: es interno del agente, se lee SÓLO por
+  // `historialEtapas.listPorCaso` (guard rol=agente) y NUNCA desde `casos.get`, que
+  // es dual-rol. `at` del issue = `_creationTime` (convención del módulo: no hay
+  // campo de fecha manual). `agenteId` se DERIVA de la sesión, nunca del cliente.
+  historialEtapas: defineTable({
+    casoId: v.id("casos"),
+    agenteId: v.id("agentes"),
+    etapaAnterior: etapa,
+    etapaNueva: etapa,
+    direccion: direccionCambioEtapa,
+  })
+    // Todas las de un caso, en orden de creación. La query las lee con `.order("desc")`
+    // y una cota dura (`.take`), nunca `.collect()`: un caso puede avanzar/retroceder
+    // muchas veces y el historial no debe crecer sin techo en una sola lectura.
     .index("by_caso", ["casoId"]),
 
   // ── Chat agente ↔ damnificado (REC-34) · DUAL-ROL ──────────────
