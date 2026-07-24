@@ -12,6 +12,7 @@ import { resolveRole } from "./users";
 import { estadoInvitacion, normalizeEmail } from "./lib";
 import { urlDeDocumento } from "./documentos";
 import { crearNotificacion } from "./notificaciones";
+import { registrarCambioEtapa } from "./historialEtapas";
 import { emailsAlDamnificadoActivos } from "./email";
 import { entregarYRegistrar } from "./invitaciones";
 
@@ -1035,7 +1036,15 @@ export const avanzarEtapa = mutation({
     }
     // 1) Avanzar la etapa.
     await ctx.db.patch(casoId, { etapa: siguiente });
-    // 2) Notificación + email al damnificado. El email lleva la etapa NUEVA
+    // 2) Audit log (REC-82): el paso queda registrado con dirección AVANCE.
+    await registrarCambioEtapa(ctx, {
+      casoId,
+      agenteId: resolved.agente._id,
+      etapaAnterior: caso.etapa,
+      etapaNueva: siguiente,
+      direccion: "AVANCE",
+    });
+    // 3) Notificación + email al damnificado. El email lleva la etapa NUEVA
     //    (`siguiente`), que es la que el damnificado tiene que ver.
     await crearNotificacion(ctx, {
       casoId,
@@ -1044,6 +1053,74 @@ export const avanzarEtapa = mutation({
       datos: { motivo: "AVANCE_ETAPA", etapa: siguiente },
     });
     return { etapa: siguiente };
+  },
+});
+
+/**
+ * Retrocede el caso UNA etapa (REC-82): espejo exacto de `avanzarEtapa`, con
+ * `idx-1`. Es una CORRECCIÓN interna del agente (avanzó de más); por eso, a
+ * diferencia de avanzar, NO notifica ni manda email al damnificado —el cambio queda
+ * SÓLO en el audit log (`historialEtapas`)—. NO reabre cerrados: si el caso está
+ * cerrado se rechaza (el cierre es terminal; no hay operación de reapertura).
+ *
+ * Mismos guards que avanzar: identidad y pertenencia DERIVADAS de la sesión; `Error`
+ * para sesión/pertenencia/estado inconsistente, `ConvexError` legible para negocio;
+ * concurrencia optimista con `etapaActual` (un doble click o una ficha vieja no
+ * retrocede dos pasos, por el aislamiento serializable de Convex).
+ */
+export const retrocederEtapa = mutation({
+  args: { casoId: v.id("casos"), etapaActual: etapa },
+  handler: async (ctx, { casoId, etapaActual }) => {
+    // Auth: sólo agente autenticado (guard de sesión, no de formulario).
+    const resolved = await resolveRole(ctx);
+    if (!resolved || resolved.rol !== "agente") {
+      throw new Error("No autorizado: se requiere una sesión de agente.");
+    }
+    // Ownership fail-closed (mismo mensaje para inexistente y ajeno).
+    const caso = await ctx.db.get(casoId);
+    if (!caso || caso.agenteId !== resolved.agente._id) {
+      throw new Error("No autorizado: el caso no existe o no es tuyo.");
+    }
+    // No reabre cerrados: el cierre es terminal (decisión de producto, REC-82).
+    if (caso.cerrado) {
+      throw new ConvexError("El caso está cerrado; no se puede retroceder de etapa.");
+    }
+    // Concurrencia optimista: sólo aplica sobre la etapa que el agente confirmó.
+    if (caso.etapa !== etapaActual) {
+      throw new ConvexError(
+        "La etapa del caso cambió. Actualizá la ficha e intentá de nuevo.",
+      );
+    }
+    const idx = ORDEN_ETAPAS.indexOf(caso.etapa);
+    if (idx < 0) {
+      throw new Error("Estado inconsistente: etapa desconocida.");
+    }
+    // Defensa en profundidad: un caso abierto (cerrado=false) nunca debería estar
+    // en CERRADO. Si lo estuviera, retroceder lo "reabriría" en silencio → se corta
+    // acá, aparte del guard de `cerrado` de arriba.
+    if (idx >= ORDEN_ETAPAS.indexOf("CERRADO")) {
+      throw new Error(
+        "Estado inconsistente: un caso abierto no puede estar en CERRADO.",
+      );
+    }
+    if (idx <= 0) {
+      throw new ConvexError(
+        "El caso está en la primera etapa; no se puede retroceder más.",
+      );
+    }
+    const anterior = ORDEN_ETAPAS[idx - 1];
+    // 1) Retroceder la etapa.
+    await ctx.db.patch(casoId, { etapa: anterior });
+    // 2) Audit log (REC-82): dirección RETROCESO. SIN notificación ni email: es una
+    //    corrección interna del agente y el damnificado no se entera (ver issue).
+    await registrarCambioEtapa(ctx, {
+      casoId,
+      agenteId: resolved.agente._id,
+      etapaAnterior: caso.etapa,
+      etapaNueva: anterior,
+      direccion: "RETROCESO",
+    });
+    return { etapa: anterior };
   },
 });
 
@@ -1122,7 +1199,16 @@ export const cerrar = mutation({
       etapa: "CERRADO",
       cerradoEn: Date.now(),
     });
-    // 6) Notificación + email de cierre al damnificado. El texto por resultado
+    // 6) Audit log (REC-82): el cierre queda con dirección CIERRE y su etapa de
+    //    origen (`caso.etapa`, tomada ANTES del patch). NO se registra como AVANCE.
+    await registrarCambioEtapa(ctx, {
+      casoId,
+      agenteId: resolved.agente._id,
+      etapaAnterior: caso.etapa,
+      etapaNueva: "CERRADO",
+      direccion: "CIERRE",
+    });
+    // 7) Notificación + email de cierre al damnificado. El texto por resultado
     //    (RESUELTO/RECHAZADO/EN_APELACION) lo arma el motor (`notificaciones`).
     await crearNotificacion(ctx, {
       casoId,

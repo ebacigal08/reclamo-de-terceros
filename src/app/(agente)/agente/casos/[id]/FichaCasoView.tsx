@@ -11,6 +11,7 @@ import {
   Calendar,
   Check,
   CheckCircle2,
+  ChevronLeft,
   ChevronRight,
   Inbox,
   Mail,
@@ -28,6 +29,7 @@ import { CenteredEmpty, SectionCard, fechaLocal } from "./fichaUi";
 import { RespuestasAseguradoraCard } from "./RespuestasAseguradoraCard";
 import { GestionesCard } from "./GestionesCard";
 import { NotasInternasCard } from "./NotasInternasCard";
+import { HistorialEtapasCard } from "./HistorialEtapasCard";
 import { AccesoDamnificado } from "./AccesoDamnificado";
 import { DocumentosCard } from "./DocumentosCard";
 import { RelatoCard } from "./RelatoCard";
@@ -107,6 +109,10 @@ function FichaDetalle({ caso }: { caso: Ficha }) {
   const [confirmando, setConfirmando] = useState(false);
   const [avanzando, setAvanzando] = useState(false);
   const [avanceError, setAvanceError] = useState<string | null>(null);
+  const retroceder = useMutation(api.casos.retrocederEtapa);
+  const [confirmandoRetro, setConfirmandoRetro] = useState(false);
+  const [retrocediendo, setRetrocediendo] = useState(false);
+  const [retroError, setRetroError] = useState<string | null>(null);
   const cambiarPrioridad = useMutation(api.casos.cambiarPrioridad);
   const [guardandoPrioridad, setGuardandoPrioridad] = useState(false);
   const [prioridadError, setPrioridadError] = useState<string | null>(null);
@@ -129,6 +135,10 @@ function FichaDetalle({ caso }: { caso: Ficha }) {
   // adelante el botón se deshabilita: el cierre (con resultado) es Cerrar caso.
   const puedeAvanzar = !caso.cerrado && idx < IDX_EN_NEGOCIACION;
   const nextLabel = puedeAvanzar ? ETAPAS[idx + 1].labelAgente : null;
+  // Retroceder: espejo de avanzar, habilitado si el caso está abierto y no está en
+  // la primera etapa (idx 0 = NUEVO). El botón se muestra junto al de avanzar.
+  const puedeRetroceder = !caso.cerrado && idx > 0;
+  const prevLabel = puedeRetroceder ? ETAPAS[idx - 1].labelAgente : null;
   const dam = caso.damnificado;
   const alerta = alertaContextual(caso);
 
@@ -146,6 +156,39 @@ function FichaDetalle({ caso }: { caso: Ficha }) {
       );
     } finally {
       setAvanzando(false);
+    }
+  }
+
+  // Abrir un confirm CIERRA el otro (exclusión mutua en el estado, no sólo en el
+  // render): así nunca quedan los dos abiertos ni un error viejo del otro flujo.
+  function abrirAvance() {
+    setConfirmando(true);
+    setConfirmandoRetro(false);
+    setAvanceError(null);
+    setRetroError(null);
+  }
+
+  function abrirRetro() {
+    setConfirmandoRetro(true);
+    setConfirmando(false);
+    setAvanceError(null);
+    setRetroError(null);
+  }
+
+  async function onConfirmarRetroceso() {
+    setRetroError(null);
+    setRetrocediendo(true);
+    try {
+      // `etapaActual` = la etapa renderizada: misma concurrencia optimista que
+      // avanzar (una ficha vieja o un doble click no retrocede dos pasos).
+      await retroceder({ casoId: caso._id, etapaActual: caso.etapa });
+      setConfirmandoRetro(false); // la live query ya movió el Stepper y el badge
+    } catch (err) {
+      setRetroError(
+        mensajeError(err, "No pudimos retroceder la etapa. Intentá de nuevo."),
+      );
+    } finally {
+      setRetrocediendo(false);
     }
   }
 
@@ -311,6 +354,26 @@ function FichaDetalle({ caso }: { caso: Ficha }) {
             >
               Caso cerrado
             </span>
+          ) : puedeRetroceder && confirmandoRetro ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <span style={{ fontSize: "var(--text-body-sm-size)", color: "var(--text-secondary)" }}>
+                ¿Volver a{" "}
+                <strong style={{ color: "var(--text-primary)" }}>{prevLabel}</strong>?
+              </span>
+              <Button
+                variant="ghost"
+                disabled={retrocediendo}
+                onClick={() => {
+                  setConfirmandoRetro(false);
+                  setRetroError(null);
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button variant="secondary" loading={retrocediendo} onClick={onConfirmarRetroceso}>
+                Confirmar
+              </Button>
+            </div>
           ) : puedeAvanzar && confirmando ? (
             <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
               <span style={{ fontSize: "var(--text-body-sm-size)", color: "var(--text-secondary)" }}>
@@ -331,28 +394,41 @@ function FichaDetalle({ caso }: { caso: Ficha }) {
                 Confirmar
               </Button>
             </div>
-          ) : puedeAvanzar ? (
-            <Button
-              variant="primary"
-              onClick={() => setConfirmando(true)}
-              iconRight={<ChevronRight size={16} />}
-            >
-              Mover a: {nextLabel}
-            </Button>
           ) : (
-            <Button
-              variant="primary"
-              disabled
-              title="El cierre del caso se hace desde “Cerrar caso”."
-              iconRight={<ChevronRight size={16} />}
-            >
-              Avanzar etapa
-            </Button>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              {puedeRetroceder && (
+                <Button
+                  variant="secondary"
+                  onClick={abrirRetro}
+                  iconLeft={<ChevronLeft size={16} />}
+                >
+                  Retroceder
+                </Button>
+              )}
+              {puedeAvanzar ? (
+                <Button
+                  variant="primary"
+                  onClick={abrirAvance}
+                  iconRight={<ChevronRight size={16} />}
+                >
+                  Mover a: {nextLabel}
+                </Button>
+              ) : (
+                <Button
+                  variant="primary"
+                  disabled
+                  title="El cierre del caso se hace desde “Cerrar caso”."
+                  iconRight={<ChevronRight size={16} />}
+                >
+                  Avanzar etapa
+                </Button>
+              )}
+            </div>
           )}
         </div>
-        {avanceError && (
+        {(avanceError || retroError) && (
           <div style={{ padding: "0 20px 14px" }}>
-            <Alert variant="error">{avanceError}</Alert>
+            <Alert variant="error">{avanceError ?? retroError}</Alert>
           </div>
         )}
       </div>
@@ -415,6 +491,10 @@ function FichaDetalle({ caso }: { caso: Ficha }) {
           {/* Notas internas (REC-33) — SÓLO AGENTE. El damnificado no las ve bajo
               ninguna circunstancia; la card lo marca en pantalla. */}
           <NotasInternasCard casoId={caso._id} cerrado={caso.cerrado} />
+
+          {/* Historial de etapas (REC-82) — SÓLO AGENTE. Audit log read-only de
+              avances/retrocesos/cierre; trae su propia query acotada. */}
+          <HistorialEtapasCard casoId={caso._id} />
         </div>
 
         {/* Columna derecha */}
