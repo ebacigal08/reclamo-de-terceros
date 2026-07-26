@@ -61,19 +61,26 @@ export function SectionCard({
   );
 }
 
-/** Estado vacío centrado dentro de una `SectionCard`. */
+/**
+ * Estado vacío centrado dentro de una `SectionCard`.
+ *
+ * `action` (opcional) se reenvía a `EmptyState`: el vacío suele ser justo donde
+ * el agente se topa con lo que falta, así que ahí conviene ofrecerle la acción.
+ */
 export function CenteredEmpty({
   icon,
   title,
   description,
+  action,
 }: {
   icon: ReactNode;
   title: string;
   description: string;
+  action?: ReactNode;
 }) {
   return (
     <div style={{ display: "flex", justifyContent: "center" }}>
-      <EmptyState icon={icon} title={title} description={description} />
+      <EmptyState icon={icon} title={title} description={description} action={action} />
     </div>
   );
 }
