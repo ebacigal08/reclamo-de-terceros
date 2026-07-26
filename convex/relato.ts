@@ -13,8 +13,8 @@ import { casoDeAgente, exigirCasoDeAgente } from "./autorizacion";
  *    agente no lo toca nunca, así el testimonio original no se pierde jamás.
  *  - `respuestasAgente` = la corrección del agente. La lee SÓLO `paraAgente`
  *    (guard rol=agente); el damnificado NO la ve por ninguna vía. `miRelato` le
- *    devuelve siempre `respuestas`, y `casos.get` —que es dual-rol— tampoco la
- *    proyecta: de ahí sale `respuestas`, que es su propio texto.
+ *    devuelve siempre `respuestas`, y `casos.get` —que es dual-rol— no proyecta
+ *    NINGUNO de los dos textos: de ahí sale sólo el estado (REC-89).
  * La frontera es la FUNCIÓN ENTERA, no un `if` interno (igual que
  * `historialEtapas`): por eso la vista del agente es una query aparte y no una
  * rama dentro de la query dual-rol.
