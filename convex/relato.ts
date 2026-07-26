@@ -94,25 +94,29 @@ function validarLargos(respuestas: Respuesta[]): void {
 }
 
 /**
- * Sólo títulos canónicos y sin repetir. Se aplica ÚNICAMENTE a la edición del
- * agente: `guardar` queda exento a propósito, para no romper borradores viejos
+ * Exige EXACTAMENTE las 7 canónicas, EN ORDEN. Se aplica ÚNICAMENTE a la edición
+ * del agente: `guardar` queda exento a propósito, para no romper borradores viejos
  * persistidos con títulos que desde entonces cambiaron.
+ *
+ * Estricto y no un laxo "las conocidas, sin repetir" por dos razones. Una:
+ * `editarComoAgente` es API nueva y no hay ningún cliente viejo que romper, así
+ * que el contrato sale gratis hoy y sería breaking mañana. Dos, la que importa:
+ * `igualesRespuestas` compara POSICIONALMENTE, y sin contrato de orden esa
+ * comparación —de la que dependen la idempotencia y el borrado de
+ * `respuestasAgente`— sería correcta sólo por casualidad. El único cliente arma el
+ * payload con `codificarRespuestas`, que siempre manda las 7 en este orden.
  *
  * El mensaje no habla de la pregunta puntual porque esto no es un error del
  * formulario sino de un cliente desincronizado: al agente le sirve más "recargá".
  */
-function validarPreguntasConocidas(respuestas: Respuesta[]): void {
-  const vistas = new Set<string>();
-  for (const r of respuestas) {
-    if (
-      !(PREGUNTAS_TODAS as readonly string[]).includes(r.pregunta) ||
-      vistas.has(r.pregunta)
-    ) {
-      throw new ConvexError(
-        "El relato no tiene el formato esperado. Recargá la página.",
-      );
-    }
-    vistas.add(r.pregunta);
+function validarPreguntasCanonicas(respuestas: Respuesta[]): void {
+  const desalineada =
+    respuestas.length !== PREGUNTAS_TODAS.length ||
+    respuestas.some((r, i) => r.pregunta !== PREGUNTAS_TODAS[i]);
+  if (desalineada) {
+    throw new ConvexError(
+      "El relato no tiene el formato esperado. Recargá la página.",
+    );
   }
 }
 
@@ -358,7 +362,7 @@ export const editarComoAgente = mutation({
     //    que sólo al enviar—: esto deja el relato enviado, y `completo=true` tiene
     //    que seguir significando "todas las requeridas respondidas".
     const normalizadas = normalizar(respuestas);
-    validarPreguntasConocidas(normalizadas);
+    validarPreguntasCanonicas(normalizadas);
     validarLargos(normalizadas);
     const falta = faltaParaEnviar(normalizadas);
     if (falta === "FALTAN") {
