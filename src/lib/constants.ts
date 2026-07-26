@@ -135,6 +135,11 @@ export const RELATO_PREGUNTAS = [
 ] as const;
 export const RELATO_TOTAL_PASOS = RELATO_PREGUNTAS.length; // 7
 
+// REC-79 · Espejo de MAX_RESPUESTA en convex/relato.ts (el server valida igual).
+// Tope por respuesta, no por relato. Hasta REC-79 el 1200 vivía hardcodeado en el
+// wizard como maxLength de UI sobre una sola pregunta, y el server no cortaba nada.
+export const RELATO_MAX_RESPUESTA = 1200;
+
 // ── Archivos aceptados en la carga de documentos (REC-23) ────────
 export const ARCHIVOS_ACEPTADOS = ["image/jpeg", "image/png", "image/heic", "application/pdf"];
 // Extensiones espejo de ARCHIVOS_ACEPTADOS (con punto, en minúscula). Sirven para

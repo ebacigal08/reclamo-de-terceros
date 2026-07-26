@@ -213,6 +213,16 @@ export default defineSchema({
     .index("by_solicitudId", ["solicitudId"]),
 
   // ── Relato guiado (wizard de 7 preguntas) ──────────────────────
+  // DOS TEXTOS, UN RELATO (REC-79). `respuestas` es el testimonio del DAMNIFICADO y
+  // sólo lo escribe él (`relato.guardar`); el agente NO lo toca nunca. Su corrección
+  // vive en `respuestasAgente` y la lee SÓLO `relato.paraAgente` (guard rol=agente),
+  // nunca `miRelato` ni `casos.get` —que es dual-rol—.
+  //
+  // Que sean campos separados no es prolijidad: hace que "el damnificado no ve la
+  // versión del agente" sea estructural y no dependa de que cada lectura se acuerde
+  // de filtrar. Si algún camino se equivoca, el agente ve el original (molesto y
+  // visible); nunca al revés, que sería mostrarle al damnificado un texto que no
+  // escribió.
   relatosSiniestro: defineTable({
     casoId: v.id("casos"),
     respuestas: v.array(
@@ -220,6 +230,19 @@ export default defineSchema({
     ),
     completo: v.boolean(),
     completadoEn: v.optional(v.number()),
+
+    // ── Edición del agente (REC-79) ──
+    // INVARIANTE: existe ⇔ el texto efectivo DIFIERE del que escribió el damnificado.
+    // Si el agente revierte a lo original, el campo se borra (`patch` con `undefined`)
+    // en vez de quedar un duplicado que la ficha ofrecería comparar contra sí mismo.
+    respuestasAgente: v.optional(
+      v.array(v.object({ pregunta: v.string(), respuesta: v.string() })),
+    ),
+    // Sello de intervención: sobrevive a la reversión a propósito (que el agente haya
+    // tocado el relato es información, aunque el texto haya vuelto al original).
+    // `editadoPorAgenteId` se DERIVA de la sesión, nunca del cliente.
+    editadoPorAgenteEn: v.optional(v.number()),
+    editadoPorAgenteId: v.optional(v.id("agentes")),
   }).index("by_caso", ["casoId"]),
 
   // ── Archivos del expediente ────────────────────────────────────
