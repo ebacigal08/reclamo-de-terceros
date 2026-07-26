@@ -37,9 +37,11 @@ Copiá `.env.example` a `.env.local`. `npx convex dev` completa `NEXT_PUBLIC_CON
 
 | Deployment | Tipo | Para qué | Quién lo despliega |
 |---|---|---|---|
-| producción | `prod` | Lo que usan los clientes (`portal-reclamos.com`) | **Railway**, en cada push a `main` |
-| `staging` | `prod` | Probar cambios de backend **antes** de mergear | `npm run deploy:staging` |
+| producción (`tame-cardinal-367`) | `prod` | Lo que usan los clientes (`portal-reclamos.com`) | **Railway**, en cada push a `main` |
+| staging (`famous-clownfish-44`) | `dev` | Probar cambios de backend **antes** de mergear | `npm run deploy:staging` |
 | dev (`hardy-impala-296`) | `dev` | El sandbox de cada desarrollador | `npx convex dev` |
+
+> Staging vive en **otro proyecto de Convex** (`amparo-e2e-rec71`), no en `amparo-crm`. Eso importa para el deploy: ver la sección de abajo.
 
 > **Regla: `npx convex dev` nunca toca producción.** Hasta REC-72 sí la tocaba — el deployment `dev` del desarrollador *era* el backend de producción. Si volvés a ver un `.env.local` apuntando al deployment que sirve a los clientes, algo se rompió.
 
@@ -69,14 +71,38 @@ Ese `exit 1` es el corazón de REC-72. Antes, el build sin deploy key buildeaba 
 
 ### Probar un cambio de backend antes de mergear
 
-`.env.staging.local` (no se versiona) tiene la deploy key de `staging`:
-
 ```bash
 npm run deploy:staging                                              # publica las funciones a staging
 NEXT_PUBLIC_CONVEX_URL=https://<staging>.convex.cloud npm run dev   # front local contra staging
 ```
 
 Next no pisa las variables que ya vienen del shell, así que eso le gana al `.env.local` sin tener que tocarlo.
+
+#### La deploy key de staging no es opcional (REC-88)
+
+`.env.staging.local` (gitignored) tiene que tener **`CONVEX_DEPLOY_KEY`**. Si falta, `npm run deploy:staging` **falla a propósito** (`scripts/deploy-staging.sh`).
+
+El motivo es cómo `convex deploy` elige el destino:
+
+- con **`CONVEX_DEPLOY_KEY`** → el deployment asociado a esa key. ✅
+- con **`CONVEX_DEPLOYMENT`** (y sin key) → **el prod por defecto del proyecto**. ❌
+
+Como staging vive en otro proyecto, un `.env.staging.local` con sólo `CONVEX_DEPLOYMENT` mandaba el deploy a `wary-oyster-919`, el prod de `amparo-e2e-rec71` — no a staging, y sin ningún aviso. Ése era el bug de REC-88; el guard lo vuelve imposible y `scripts/deploy-staging.test.mjs` lo mantiene así.
+
+Generar la key (una vez):
+
+```bash
+npx convex deployment token create staging \
+  --deployment famous-clownfish-44 --save-env .env.staging.local
+```
+
+**Fallback sin key** — publica bien, pero **repunta `.env.local`** al deployment de staging, así que hay que respaldarlo y restaurarlo:
+
+```bash
+cp .env.local /tmp/env.local.backup
+npm run dev:staging                    # convex dev --once --env-file .env.staging.local
+cp /tmp/env.local.backup .env.local    # tiene que volver a decir hardy-impala-296
+```
 
 ### Cutover a producción
 
