@@ -89,6 +89,11 @@ export const GESTION_MAX_DESCRIPCION = 1000;
 // convex/notasInternas.ts (el server valida igual).
 export const NOTA_MAX_TEXTO = 2000;
 
+// ── Plazos críticos del caso (REC-81) · SÓLO AGENTE ──────────────
+// Un plazo es un RÓTULO, no una bitácora: la mitad de una gestión. Espejo de
+// MAX_DESCRIPCION en convex/plazos.ts (el server valida igual).
+export const PLAZO_MAX_DESCRIPCION = 500;
+
 // ── Motivos de notificación → texto humano para el damnificado ───
 export const MOTIVO_NOTIFICACION_TEXTO: Record<string, string> = {
   CASO_ABIERTO: "Tu caso fue abierto por tu agente",

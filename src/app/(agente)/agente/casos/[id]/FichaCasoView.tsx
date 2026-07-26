@@ -8,8 +8,6 @@ import type { FunctionReturnType } from "convex/server";
 import {
   AlertTriangle,
   ArrowLeft,
-  Calendar,
-  Check,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
@@ -34,6 +32,7 @@ import { AccesoDamnificado } from "./AccesoDamnificado";
 import { DocumentosCard } from "./DocumentosCard";
 import { RelatoCard } from "./RelatoCard";
 import { ChecklistDocumentacionCard } from "./ChecklistDocumentacionCard";
+import { PlazosCard } from "./PlazosCard";
 
 // DTO de la ficha (deriva del retorno de la query → siempre en sync). `null`
 // (no-encontrado/no-dueño) se maneja aparte; acá el shape del caso presente.
@@ -517,21 +516,7 @@ function FichaDetalle({ caso }: { caso: Ficha }) {
             )}
           </SectionCard>
 
-          <SectionCard title="Plazos del caso">
-            {caso.plazos.length ? (
-              <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
-                {caso.plazos.map((p) => (
-                  <PlazoRow key={p._id} plazo={p} />
-                ))}
-              </div>
-            ) : (
-              <CenteredEmpty
-                icon={<Calendar size={22} strokeWidth={1.5} />}
-                title="Sin plazos cargados"
-                description="Los vencimientos críticos del reclamo van a aparecer acá."
-              />
-            )}
-          </SectionCard>
+          <PlazosCard casoId={caso._id} plazos={caso.plazos} cerrado={caso.cerrado} />
         </div>
       </div>
     </div>
@@ -666,76 +651,6 @@ function PedidoRow({ pedido }: { pedido: Ficha["pedidos"][number] }) {
     </div>
   );
 }
-
-function PlazoRow({ plazo }: { plazo: Ficha["plazos"][number] }) {
-  const estado = estadoPlazo(fechaLocal(plazo.fechaVencimiento));
-  const border =
-    estado === "vencido"
-      ? "var(--danger-500)"
-      : estado === "proximo"
-        ? "var(--warning-500)"
-        : "var(--border)";
-  const bg =
-    estado === "vencido"
-      ? "var(--danger-50)"
-      : estado === "proximo"
-        ? "var(--warning-50)"
-        : "var(--bg-inset)";
-  const pill =
-    estado === "vencido" ? (
-      <span style={pillStyle("var(--danger-600)")}>Vencido</span>
-    ) : estado === "proximo" ? (
-      <span style={pillStyle("var(--warning-700)")}>Próximo</span>
-    ) : (
-      <span
-        style={{
-          fontSize: 12,
-          color: "var(--success-700)",
-          fontWeight: 600,
-          display: "inline-flex",
-          gap: 4,
-          alignItems: "center",
-          whiteSpace: "nowrap",
-        }}
-      >
-        <Check size={13} />
-        En fecha
-      </span>
-    );
-  return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        gap: 10,
-        padding: "11px 12px",
-        borderLeft: `3px solid ${border}`,
-        background: bg,
-        borderRadius: "var(--radius-md)",
-      }}
-    >
-      <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: "var(--text-body-sm-size)", fontWeight: 600, color: "var(--text-primary)" }}>
-          {plazo.descripcion}
-        </div>
-        <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-tertiary)", marginTop: 1 }}>
-          Vence {formatFecha(fechaLocal(plazo.fechaVencimiento))}
-        </div>
-      </div>
-      {pill}
-    </div>
-  );
-}
-
-const pillStyle = (color: string): CSSProperties => ({
-  fontSize: 11,
-  fontWeight: 700,
-  letterSpacing: "0.03em",
-  textTransform: "uppercase",
-  color,
-  whiteSpace: "nowrap",
-});
 
 // ── Estados de carga / no-encontrado / error ─────────────────────
 function CardSkeleton() {
