@@ -16,7 +16,7 @@
     "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/*.test.mjs",
     "typecheck": "tsc --noEmit",
     "typecheck:convex": "tsc -p convex/tsconfig.json",
-    "deploy:staging": "convex deploy --env-file .env.staging.local",
+    "deploy:staging": "bash scripts/deploy-staging.sh",
     "dev:staging": "convex dev --once --env-file .env.staging.local"
   },
   "dependencies": {
