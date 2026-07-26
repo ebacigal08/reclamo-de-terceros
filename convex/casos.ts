@@ -332,13 +332,23 @@ export const get = query({
         // pero un damnificado logueado obviamente ya está activado.
         cuentaActivada: damnificadoDoc.cuentaActivada,
       },
-      // REC-79: SÓLO el estado, sin el texto. Esta query es DUAL-ROL y le mandaba
-      // al cliente del damnificado el relato entero, que ninguna pantalla suya usa.
-      // El contenido lo sirve ahora `relato.paraAgente` (guard rol=agente), así el
-      // texto corregido por el agente no puede salir por una función que un
-      // damnificado pueda llamar. Lo que queda acá alimenta el banner "Caso recién
-      // creado" de la ficha, que sólo mira `completo`.
+      // REC-79 · `respuestas` YA NO TIENE CONSUMIDORES: la ficha lee el relato por
+      // `relato.paraAgente`, y de acá sólo se usa `completo` (banner "Caso recién
+      // creado"). Se deja igual a propósito, y sacarlo queda para un follow-up.
+      //
+      // Por qué no ahora: `build.sh` corre `convex deploy --cmd 'npm run build'`, o
+      // sea que el backend nuevo entra ANTES de que Railway sirva el bundle nuevo.
+      // En esa ventana —y en cualquier pestaña que siga abierta con el bundle
+      // viejo— el `RelatoCard` de producción hace `relato.respuestas.find(...)`, que
+      // sobre `undefined` revienta el render. Es el incidente de REC-71 otra vez.
+      // Un contrato incompatible se saca en DOS fases: primero se deja de leer el
+      // campo (esto), y recién cuando ese front está vivo se deja de mandarlo.
+      //
+      // No es un agujero de privacidad: acá viaja `respuestas` —el texto del PROPIO
+      // damnificado, hacia el damnificado dueño del caso—, nunca `respuestasAgente`,
+      // que sale exclusivamente por `relato.paraAgente` con guard de rol agente.
       relato: relatoDoc && {
+        respuestas: relatoDoc.respuestas,
         completo: relatoDoc.completo,
         completadoEn: relatoDoc.completadoEn ?? null,
       },
