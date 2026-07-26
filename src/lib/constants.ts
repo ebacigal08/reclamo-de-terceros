@@ -89,10 +89,15 @@ export const GESTION_MAX_DESCRIPCION = 1000;
 // convex/notasInternas.ts (el server valida igual).
 export const NOTA_MAX_TEXTO = 2000;
 
-// ── Plazos críticos del caso (REC-81) · SÓLO AGENTE ──────────────
+// ── Plazos críticos del caso (REC-81 · REC-87) · SÓLO AGENTE ─────
 // Un plazo es un RÓTULO, no una bitácora: la mitad de una gestión. Espejo de
 // MAX_DESCRIPCION en convex/plazos.ts (el server valida igual).
 export const PLAZO_MAX_DESCRIPCION = 500;
+
+// REC-87 · Espejo de MAX_PLAZOS_POR_CASO en convex/plazos.ts. El front lo usa
+// SÓLO para deshabilitar el botón de alta y explicar por qué, nunca como
+// frontera: si el caso se llena desde otra pestaña, el que corta es el server.
+export const PLAZO_MAX_POR_CASO = 20;
 
 // ── Motivos de notificación → texto humano para el damnificado ───
 export const MOTIVO_NOTIFICACION_TEXTO: Record<string, string> = {
