@@ -13,8 +13,19 @@ import {
   Send,
 } from "lucide-react";
 import { api } from "@convex/_generated/api";
-import { RELATO_PREGUNTAS, RELATO_TOTAL_PASOS, RUTAS } from "@/lib/constants";
-import { formatFecha } from "@/lib/format";
+import {
+  RELATO_MAX_RESPUESTA,
+  RELATO_PREGUNTAS,
+  RELATO_TOTAL_PASOS,
+  RUTAS,
+} from "@/lib/constants";
+import {
+  codificarRespuestas,
+  decodificarRespuestas,
+  displayRespuesta,
+  faltanRequeridas,
+  respuestaCompleta,
+} from "@/lib/relato";
 import { Alert, Button, Input, Skeleton, Textarea } from "@/components/ui";
 
 type Pregunta = (typeof RELATO_PREGUNTAS)[number];
@@ -25,27 +36,6 @@ const RESUMEN = RELATO_TOTAL_PASOS; // índice del paso de resumen (7)
 function mensajeError(err: unknown, fallback: string): string {
   if (err instanceof ConvexError && typeof err.data === "string") return err.data;
   return fallback;
-}
-
-/** Fecha ISO YYYY-MM-DD → DD/MM/AAAA parseada en horario LOCAL (evita el -1 por UTC). */
-function mostrarFecha(iso: string): string {
-  return iso ? formatFecha(`${iso}T00:00:00`) || iso : "";
-}
-
-/** Texto legible de una respuesta para el resumen. */
-function displayRespuesta(
-  q: Pregunta,
-  valores: Record<string, string>,
-  detalles: Record<string, string>,
-): string {
-  const val = (valores[q.id] ?? "").trim();
-  if (!val) return "—";
-  if (q.tipo === "fecha") return mostrarFecha(val);
-  if (q.tipo === "si_no_detalle" && val === "Sí") {
-    const det = (detalles[q.id] ?? "").trim();
-    return det ? `Sí — ${det}` : "Sí";
-  }
-  return val;
 }
 
 export function RelatoView() {
@@ -78,28 +68,14 @@ export function RelatoView() {
     }
   }, [me, data, router]);
 
-  // Precarga del borrador (una vez), mapeando por título de pregunta.
+  // Precarga del borrador (una vez), mapeando por título de pregunta. Sin fallback
+  // por índice: acá se hidrata lo que el propio damnificado escribió.
   useEffect(() => {
     if (hidratado || data === undefined) return;
     if (data && data.relato) {
-      const v: Record<string, string> = {};
-      const d: Record<string, string> = {};
-      for (const q of RELATO_PREGUNTAS) {
-        const found = data.relato.respuestas.find((r) => r.pregunta === q.titulo);
-        if (!found) continue;
-        if (q.tipo === "si_no_detalle") {
-          if (found.respuesta === "No") v[q.id] = "No";
-          else if (found.respuesta.startsWith("Sí")) {
-            v[q.id] = "Sí";
-            d[q.id] =
-              found.respuesta === "Sí"
-                ? ""
-                : found.respuesta.replace(/^Sí\s*—\s*/, "");
-          }
-        } else {
-          v[q.id] = found.respuesta;
-        }
-      }
+      const { valores: v, detalles: d } = decodificarRespuestas(
+        data.relato.respuestas,
+      );
       setValores(v);
       setDetalles(d);
     }
@@ -126,28 +102,10 @@ export function RelatoView() {
     setDetalles((prev) => ({ ...prev, [id]: value }));
 
   // respuestas para el backend (fecha=ISO; si_no/si_no_detalle mapeadas).
-  const respuestas = RELATO_PREGUNTAS.map((q) => {
-    const val = (valores[q.id] ?? "").trim();
-    let respuesta = val;
-    if (q.tipo === "si_no_detalle" && val === "Sí") {
-      const det = (detalles[q.id] ?? "").trim();
-      respuesta = det ? `Sí — ${det}` : "Sí";
-    }
-    return { pregunta: q.titulo, respuesta };
-  });
+  const respuestas = codificarRespuestas(valores, detalles);
 
-  // Una pregunta está "completa" si tiene respuesta. `algo_mas` es opcional; y
-  // si una `si_no_detalle` (denuncia) es "Sí", el detalle es OBLIGATORIO.
-  const completa = (p: Pregunta) => {
-    const val = (valores[p.id] ?? "").trim();
-    if (p.id === "algo_mas") return true;
-    if (!val) return false;
-    if (p.tipo === "si_no_detalle" && val === "Sí") {
-      return (detalles[p.id] ?? "").trim().length > 0;
-    }
-    return true;
-  };
-  const faltanRequeridas = RELATO_PREGUNTAS.some((p) => !completa(p));
+  const completa = (p: Pregunta) => respuestaCompleta(p, valores, detalles);
+  const faltan = faltanRequeridas(valores, detalles);
 
   async function persistir(completo: boolean) {
     setLoading(true);
@@ -234,13 +192,13 @@ export function RelatoView() {
               size="lg"
               onClick={() => persistir(true)}
               loading={loading}
-              disabled={faltanRequeridas}
+              disabled={faltan}
               iconRight={loading ? undefined : <Send size={17} />}
             >
               {loading ? "Enviando…" : "Enviar relato"}
             </Button>
           </div>
-          {faltanRequeridas && (
+          {faltan && (
             <p style={{ ...hintStyle, color: "var(--danger-600)" }}>
               Completá las respuestas que faltan antes de enviar.
             </p>
@@ -337,7 +295,7 @@ function Campo({
           value={val}
           disabled={disabled}
           placeholder="Contá con tus palabras…"
-          maxLength={esQuePaso ? 1200 : undefined}
+          maxLength={esQuePaso ? RELATO_MAX_RESPUESTA : undefined}
           showCount={esQuePaso}
           onChange={(e) => setVal(q.id, e.target.value)}
         />

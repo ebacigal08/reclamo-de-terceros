@@ -332,8 +332,13 @@ export const get = query({
         // pero un damnificado logueado obviamente ya está activado.
         cuentaActivada: damnificadoDoc.cuentaActivada,
       },
+      // REC-79: SÓLO el estado, sin el texto. Esta query es DUAL-ROL y le mandaba
+      // al cliente del damnificado el relato entero, que ninguna pantalla suya usa.
+      // El contenido lo sirve ahora `relato.paraAgente` (guard rol=agente), así el
+      // texto corregido por el agente no puede salir por una función que un
+      // damnificado pueda llamar. Lo que queda acá alimenta el banner "Caso recién
+      // creado" de la ficha, que sólo mira `completo`.
       relato: relatoDoc && {
-        respuestas: relatoDoc.respuestas,
         completo: relatoDoc.completo,
         completadoEn: relatoDoc.completadoEn ?? null,
       },

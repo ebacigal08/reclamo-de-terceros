@@ -441,7 +441,7 @@ function FichaDetalle({ caso }: { caso: Ficha }) {
           {/* Relato del siniestro (REC-76): las 7 preguntas→respuestas del
               damnificado, siempre visibles. Estado "pendiente" si no hay relato
               o no está completo. */}
-          <RelatoCard relato={caso.relato} />
+          <RelatoCard casoId={caso._id} cerrado={caso.cerrado} />
 
           {/* Documentos (REC-75): preview + descarga en DocumentosCard */}
           <DocumentosCard documentos={caso.documentos} damnificadoNombre={dam?.nombre ?? ""} />
