@@ -20,7 +20,9 @@ import { tipoDocumentoValidator } from "./tiposDocumento";
  *  - tipoGestion:   LLAMADA | CORREO | PRESENTACION | REUNION | OTRO  (sólo agente)
  *  - motivo (notif): CASO_ABIERTO | NUEVO_PEDIDO | AVANCE_ETAPA |
  *                    EXPEDIENTE_VALIDADO | PLAZO_PROXIMO | PEDIDO_RESPONDIDO |
- *                    CASO_CERRADO
+ *                    CASO_CERRADO | AVISO_NO_ENTREGADO | NUEVO_DOCUMENTO
+ *                    (la lista de verdad es `motivoNotificacion`, más abajo:
+ *                     esta copia se venía quedando atrás en cada motivo nuevo)
  */
 
 const tipoSiniestro = v.union(
