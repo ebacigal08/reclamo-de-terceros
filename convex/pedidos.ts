@@ -126,12 +126,17 @@ export const get = query({
 });
 
 /**
- * Cierra el ciclo: marca el pedido como respondido, notifica al agente (in-app +
- * email) y muestra el acuse en el cliente. Los archivos ya se subieron por
- * separado con `documentos.registrar`; acá se reciben sus `documentoIds` y se
- * VALIDA en el servidor que existan, sean del mismo caso del pedido y del
- * damnificado — así un cliente manipulado no puede responder sin documento real
- * (no se confía en el gating de la UI).
+ * Cierra el ciclo: marca el pedido como respondido, GUARDA qué documentos lo
+ * responden, notifica al agente (in-app + email) y muestra el acuse en el
+ * cliente. Los archivos ya se subieron por separado con `documentos.registrar`;
+ * acá se reciben sus `documentoIds` y se VALIDA en el servidor que existan, sean
+ * del mismo caso del pedido y del damnificado — así un cliente manipulado no
+ * puede responder sin documento real (no se confía en el gating de la UI).
+ *
+ * REC-80 · El vínculo se escribe ACÁ y no en `documentos.registrar` porque los
+ * archivos se suben ANTES de confirmar y el damnificado puede descartar alguno:
+ * sólo los efectivamente confirmados quedan atados al pedido. Los descartados
+ * siguen siendo documentos sueltos del caso, como hasta ahora.
  *
  * ORDEN (fijo, igual que `crear`): auth → pertenencia → negocio → validar docs →
  * cargar agente ANTES de escribir → writes → scheduler → return.
@@ -172,10 +177,23 @@ export const responder = mutation({
     if (documentoIds.length === 0) {
       throw new ConvexError("Subí al menos un archivo antes de confirmar.");
     }
-    for (const docId of new Set(documentoIds)) {
+    // Deduplicado UNA vez: la validación y el vínculo de abajo recorren la misma
+    // lista, y un id repetido no debe validarse (ni parchearse) dos veces.
+    const ids = [...new Set(documentoIds)];
+    for (const docId of ids) {
       const doc = await ctx.db.get(docId);
       if (!doc || doc.casoId !== pedido.casoId || doc.subidoPor !== "DAMNIFICADO") {
         throw new Error("Documento inválido: no pertenece a este caso.");
+      }
+      // REC-80 · Un documento responde a lo sumo UN pedido. El cliente legítimo
+      // manda ids recién subidos (`ResponderPedidoView`), así que esto sólo corta
+      // un cliente manipulado que reusara documentos de una respuesta anterior:
+      // le cambiaría a ESE otro pedido lo que muestra la ficha del agente. El
+      // reintento honesto no llega acá — choca antes con `pedido.respondido`.
+      // `doc.itemId` NO se mira: checklist y pedido son ejes ortogonales (ver el
+      // comentario de `pedidoId` en el schema).
+      if (doc.pedidoId && doc.pedidoId !== pedidoId) {
+        throw new Error("Documento inválido: ya responde a otro pedido.");
       }
     }
 
@@ -186,8 +204,15 @@ export const responder = mutation({
       throw new Error("Estado inconsistente: el caso no tiene agente.");
     }
 
-    // 6) Marcar respondido. `respondidoEn` = ahora.
+    // 6) Marcar respondido + PERSISTIR el vínculo con los documentos que lo
+    //    responden (REC-80). Hasta acá los ids se validaban y se descartaban: la
+    //    correlación existía un instante y se perdía. Va en la MISMA transacción
+    //    que el `respondido: true` ⇒ no hay estado intermedio "respondido pero
+    //    sin vínculo".
     await ctx.db.patch(pedidoId, { respondido: true, respondidoEn: Date.now() });
+    for (const docId of ids) {
+      await ctx.db.patch(docId, { pedidoId });
+    }
 
     // 7) Notificación + email al AGENTE (registro + envío en un paso).
     await crearNotificacion(ctx, {

@@ -296,8 +296,12 @@ export const get = query({
           .collect(),
       ]);
 
-    // Documentos proyectados una sola vez (url async) y agrupados por `itemId`,
-    // para derivar "recibido" del checklist sin queries extra (REC-77).
+    // Documentos proyectados una sola vez (url async) y agrupados por `itemId`
+    // —para derivar "recibido" del checklist (REC-77)— y por `pedidoId` —para
+    // mostrar qué archivos responden a cada pedido (REC-80)—, todo sin queries
+    // extra: ya los tenemos todos por `by_caso`. `itemId`/`pedidoId` son de uso
+    // INTERNO de este agrupado; ninguno de los dos sale en la lista plana
+    // `documentos` de abajo, que enumera sus campos uno por uno.
     const docsProyectados = await Promise.all(
       documentos.map(async (d) => ({
         _id: d._id,
@@ -308,14 +312,22 @@ export const get = query({
         url: await urlDeDocumento(ctx, d),
         creadoEn: d._creationTime,
         itemId: d.itemId ?? null,
+        pedidoId: d.pedidoId ?? null,
       })),
     );
     const docsPorItem = new Map<string, typeof docsProyectados>();
+    const docsPorPedido = new Map<string, typeof docsProyectados>();
     for (const d of docsProyectados) {
       if (d.itemId) {
         const arr = docsPorItem.get(d.itemId) ?? [];
         arr.push(d);
         docsPorItem.set(d.itemId, arr);
+      }
+      // Un documento puede estar en los DOS mapas: los ejes son ortogonales.
+      if (d.pedidoId) {
+        const arr = docsPorPedido.get(d.pedidoId) ?? [];
+        arr.push(d);
+        docsPorPedido.set(d.pedidoId, arr);
       }
     }
 
@@ -370,13 +382,27 @@ export const get = query({
           })),
         };
       }),
-      pedidos: pedidos.map((p) => ({
-        _id: p._id,
-        descripcion: p.descripcion,
-        respondido: p.respondido,
-        respondidoEn: p.respondidoEn ?? null,
-        creadoEn: p._creationTime,
-      })),
+      // REC-80 · Cada pedido trae los documentos que lo RESPONDEN. Vacío para los
+      // pedidos pendientes y para los respondidos ANTES de REC-80 (esos ids se
+      // descartaban): la ficha simplemente no lista nada ahí.
+      pedidos: pedidos.map((p) => {
+        const respuesta = docsPorPedido.get(p._id) ?? [];
+        return {
+          _id: p._id,
+          descripcion: p.descripcion,
+          respondido: p.respondido,
+          respondidoEn: p.respondidoEn ?? null,
+          creadoEn: p._creationTime,
+          documentos: respuesta.map((d) => ({
+            _id: d._id,
+            nombreArchivo: d.nombreArchivo,
+            url: d.url,
+            subidoPor: d.subidoPor,
+            tipoMime: d.tipoMime,
+            tamanoBytes: d.tamanoBytes,
+          })),
+        };
+      }),
       plazos: plazos.map((p) => ({
         _id: p._id,
         descripcion: p.descripcion,

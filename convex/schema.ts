@@ -258,6 +258,25 @@ export default defineSchema({
     // "general" (subida libre, comportamiento histórico). Presente ⇒ satisface
     // ese ítem (→ "recibido", derivado). Un archivo satisface a lo sumo UN ítem.
     itemId: v.optional(v.id("itemsDocumentacion")),
+    // Vínculo opcional al pedido que este archivo RESPONDE (REC-80). Ausente ⇒
+    // subida libre o de checklist. Presente ⇒ el damnificado lo mandó para ESE
+    // pedido. Un archivo responde a lo sumo UN pedido (lo sostiene un guard en
+    // `pedidos.responder`), y lo escribe esa mutation —no `documentos.registrar`—
+    // porque los archivos se suben ANTES de confirmar y algunos se descartan.
+    //
+    // `itemId` y `pedidoId` NO son excluyentes: son dos ejes ortogonales (el
+    // checklist tipado de REC-77 y el pedido de texto libre de REC-24). El mismo
+    // archivo puede satisfacer el ítem "Denuncia policial" y responder al pedido
+    // "mandame la denuncia" → se muestra en las dos cards de la ficha, que es
+    // información, no duplicación.
+    //
+    // Y NO tiene índice propio, a diferencia de `itemId`: `by_item` existe
+    // porque `itemsDocumentacion.quitar` lo lee para bloquear el borrado de un
+    // ítem ya recibido, y los pedidos no se borran (no hay mutation análoga). El
+    // único lector del vínculo —`casos.get`— ya trae TODOS los documentos del
+    // caso por `by_caso` y agrupa en memoria. Un índice sin lector sólo cuesta
+    // escritura.
+    pedidoId: v.optional(v.id("pedidosDocumentacion")),
   })
     .index("by_caso", ["casoId"])
     // Qué documentos satisfacen un ítem (estado "recibido" derivado) y para

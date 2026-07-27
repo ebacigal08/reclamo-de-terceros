@@ -14,7 +14,6 @@ import {
   Inbox,
   Mail,
   Phone,
-  Plus,
   Send,
   Users,
 } from "lucide-react";
@@ -23,7 +22,7 @@ import type { Id } from "@convex/_generated/dataModel";
 import { Alert, Badge, Button, EmptyState, PrioritySelector, Skeleton, Stepper } from "@/components/ui";
 import { ETAPAS, PRIORIDADES, type Prioridad, RESULTADOS_CIERRE, RUTAS, TIPOS_SINIESTRO } from "@/lib/constants";
 import { diasHasta, estadoPlazo, formatFecha } from "@/lib/format";
-import { CenteredEmpty, SectionCard, fechaLocal } from "./fichaUi";
+import { SectionCard, fechaLocal } from "./fichaUi";
 import { RespuestasAseguradoraCard } from "./RespuestasAseguradoraCard";
 import { GestionesCard } from "./GestionesCard";
 import { NotasInternasCard } from "./NotasInternasCard";
@@ -32,6 +31,7 @@ import { AccesoDamnificado } from "./AccesoDamnificado";
 import { DocumentosCard } from "./DocumentosCard";
 import { RelatoCard } from "./RelatoCard";
 import { ChecklistDocumentacionCard } from "./ChecklistDocumentacionCard";
+import { PedidosCard } from "./PedidosCard";
 import { PlazosCard } from "./PlazosCard";
 
 // DTO de la ficha (deriva del retorno de la query → siempre en sync). `null`
@@ -449,36 +449,9 @@ function FichaDetalle({ caso }: { caso: Ficha }) {
           {/* Checklist tipado de documentación (REC-77) */}
           <ChecklistDocumentacionCard casoId={caso._id} items={caso.itemsDocumentacion} cerrado={caso.cerrado} />
 
-          {/* Pedidos */}
-          <SectionCard
-            title="Pedidos de documentación"
-            right={
-              caso.cerrado ? undefined : (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  iconLeft={<Plus size={14} />}
-                  onClick={() => router.push(RUTAS.agente.solicitar(caso._id))}
-                >
-                  Nuevo pedido
-                </Button>
-              )
-            }
-          >
-            {caso.pedidos.length ? (
-              <div>
-                {caso.pedidos.map((p) => (
-                  <PedidoRow key={p._id} pedido={p} />
-                ))}
-              </div>
-            ) : (
-              <CenteredEmpty
-                icon={<Send size={22} strokeWidth={1.5} />}
-                title="Sin pedidos activos"
-                description="Cuando le pidas documentación al damnificado, el estado del pedido va a aparecer acá."
-              />
-            )}
-          </SectionCard>
+          {/* Pedidos de documentación (REC-24), con los archivos que responden a
+              cada uno (REC-80). */}
+          <PedidosCard casoId={caso._id} pedidos={caso.pedidos} cerrado={caso.cerrado} />
 
           {/* Respuestas de la aseguradora (REC-31) — SÓLO AGENTE. Trae su propia
               query: no cuelga de `casos.get`, que es dual-rol. */}
@@ -620,34 +593,6 @@ function DataRow({
           {value}
         </div>
       </div>
-    </div>
-  );
-}
-
-function PedidoRow({ pedido }: { pedido: Ficha["pedidos"][number] }) {
-  return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "flex-start",
-        justifyContent: "space-between",
-        gap: 12,
-        padding: "11px 0",
-        borderBottom: "1px solid var(--divider)",
-      }}
-    >
-      <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: "var(--text-body-sm-size)", fontWeight: 600, color: "var(--text-primary)" }}>
-          {pedido.descripcion}
-        </div>
-        <div style={{ fontSize: 12, color: "var(--text-tertiary)", marginTop: 1 }}>
-          Enviado {formatFecha(pedido.creadoEn)}
-          {pedido.respondido && pedido.respondidoEn ? ` · Respondido ${formatFecha(pedido.respondidoEn)}` : ""}
-        </div>
-      </div>
-      <Badge variant={pedido.respondido ? "respondido" : "pendiente"}>
-        {pedido.respondido ? "Respondido" : "Pendiente"}
-      </Badge>
     </div>
   );
 }
