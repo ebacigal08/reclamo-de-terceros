@@ -70,6 +70,11 @@ export const datosNotificacion = v.union(
   v.object({ motivo: v.literal("NUEVO_PEDIDO"), descripcion: v.string() }),
   v.object({ motivo: v.literal("CASO_CERRADO"), resultadoCierre }),
   v.object({ motivo: v.literal("PEDIDO_RESPONDIDO"), descripcion: v.string() }),
+  // REC-83 · sin campos a propósito: el aviso AGRUPA una tanda de subidas, así que
+  // nombrar un archivo mentiría en cuanto haya dos. Tampoco lleva el nombre del
+  // damnificado —igual que `PEDIDO_RESPONDIDO`—, y así `documentos.registrar` no
+  // paga una lectura extra sólo para el asunto.
+  v.object({ motivo: v.literal("NUEVO_DOCUMENTO") }),
   v.object({
     motivo: v.literal("PLAZO_PROXIMO"),
     descripcion: v.string(),
@@ -234,6 +239,16 @@ function plantilla(datos: DatosEmail, dest: Destinatario, casoId: Id<"casos">): 
         "Un damnificado respondió tu pedido",
         "Respuesta a tu pedido",
         `El damnificado respondió tu pedido: ${datos.descripcion}. Entrá al caso para revisar lo que subió.`,
+        url,
+        "Ver el caso",
+      );
+    case "NUEVO_DOCUMENTO":
+      // En plural y sin nombrar archivos: el aviso agrupa la tanda (ver el gate en
+      // `documentos.registrar`), así que puede haber uno o varios.
+      return armar(
+        "Un damnificado subió documentación",
+        "Documentación nueva",
+        "Un damnificado subió documentación a su caso. Entrá para revisar lo que cargó.",
         url,
         "Ver el caso",
       );

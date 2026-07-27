@@ -119,6 +119,8 @@ export const MOTIVO_NOTIFICACION_TEXTO: Record<string, string> = {
 export const MOTIVO_NOTIFICACION_AGENTE: Record<string, string> = {
   PEDIDO_RESPONDIDO: "Un damnificado respondió tu pedido",
   PLAZO_PROXIMO: "Hay un plazo próximo a vencer",
+  // REC-83 · en plural y sin nombrar archivos: el aviso agrupa una tanda de subidas.
+  NUEVO_DOCUMENTO: "Un damnificado subió documentación",
   // REC-74 · un aviso por email al agente no se entregó (rebote/queja/fallo).
   AVISO_NO_ENTREGADO: "No pudimos entregar un aviso por email — revisá tu casilla",
 };

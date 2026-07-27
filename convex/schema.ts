@@ -20,7 +20,9 @@ import { tipoDocumentoValidator } from "./tiposDocumento";
  *  - tipoGestion:   LLAMADA | CORREO | PRESENTACION | REUNION | OTRO  (sólo agente)
  *  - motivo (notif): CASO_ABIERTO | NUEVO_PEDIDO | AVANCE_ETAPA |
  *                    EXPEDIENTE_VALIDADO | PLAZO_PROXIMO | PEDIDO_RESPONDIDO |
- *                    CASO_CERRADO
+ *                    CASO_CERRADO | AVISO_NO_ENTREGADO | NUEVO_DOCUMENTO
+ *                    (la lista de verdad es `motivoNotificacion`, más abajo:
+ *                     esta copia se venía quedando atrás en cada motivo nuevo)
  */
 
 const tipoSiniestro = v.union(
@@ -104,6 +106,18 @@ const motivoNotificacion = v.union(
   // (rebote/queja/fallo detectado por webhook). Es sólo in-app: se inserta directo
   // (no pasa por `datosNotificacion`/`enviar`, así que no manda email).
   v.literal("AVISO_NO_ENTREGADO"),
+  // REC-83 · el damnificado subió documentación y el agente se entera. Cubre los
+  // DOS carriles de subida del damnificado —libre y contra un ítem del checklist—,
+  // porque ninguno avisaba: lo único que notificaba `itemsDocumentacion` era el
+  // aviso al DAMNIFICADO cuando el agente le pide documentos. Queda afuera sólo la
+  // subida que responde un pedido, que ya tiene su `PEDIDO_RESPONDIDO`.
+  //
+  // AGRUPA por caso con la política "avisar una vez, hasta que lea" (la misma de
+  // `chatEstado`, ver abajo): mientras haya un `NUEVO_DOCUMENTO` sin ver de este
+  // caso, una subida nueva no crea otro. Por eso el payload NO nombra el archivo
+  // —mentiría apenas la tanda tenga dos—; el aviso dice que entró documentación y
+  // el detalle está en la ficha.
+  v.literal("NUEVO_DOCUMENTO"),
 );
 
 export default defineSchema({

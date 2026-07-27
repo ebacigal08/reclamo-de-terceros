@@ -191,6 +191,10 @@ export function ResponderPedidoView({ pedidoId }: { pedidoId: string }) {
         casoId: caso._id,
         storageId: storageId as Id<"_storage">,
         nombreArchivo: item.file.name,
+        // REC-83 · esta subida es parte de una respuesta a un pedido: que no dispare
+        // el aviso "subió documentación". El agente se entera UNA vez, al confirmar,
+        // con `PEDIDO_RESPONDIDO` — que además le dice a QUÉ pedido responde.
+        respondeUnPedido: true,
       });
       updateItem(item.id, { estado: "ok", progreso: 100, documentoId });
     } catch (err) {

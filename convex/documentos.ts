@@ -1,9 +1,11 @@
 import { query, mutation } from "./_generated/server";
-import type { QueryCtx } from "./_generated/server";
+import type { MutationCtx, QueryCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 import { v, ConvexError } from "convex/values";
 import { resolveRole } from "./users";
 import { exigirCasoAutorizadoDual } from "./autorizacion";
+import { crearNotificacion } from "./notificaciones";
+import { emailDeAvisos } from "./lib";
 
 /**
  * REC-23 · Carga de documentos y evidencias. Primer uso de Convex File Storage
@@ -183,8 +185,20 @@ export const registrar = mutation({
     nombreArchivo: v.string(),
     // Vínculo opcional a un ítem del checklist (REC-77). Ausente ⇒ subida general.
     itemId: v.optional(v.id("itemsDocumentacion")),
+    // REC-83 · el cliente declara que esta subida es parte de una respuesta a un
+    // pedido (`ResponderPedidoView`) ⇒ acá NO se avisa: el aviso bueno lo emite
+    // `pedidos.responder` con `PEDIDO_RESPONDIDO`, una vez, al confirmar. Sin esto,
+    // responder un pedido con 3 archivos mandaría 4 avisos por una sola acción.
+    //
+    // NO es una frontera de seguridad, y por eso es un booleano de intención y no
+    // un `pedidoId` (el vínculo real lo escribe `responder`, REC-80: una sola
+    // fuente). Lo peor que consigue un cliente manipulado que lo mande siempre es
+    // ahorrarse un aviso propio; los documentos le llegan al agente igual, que los
+    // ve en la ficha. El gate de agrupación de abajo acota el caso inverso —un
+    // cliente viejo que no lo manda— a un aviso de más, no a una ráfaga.
+    respondeUnPedido: v.optional(v.boolean()),
   },
-  handler: async (ctx, { casoId, storageId, nombreArchivo, itemId }) => {
+  handler: async (ctx, { casoId, storageId, nombreArchivo, itemId, respondeUnPedido }) => {
     // 1) Sesión + pertenencia. Si falla → Error, SIN tocar storage (ver encabezado).
     const { resolved, caso } = await getCasoAutorizado(ctx, casoId);
 
@@ -237,6 +251,58 @@ export const registrar = mutation({
       subidoPor: resolved.rol === "agente" ? "AGENTE" : "DAMNIFICADO",
       ...(itemId ? { itemId } : {}),
     });
+
+    // 4) Aviso al agente (REC-83). Hasta acá este módulo no notificaba NADA: un
+    //    damnificado podía cargar documentación —libre o contra un ítem del
+    //    checklist— y el agente no se enteraba por ningún canal.
+    if (resolved.rol === "damnificado" && !respondeUnPedido) {
+      await avisarDocumentacionNueva(ctx, caso);
+    }
+
     return { documentoId };
   },
 });
+
+/**
+ * Aviso "entró documentación nueva" al agente del caso (REC-83), con la política
+ * **"avisar una vez, hasta que lea"** — la misma de `chatEstado` (REC-34/70), pero
+ * sin tabla propia: acá el gate es la PROPIA notificación.
+ *
+ * Vale usarla de gate, aunque el comentario de `chatEstado` advierta que un proxy
+ * lateral no alcanza: lo que allá no servía era `mensajes.leidoAt`, un hecho
+ * DISTINTO que miente si el email falla en silencio. Acá la fila **es** el registro
+ * del aviso, y `crearNotificacion` la inserta en la MISMA transacción en que encola
+ * el email ⇒ "existe fila sin ver" ⟺ "ya se encoló un aviso", que es exactamente la
+ * semántica de `avisoPendiente`.
+ *
+ * ⚠️ El read va ANTES del insert y trae el rango ENTERO (`collect`, filtrado en
+ * memoria), no un `take(1)` ni un `first()` que corte al primer match: el subidor
+ * del damnificado dispara las subidas EN PARALELO (`ResponderPedidoView`), así que
+ * varias `registrar` corren concurrentes. Leer todo el rango lo mete completo en el
+ * read-set y el OCC de Convex serializa: la perdedora reintenta, ve la fila y no
+ * avisa. Con un corte temprano, un insert concurrente al final del rango quedaría
+ * fuera del read-set y la ráfaga crearía varios avisos.
+ *
+ * Si el caso no tuviera agente (dato inconsistente) NO se aborta: el documento ya
+ * está guardado y es válido; perder la subida por no poder avisar sería peor.
+ */
+async function avisarDocumentacionNueva(ctx: MutationCtx, caso: Doc<"casos">) {
+  const previas = await ctx.db
+    .query("notificaciones")
+    .withIndex("by_caso_destinatario", (q) =>
+      q.eq("casoId", caso._id).eq("destinatario", "AGENTE"),
+    )
+    .collect();
+  const yaAvisado = previas.some((n) => n.motivo === "NUEVO_DOCUMENTO" && !n.visto);
+  if (yaAvisado) return;
+
+  const agente = await ctx.db.get(caso.agenteId);
+  if (!agente) return;
+
+  await crearNotificacion(ctx, {
+    casoId: caso._id,
+    destinatario: "AGENTE",
+    email: emailDeAvisos(agente),
+    datos: { motivo: "NUEVO_DOCUMENTO" },
+  });
+}
