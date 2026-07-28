@@ -555,6 +555,24 @@ export default defineSchema({
     destinatario: v.optional(destinatario),
     casoId: v.optional(v.id("casos")),
     to: v.optional(v.string()),
+    // REC-84 · ¿Esta fila es la COPIA a la segunda casilla, y no el envío al
+    // destinatario real? `destinatario` sigue diciendo qué carril espeja (el aviso
+    // original iba al AGENTE o al DAMNIFICADO), así que hace falta este campo aparte
+    // para distinguir las dos filas que produce un mismo aviso.
+    //
+    // Su único lector es `reconciliarAlerta`, que SALTEA las copias: una copia que
+    // rebota NUNCA merece alerta in-app. Los tres casos, y por qué:
+    //   · primario entregado + copia rebotada → el agente SÍ recibió el aviso; alertar
+    //     sería una falsa alarma sobre algo que funcionó;
+    //   · primario rebotado + copia entregada → la fila del PRIMARIO ya alerta (y
+    //     encima el aviso llegó igual, que es el objetivo de todo esto);
+    //   · los dos rebotados → la fila del primario ya alerta.
+    // O sea: la copia jamás aporta una alerta que no exista. La fila igual se guarda,
+    // para poder diagnosticar la casilla de respaldo si algún día hace falta.
+    //
+    // Esto CONTRADICE a propósito la corazonada de REC-84 ("probablemente sí" debería
+    // alertar): al escribir los tres casos, no queda ninguno en que sirva.
+    esCopia: v.optional(v.boolean()),
     aceptadoEn: v.optional(v.number()), // Resend respondió 200 (encolado)
     // Desenlaces reales, con el timestamp de `payload.created_at` del evento.
     entregadoEn: v.optional(v.number()),

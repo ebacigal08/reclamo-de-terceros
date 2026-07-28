@@ -38,6 +38,13 @@ const tipoEvento = v.union(
  */
 async function reconciliarAlerta(ctx: MutationCtx, fila: Doc<"entregasEmail">) {
   if (fila.alertaCreada) return;
+  // REC-84 · Las COPIAS a la segunda casilla nunca alertan (razonamiento completo en
+  // `esCopia`, schema.ts): la copia jamás aporta una alerta que la fila del primario
+  // no dé ya. Va ANTES de mirar los desenlaces, y no después, para que también cubra
+  // el orden webhook→registro: si el evento de rebote llega ANTES que el registro del
+  // envío, la fila todavía no sabe que es una copia y este mismo helper se vuelve a
+  // correr desde `registrar`, ya con el flag puesto.
+  if (fila.esCopia) return;
   // Sólo alertamos por avisos al AGENTE (el caso REC-73). Un rebote al
   // damnificado en v1 sólo se registra.
   if (fila.destinatario !== "AGENTE" || !fila.casoId) return;
@@ -87,6 +94,9 @@ export const registrar = internalMutation({
     destinatario,
     casoId: v.id("casos"),
     to: v.string(),
+    // REC-84 · true ⇒ esta fila es la copia a la segunda casilla, no el envío al
+    // destinatario real. Opcional para no tocar los call-sites que mandan el primario.
+    esCopia: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const fila = await upsertEntrega(ctx, args.resendId, {
@@ -94,6 +104,9 @@ export const registrar = internalMutation({
       destinatario: args.destinatario,
       casoId: args.casoId,
       to: args.to,
+      // Sólo se escribe cuando es true: un `false` explícito en las filas del primario
+      // sería ruido, y `undefined` en un patch de Convex BORRA el campo.
+      ...(args.esCopia ? { esCopia: true } : {}),
       aceptadoEn: Date.now(),
     });
     await reconciliarAlerta(ctx, fila);

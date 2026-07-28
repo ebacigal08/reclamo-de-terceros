@@ -3,6 +3,7 @@ import {
   mutation,
   action,
   internalMutation,
+  internalQuery,
 } from "./_generated/server";
 import type { MutationCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
@@ -1249,5 +1250,28 @@ export const cerrar = mutation({
       datos: { motivo: "CASO_CERRADO", resultadoCierre: resultado },
     });
     return { ok: true };
+  },
+});
+
+// ── Número legible del caso, para el asunto de las copias (REC-84) ──
+/**
+ * `numeroCaso` de un caso (o `null` si no existe). `internalQuery`: la usa SÓLO
+ * `notificaciones.enviar` para prefijar el asunto de la copia con el número, así el
+ * agente puede triar y filtrar la casilla de respaldo de un vistazo.
+ *
+ * Por qué una query y no un arg más de `enviar`: el número se necesita ÚNICAMENTE
+ * cuando la copia realmente va a salir (o sea, con `EMAIL_COPIA_AVISOS` puesta). Si
+ * viajara como argumento, los 6 call-sites de `crearNotificacion` tendrían que
+ * cargarlo siempre —algunos pagando una lectura extra— para un dato que en el caso
+ * normal no se usa. Acá el camino primario no paga nada y ningún call-site cambia.
+ *
+ * Sin guard de rol a propósito: es interna (no la expone el cliente) y devuelve un
+ * dato que ya viaja en la URL de la ficha.
+ */
+export const numeroDeCaso = internalQuery({
+  args: { casoId: v.id("casos") },
+  handler: async (ctx, { casoId }): Promise<string | null> => {
+    const caso = await ctx.db.get(casoId);
+    return caso?.numeroCaso ?? null;
   },
 });

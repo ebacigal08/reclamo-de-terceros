@@ -17,6 +17,12 @@
  * OTP de reset o la descripción de un pedido); el log/el error de fallo llevan
  * sólo destinatario, motivo y el detalle acotado de Resend.
  *
+ * Acá viven además los dos INTERRUPTORES por env var que gobiernan los avisos
+ * automáticos, los dos con default seguro (ausente = comportamiento histórico):
+ * `emailsAlDamnificadoActivos` (REC-71, silencia) y `direccionCopia` (REC-84, manda
+ * una copia a una segunda casilla). Los dos los lee `notificaciones.enviar` y ninguno
+ * puede tocar la invitación ni el reset, que salen por `sendEmailOrThrow`.
+ *
  * Las plantillas de marca (`renderEmailHtml`, `emailTexto`, `esc`) también viven
  * acá para que notificaciones, reset e invitación compartan un solo look.
  */
@@ -75,6 +81,55 @@ export function emailsAlDamnificadoActivos(): boolean {
   if (valor === "false" || valor === "0") return true;
   console.warn(`[email] ${VAR_SILENCIO}="${raw}" no reconocido → asumo ACTIVOS`);
   return true;
+}
+
+// ── Casilla de copia de los avisos (REC-84) ─────────────────────────────────
+/** Env var con la segunda casilla que recibe copia de los avisos automáticos. */
+export const VAR_COPIA = "EMAIL_COPIA_AVISOS";
+
+/**
+ * Segunda casilla que recibe COPIA de los avisos automáticos, o `null` si no hay
+ * ninguna configurada (REC-84).
+ *
+ * Existe porque hasta acá cada aviso tenía UN solo destinatario, y el del agente era
+ * un punto único de falla: si esa casilla se rompe o Resend la suprime —lo que pasó
+ * en REC-73, con MESES de avisos no entregados en silencio— nadie más se entera.
+ * REC-74 hizo que el sistema lo SUPIERA (alerta in-app `AVISO_NO_ENTREGADO`), pero
+ * esa alerta la ve el mismo agente cuya casilla está rota. La copia permanente es lo
+ * que saca la dependencia.
+ *
+ * Alcance: la lee SÓLO `notificaciones.enviar`, que es el único consumidor de
+ * `sendEmail`. Por lo tanto copia los 8 avisos automáticos (4 al agente + 4 al
+ * damnificado) y NO PUEDE copiar la invitación ni el reset de contraseña, que salen
+ * por `sendEmailOrThrow` y no pasan por ese action. Eso es deliberado y vale
+ * subrayarlo: el código de reset es una CREDENCIAL, y copiarlo a otra casilla le
+ * daría a esa casilla la capacidad de tomar cuentas. Queda afuera POR CONSTRUCCIÓN,
+ * no porque alguien se acuerde de excluirlo.
+ *
+ * Ausente o vacía ⇒ `null` ⇒ feature inerte: cero copias y cero cambios respecto del
+ * comportamiento histórico. Es el default seguro (y el control de la verificación).
+ *
+ * Devuelve la dirección SÓLO recortada, sin bajar a minúsculas: normalizar es asunto
+ * del único lugar que compara dos direcciones (`enviarCopia`, que ya pasa las dos por
+ * `normalizeEmail`). Así este módulo no importa nada —igual que `resendWebhook.ts`— y
+ * puede cargarse fuera del runtime de Convex, que es lo que hace testeable el guard
+ * de abajo en `scripts/email-copia.test.mjs`.
+ *
+ * Para poner/sacar:  npx convex env set|remove EMAIL_COPIA_AVISOS
+ */
+export function direccionCopia(): string | null {
+  const raw = process.env[VAR_COPIA];
+  if (raw === undefined) return null;
+  const dir = raw.trim();
+  if (!dir) return null;
+  // Un typo acá no debe mandar avisos a una dirección basura: en la cuenta de Resend
+  // eso se paga con rebotes y supresiones (la enfermedad de REC-73). Ante la duda, no
+  // se copia — la copia es redundancia, y perderla nunca es peor que ensuciar la cuenta.
+  if (!dir.includes("@")) {
+    console.warn(`[email] ${VAR_COPIA}="${raw}" no parece una dirección → sin copia`);
+    return null;
+  }
+  return dir;
 }
 
 /** Recorta un mensaje para el log/el error (no volcamos bodies enteros). */

@@ -1,11 +1,13 @@
 import { internalAction, mutation, query } from "./_generated/server";
-import type { MutationCtx, QueryCtx } from "./_generated/server";
+import type { ActionCtx, MutationCtx, QueryCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { v, ConvexError, type Infer } from "convex/values";
 import { internal } from "./_generated/api";
 import { resolveRole } from "./users";
+import { normalizeEmail } from "./lib";
 import {
   baseUrl,
+  direccionCopia,
   emailsAlDamnificadoActivos,
   emailTexto,
   renderEmailHtml,
@@ -34,6 +36,12 @@ import {
  * un detalle: como no pasan por `enviar`, el interruptor de REC-71 —que silencia los
  * avisos automáticos al damnificado— NO puede afectarlos. Quedan a salvo POR
  * CONSTRUCCIÓN, no porque alguien se acuerde de no romperlos.
+ *
+ * Que `enviar` sea el ÚNICO consumidor de `sendEmail` es, a esta altura, la propiedad
+ * más rentable del módulo: es también donde se engancha la COPIA a la segunda casilla
+ * (REC-84, `enviarCopia`). Un solo lugar cubre los 8 avisos automáticos y los que
+ * vengan después — y por el mismo motivo de arriba, la copia tampoco puede alcanzar a
+ * la invitación ni al reset, cuyo OTP es una credencial que no debe duplicarse.
  */
 
 // ── Validators (mirror local; MANTENER SINCRONIZADO con schema.ts) ──
@@ -304,6 +312,11 @@ export const enviar = internalAction({
     datos: datosEmail,
   },
   handler: async (ctx, { email, casoId, destinatario: dest, datos }) => {
+    // La plantilla se arma UNA vez y la comparten el envío primario y la copia
+    // (REC-84): el cuerpo de la copia va idéntico al original —el punto es ver lo
+    // que salió—, y sólo se le antepone un prefijo al asunto.
+    const { subject, text, html } = plantilla(datos, dest, casoId);
+
     // Interruptor de avisos al damnificado (REC-71). El corte va ACÁ porque es
     // el ÚNICO consumidor de `sendEmail`: pasan por este action tanto lo que
     // encola `crearNotificacion` como el encolado directo del chat, así que un
@@ -316,35 +329,172 @@ export const enviar = internalAction({
     //
     // Sólo se suprime el EMAIL: la fila de `notificaciones` ya se insertó en la
     // mutation (antes del runAfter), así que el feed in-app sigue intacto.
-    if (dest === "DAMNIFICADO" && !emailsAlDamnificadoActivos()) {
+    //
+    // REC-84 · Dejó de ser un `return` temprano y pasó a ser un `if/else`: la COPIA
+    // sale igual cuando el aviso al damnificado está silenciado (decisión del
+    // usuario). Por eso no puede haber una salida anticipada antes de `enviarCopia`.
+    const silenciado = dest === "DAMNIFICADO" && !emailsAlDamnificadoActivos();
+    if (silenciado) {
       // Ruidoso a propósito: un email que desaparece en silencio es imposible de
       // depurar. Sin la dirección, igual que el resto del módulo (PII).
       console.log(
         `[email][SILENCIADO] motivo=${datos.motivo} destinatario=DAMNIFICADO caso=${casoId}`,
       );
-      return;
-    }
-    const { subject, text, html } = plantilla(datos, dest, casoId);
-    const resendId = await sendEmail({ to: email, subject, text, html, motivo: datos.motivo });
-    // REC-74 · registrar el envío para correlacionarlo con los webhooks de entrega.
-    // Best-effort: un fallo del registro no debe voltear el envío ya hecho.
-    if (resendId) {
-      try {
-        await ctx.runMutation(internal.entregas.registrar, {
+    } else {
+      const resendId = await sendEmail({ to: email, subject, text, html, motivo: datos.motivo });
+      // REC-74 · registrar el envío para correlacionarlo con los webhooks de entrega.
+      if (resendId) {
+        await registrarEntrega(ctx, {
           resendId,
           motivo: datos.motivo,
           destinatario: dest,
           casoId,
           to: email,
         });
-      } catch (err) {
-        console.error(
-          `[entregas] no se pudo registrar el envío ${resendId}: ${String(err)}`,
-        );
       }
     }
+
+    // REC-84 · La copia va DESPUÉS del primario y no puede afectarlo: si este action
+    // se cortara en el medio, lo que ya salió es el aviso al destinatario real.
+    await enviarCopia(ctx, {
+      casoId,
+      dest,
+      motivo: datos.motivo,
+      subject,
+      text,
+      html,
+      silenciado,
+      destinoPrimario: email,
+    });
   },
 });
+
+/**
+ * Registro del envío en `entregasEmail` (REC-74). Best-effort: un fallo del registro
+ * no debe voltear un email que YA se mandó, así que se loguea y se traga.
+ */
+async function registrarEntrega(
+  ctx: ActionCtx,
+  args: {
+    resendId: string;
+    motivo: string;
+    destinatario: Destinatario;
+    casoId: Id<"casos">;
+    to: string;
+    esCopia?: boolean;
+  },
+): Promise<void> {
+  try {
+    await ctx.runMutation(internal.entregas.registrar, args);
+  } catch (err) {
+    console.error(
+      `[entregas] no se pudo registrar el envío ${args.resendId}: ${String(err)}`,
+    );
+  }
+}
+
+// ── Copia a la segunda casilla (REC-84) ─────────────────────────────
+/**
+ * Prefijo del asunto de la copia. Tres etiquetas distintas, todas filtrables en el
+ * cliente de correo, porque las tres situaciones son distintas y confundirlas sería
+ * el peor resultado posible de esta feature:
+ *
+ *   [Copia · SIN-2026-00031]              → aviso dirigido al agente
+ *   [Copia al cliente · SIN-2026-00031]   → aviso al damnificado, que SÍ se le envió
+ *   [Sin enviar al cliente · SIN-…]       → aviso al damnificado SILENCIADO (REC-71):
+ *                                           el cliente NO lo recibió, y por eso deja
+ *                                           de ser una "copia" en sentido estricto.
+ *
+ * Sin número si no se pudo leer: la copia nunca se pierde por un prefijo.
+ */
+function prefijoCopia(
+  dest: Destinatario,
+  silenciado: boolean,
+  numeroCaso: string | null,
+): string {
+  const etiqueta =
+    dest === "AGENTE" ? "Copia" : silenciado ? "Sin enviar al cliente" : "Copia al cliente";
+  return numeroCaso ? `[${etiqueta} · ${numeroCaso}]` : `[${etiqueta}]`;
+}
+
+/**
+ * Manda la copia del aviso a la segunda casilla, si hay una configurada (REC-84).
+ *
+ * ENTERAMENTE best-effort, por condición de auditoría: todo el cuerpo va dentro de un
+ * `try`, así que ni un fallo al leer el número de caso, ni uno al enviar, ni uno al
+ * registrar la entrega pueden voltear este action —y menos todavía el envío primario,
+ * que ya ocurrió—. La copia es redundancia: perderla nunca puede costar el original.
+ */
+async function enviarCopia(
+  ctx: ActionCtx,
+  args: {
+    casoId: Id<"casos">;
+    dest: Destinatario;
+    motivo: string;
+    subject: string;
+    text: string;
+    html: string;
+    silenciado: boolean;
+    destinoPrimario: string;
+  },
+): Promise<void> {
+  try {
+    const copia = direccionCopia();
+    if (!copia) return; // sin `EMAIL_COPIA_AVISOS`: feature inerte
+
+    // Nadie recibe el mismo aviso dos veces en la misma bandeja. Éste es el ÚNICO
+    // punto que compara dos direcciones, así que las normaliza a las dos acá (por eso
+    // `direccionCopia` no normaliza: una sola fuente para el criterio).
+    //
+    // Alcanza con trim+lowercase (`normalizeEmail`, el mismo criterio de unicidad de
+    // todo el repo): NO intentamos entender alias con `+` ni puntos, porque esas
+    // reglas son específicas de cada proveedor y "adivinar" que dos direcciones son la
+    // misma terminaría SALTEANDO copias legítimas — justo lo contrario de lo que se
+    // busca acá, que es que el aviso llegue a dos lados.
+    if (normalizeEmail(copia) === normalizeEmail(args.destinoPrimario)) return;
+
+    let numeroCaso: string | null = null;
+    try {
+      numeroCaso = await ctx.runQuery(internal.casos.numeroDeCaso, {
+        casoId: args.casoId,
+      });
+    } catch (err) {
+      // Sin dirección ni asunto en el log (condición de auditoría): sólo el caso y
+      // el motivo alcanzan para ubicarlo, y el prefijo degrada a `[Copia]`.
+      console.error(
+        `[email][copia] no se pudo leer el número del caso ${args.casoId} (motivo=${args.motivo}): ${String(err)}`,
+      );
+    }
+
+    const subject = `${prefijoCopia(args.dest, args.silenciado, numeroCaso)} ${args.subject}`;
+    const resendId = await sendEmail({
+      to: copia,
+      subject,
+      text: args.text,
+      html: args.html,
+      // El `motivo` es SÓLO observabilidad (no viaja a Resend), así que se decora
+      // para distinguir la copia en los logs. La fila de `entregasEmail`, en cambio,
+      // guarda el motivo LIMPIO: ahí la copia se distingue por `esCopia`.
+      motivo: `${args.motivo}·copia`,
+    });
+    if (resendId) {
+      await registrarEntrega(ctx, {
+        resendId,
+        motivo: args.motivo,
+        // Qué carril espeja esta copia (el aviso original iba al agente o al
+        // damnificado). Quién la recibió está en `to`.
+        destinatario: args.dest,
+        casoId: args.casoId,
+        to: copia,
+        esCopia: true,
+      });
+    }
+  } catch (err) {
+    console.error(
+      `[email][copia] fallo motivo=${args.motivo} caso=${args.casoId}: ${String(err)}`,
+    );
+  }
+}
 
 /**
  * ¿Están activos los avisos automáticos por email al damnificado? (REC-71)
