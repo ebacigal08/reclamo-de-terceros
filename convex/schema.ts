@@ -147,6 +147,28 @@ export default defineSchema({
     // Ausente ⇒ cae en `email` (el comportamiento histórico). Se lee SIEMPRE con
     // `emailDeAvisos()` de `lib.ts`, nunca a mano.
     emailNotificaciones: v.optional(v.string()),
+    // PERMISO (REC-91). Hasta acá, ser una fila en esta tabla ERA el permiso: no
+    // había grados y la única baja posible era borrar la fila, que se lleva
+    // puesto el histórico atribuido.
+    //
+    // `admin` se diferencia en UNA sola cosa: administra usuarios (alta, rol,
+    // activación). No ve más casos ni escribe más cosas que cualquier otro
+    // agente — la visibilidad es del estudio entero para todos.
+    //
+    // ⚠️ Los dos son `v.optional` y lo van a seguir siendo. Convex valida el
+    // schema contra los datos existentes al hacer push: requerirlos en una tabla
+    // que ya tiene filas en prod y staging FALLA EL PUSH. El default no se
+    // rellena por migración, se deriva con `rolDeAgente` / `esAgenteActivo`
+    // (lib.ts) y se lee SIEMPRE por ahí.
+    //
+    // Ausente ⇒ `"agente"`. El rol sin privilegios, para que publicar el campo no
+    // reparta la administración del estudio.
+    rol: v.optional(v.union(v.literal("admin"), v.literal("agente"))),
+    // Ausente ⇒ ACTIVO. Fail-OPEN a propósito, y única excepción de la cultura
+    // del repo: el push no puede rellenar las filas viejas, así que un default
+    // `false` le cerraría la app al único agente de producción en el instante
+    // del deploy. Sólo el `false` explícito —una desactivación real— cierra.
+    activo: v.optional(v.boolean()),
     // Las credenciales las gestiona Convex Auth (tabla authAccounts), no acá.
   }).index("by_email", ["email"]),
 

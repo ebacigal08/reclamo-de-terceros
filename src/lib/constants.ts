@@ -162,6 +162,11 @@ export const RUTAS = {
   login: "/login",
   recuperar: "/recuperar",
   activar: (token: string) => `/activar/${token}`,
+  // REC-91 · Callejón sin salida a propósito para el agente desactivado: es la
+  // única pantalla autenticada que no redirige a ningún lado. Va fuera de
+  // `esRutaProtegida` (middleware.ts) — si estuviera adentro, el rebote sería
+  // entre el middleware y ella misma.
+  sinAcceso: "/sin-acceso",
   agente: {
     casos: "/agente/casos",
     novedades: "/agente/novedades",

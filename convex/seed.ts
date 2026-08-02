@@ -154,6 +154,21 @@ export const insertarDominioDemo = internalMutation({
       emailNotificaciones: EMAIL_AVISOS_AGENTE
         ? normalizeEmail(EMAIL_AVISOS_AGENTE)
         : undefined,
+      // REC-91 · El agente que siembra un dominio demo ES el dueño del estudio,
+      // así que nace `admin`: sin esto, un deployment sembrado DESPUÉS de que
+      // exista la sección Usuarios nacería con cero admins y sin nadie que pueda
+      // invitar a nadie.
+      //
+      // ⚠️ Esto vale SÓLO para dominios sembrados de acá en adelante. NO reemplaza
+      // el bootstrap de los deployments que ya existen (dev, staging, prod): sus
+      // filas se crearon antes del campo y siguen derivando `"agente"`. A ésas se
+      // las promueve una única vez con `agentes:configurarRol`.
+      //
+      // No contradice el "nada de derivar el admin en código": esto es un literal
+      // explícito en un insert, no una regla que decide en tiempo de lectura quién
+      // manda. `activo` se deja ausente a propósito: su default ya es activo, y
+      // escribirlo sería ruido que además hace mentir a `activoExplicito`.
+      rol: "admin",
     });
 
     // Alias `+` de una casilla REAL, no `@example.com`.
