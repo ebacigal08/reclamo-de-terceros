@@ -99,6 +99,12 @@ export const PLAZO_MAX_DESCRIPCION = 500;
 // frontera: si el caso se llena desde otra pestaña, el que corta es el server.
 export const PLAZO_MAX_POR_CASO = 20;
 
+// REC-90 · Espejo de MAX_NOMBRE / MAX_TELEFONO en convex/clientes.ts (el server
+// valida igual). Acá sólo alimentan el `maxLength` de los inputs: la frontera es
+// la mutation, que es API pública.
+export const CLIENTE_MAX_NOMBRE = 120;
+export const CLIENTE_MAX_TELEFONO = 40;
+
 // ── Motivos de notificación → texto humano para el damnificado ───
 export const MOTIVO_NOTIFICACION_TEXTO: Record<string, string> = {
   CASO_ABIERTO: "Tu caso fue abierto por tu agente",
@@ -164,6 +170,8 @@ export const RUTAS = {
     caso: (id: string) => `/agente/casos/${id}`,
     solicitar: (id: string) => `/agente/casos/${id}/solicitar`,
     cerrar: (id: string) => `/agente/casos/${id}/cerrar`,
+    clientes: "/agente/clientes",
+    cliente: (id: string) => `/agente/clientes/${id}`,
   },
   damnificado: {
     onboarding: "/damnificado/onboarding",

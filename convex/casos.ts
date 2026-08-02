@@ -10,7 +10,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { ConvexError, v } from "convex/values";
 import { internal } from "./_generated/api";
 import { resolveRole } from "./users";
-import { estadoInvitacion, normalizeEmail } from "./lib";
+import { esEmailValido, estadoInvitacion, normalizeEmail } from "./lib";
 import { urlDeDocumento } from "./documentos";
 import { crearNotificacion } from "./notificaciones";
 import { registrarCambioEtapa } from "./historialEtapas";
@@ -750,7 +750,7 @@ export const crearRegistro = internalMutation({
     if (!nombre) throw new ConvexError("Ingresá el nombre del damnificado.");
     if (!telefono) throw new ConvexError("Ingresá un teléfono de contacto.");
     if (!aseguradora) throw new ConvexError("Indicá la aseguradora involucrada.");
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    if (!esEmailValido(email)) {
       throw new ConvexError("Ingresá un email válido (ej: nombre@dominio.com).");
     }
 

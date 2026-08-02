@@ -165,3 +165,131 @@ export function enCooldownInvitacion(
 ): boolean {
   return estadoInvitacion(m, ahora).enCooldown;
 }
+
+// ── Clientes: edición de datos y agrupación por damnificado (REC-90) ──
+// Todo lo de esta sección es PURO a propósito. `convex/clientes.ts` importa
+// `_generated/server`, así que no se puede ejercitar desde `scripts/` con
+// `node --test` (el resolver ESM de Node no acepta los specifiers sin extensión
+// del bundler de Convex). La lógica que puede fallar EN SILENCIO —qué cuenta
+// como conflicto de email, si un cliente con casos sólo cerrados sigue siendo
+// cliente— vive acá para que tenga tests de verdad.
+
+/**
+ * Formato de email. Es la MISMA frontera que valida el alta (`casos.ts`), que
+ * ahora la importa de acá en vez de repetir el literal.
+ *
+ * Mismo motivo que `RE_FECHA` unas líneas más arriba: dos fronteras que validan
+ * el mismo campo tienen que validar IDÉNTICO, porque si no la corrección se
+ * aplica en una y se olvida en la otra. (La copia del front, en el formulario de
+ * alta, se queda donde está: `src/` no puede importar del bundle de Convex.)
+ */
+export const RE_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export function esEmailValido(email: string): boolean {
+  return RE_EMAIL.test(email);
+}
+
+/**
+ * Qué hacer con el email en una edición de damnificado.
+ *
+ * `cuentaActivada` es la línea exacta en la que el email deja de ser un dato de
+ * contacto y pasa a ser un IDENTIFICADOR DE LOGIN: del otro lado habría que
+ * migrar en sincronía `authAccounts.providerAccountId` + `users.email` +
+ * `damnificados.email`, y `resolveRole` es fail-closed, así que una
+ * desincronización deja al damnificado logueándose bien y viendo la app entera
+ * cerrada. Convex Auth no expone ninguna API para renombrar una cuenta.
+ *
+ * ⚠️ El caso que parece un detalle y no lo es: con la cuenta activada y un email
+ * IGUAL al actual esto devuelve `SIN_CAMBIO`, no `BLOQUEADO`. Sólo un email
+ * DISTINTO bloquea. Si no, una pestaña abierta desde antes de la activación —que
+ * manda el email tal cual lo leyó— rompería el guardado de nombre y teléfono, que
+ * sí están permitidos siempre.
+ *
+ * `emailNuevo === undefined` significa "no lo toqué", que es lo que manda el
+ * front cuando el campo viene deshabilitado.
+ * Los dos emails llegan YA normalizados (`normalizeEmail`).
+ */
+export function resolucionEmail(args: {
+  cuentaActivada: boolean;
+  emailActual: string;
+  emailNuevo?: string;
+}): "SIN_CAMBIO" | "CAMBIA" | "BLOQUEADO_CUENTA_ACTIVADA" {
+  const { cuentaActivada, emailActual, emailNuevo } = args;
+  if (emailNuevo === undefined || emailNuevo === emailActual) {
+    return "SIN_CAMBIO";
+  }
+  return cuentaActivada ? "BLOQUEADO_CUENTA_ACTIVADA" : "CAMBIA";
+}
+
+/**
+ * ¿El email destino ya es de otro? Réplica del guard de unicidad global del alta
+ * (`casos.crearRegistro`), con UNA diferencia esencial: acá hay un "yo".
+ *
+ * El alta pregunta "¿existe alguna fila con este email?" y una fila significa
+ * REUSAR ese damnificado. En una edición, una fila que SOY YO es un guardado
+ * idempotente perfectamente válido, y una fila AJENA es un conflicto. Por eso la
+ * decisión no puede ser `length > 1` copiado del alta: sobre el propio email eso
+ * daría verde por el motivo equivocado, y sobre un email ajeno preexistente
+ * dejaría pasar el pisotón.
+ *
+ * La unicidad es GLOBAL entre `agentes` y `damnificados` porque es el invariante
+ * que sostiene `resolveRole` (que hace fail-closed si un email matchea en las dos
+ * tablas, o dos veces en la misma).
+ */
+export function conflictoDeEmail(args: {
+  agentesConEseEmail: number;
+  damnificadosConEseEmail: readonly string[];
+  propioId: string;
+}): null | "AGENTE" | "OTRO_DAMNIFICADO" {
+  if (args.agentesConEseEmail > 0) return "AGENTE";
+  const ajenos = args.damnificadosConEseEmail.filter(
+    (id) => id !== args.propioId,
+  );
+  return ajenos.length > 0 ? "OTRO_DAMNIFICADO" : null;
+}
+
+/** Lo que la lista de clientes resume de los casos de una persona. */
+export type ResumenCliente = {
+  abiertos: number;
+  cerrados: number;
+  ultimoCasoEn: number;
+};
+
+/**
+ * Agrupa los casos DE UN AGENTE por damnificado, para la lista de clientes.
+ *
+ * ⚠️ Cuenta abiertos y cerrados, y devuelve una entrada por cada damnificado que
+ * aparezca — INCLUIDO el que sólo tiene casos cerrados. Suena obvio y es la
+ * regresión más probable de toda la sección: el índice `casos.by_agente` es
+ * `["agenteId","cerrado"]`, así que copiar el `.eq("cerrado", false)` de
+ * `casos.listMine` haría desaparecer clientes de la agenda al cerrarles el último
+ * caso, sin ningún error. El llamador tiene que consultar el índice SÓLO con el
+ * prefijo `agenteId` (como `notificaciones.casosDelAgente`).
+ *
+ * Tipado estructural en vez de `Doc<"casos">` (mismo truco que `emailDeAvisos`):
+ * así este módulo sigue sin importar nada y se puede testear desde `scripts/`.
+ */
+export function agruparClientes(
+  casos: readonly {
+    damnificadoId: string;
+    cerrado: boolean;
+    _creationTime: number;
+  }[],
+): Map<string, ResumenCliente> {
+  const porCliente = new Map<string, ResumenCliente>();
+  for (const caso of casos) {
+    const previo = porCliente.get(caso.damnificadoId);
+    const resumen: ResumenCliente = previo ?? {
+      abiertos: 0,
+      cerrados: 0,
+      ultimoCasoEn: caso._creationTime,
+    };
+    if (caso.cerrado) resumen.cerrados += 1;
+    else resumen.abiertos += 1;
+    if (caso._creationTime > resumen.ultimoCasoEn) {
+      resumen.ultimoCasoEn = caso._creationTime;
+    }
+    porCliente.set(caso.damnificadoId, resumen);
+  }
+  return porCliente;
+}

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useQuery } from "convex/react";
-import { Archive, Bell, FolderKanban, LogOut } from "lucide-react";
+import { Archive, Bell, FolderKanban, LogOut, Users } from "lucide-react";
 import { api } from "@convex/_generated/api";
 import { RUTAS } from "@/lib/constants";
 import { iniciales } from "@/lib/format";
@@ -29,6 +29,9 @@ export function Sidebar({
   const enHistorico = pathname?.startsWith("/agente/casos/historico") ?? false;
   const enCasos = (pathname?.startsWith("/agente/casos") ?? false) && !enHistorico;
   const enNovedades = pathname?.startsWith("/agente/novedades") ?? false;
+  // "Clientes" cuelga de su propia raíz, no de /agente/casos, así que no entra en
+  // la exclusión de arriba: cubre la lista y la ficha de cliente.
+  const enClientes = pathname?.startsWith("/agente/clientes") ?? false;
 
   // El contador vive acá, y no en el header de la lista de casos, porque el sidebar
   // es lo único GLOBAL del shell del agente: así se ve mientras trabaja en una ficha,
@@ -82,6 +85,16 @@ export function Sidebar({
           label="Casos"
           active={enCasos}
           count={casosActivos}
+        />
+        <NavItem
+          href={RUTAS.agente.clientes}
+          icon={<Users size={18} strokeWidth={1.5} />}
+          label="Clientes"
+          active={enClientes}
+          // Sin `count`: el de Casos sale de `casosActivos`, que ya viene como prop
+          // del server. Un contador de clientes pediría una query nueva en el shell
+          // para un número que nadie pidió, y no es ni un dato que el agente
+          // persiga ni algo que reclame atención.
         />
         <NavItem
           href={RUTAS.agente.novedades}

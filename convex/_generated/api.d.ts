@@ -12,6 +12,7 @@ import type * as agentes from "../agentes.js";
 import type * as auth from "../auth.js";
 import type * as autorizacion from "../autorizacion.js";
 import type * as casos from "../casos.js";
+import type * as clientes from "../clientes.js";
 import type * as crons from "../crons.js";
 import type * as documentos from "../documentos.js";
 import type * as email from "../email.js";
@@ -46,6 +47,7 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   autorizacion: typeof autorizacion;
   casos: typeof casos;
+  clientes: typeof clientes;
   crons: typeof crons;
   documentos: typeof documentos;
   email: typeof email;

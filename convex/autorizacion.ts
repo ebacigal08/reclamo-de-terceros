@@ -87,3 +87,61 @@ export async function exigirCasoDeAgente(ctx: QueryCtx, casoId: Id<"casos">) {
   }
   return autorizado;
 }
+
+// ── Pertenencia de un DAMNIFICADO a un agente (REC-90) ───────────────────────
+/**
+ * "Este cliente es mío". La frontera de autorización de la sección Clientes.
+ *
+ * ⚠️ `damnificados` NO tiene `agenteId`, y no debería tenerlo: la relación es
+ * muchos-a-muchos a través de `casos`, porque el alta REUSA deliberadamente al
+ * damnificado que ya existe con ese email (`casos.crearRegistro`). O sea que dos
+ * agentes pueden compartir persona. La regla de pertenencia se deriva: **te
+ * autoriza tener al menos un caso en común**.
+ *
+ * ⚠️ LO IMPORTANTE ESTÁ EN EL RETORNO: `casos` sale YA FILTRADO por el agente que
+ * llama, y el array crudo —que incluye los casos de OTROS agentes con la misma
+ * persona— no sale nunca de esta función. Así "cada agente ve sólo sus casos" es
+ * estructural y no depende de que cada llamador se acuerde de filtrar; un olvido
+ * acá no muestra de más, porque no hay nada de más para mostrar. Es el mismo
+ * criterio con el que el relato separa `respuestas` de `respuestasAgente`.
+ *
+ * No hay índice `by_damnificado_agente` a propósito: el conjunto que se filtra en
+ * JS es "todos los casos de UNA persona" —uno o dos siniestros— y un índice nuevo
+ * se paga en cada escritura de `casos`, para siempre.
+ *
+ * Fail-closed a `null`, y MISMO trato para "no hay sesión", "sos damnificado", "el
+ * damnificado no existe" y "no compartís ningún caso" → no filtra la existencia de
+ * clientes ajenos. Ojo con el segundo: un damnificado autenticado NO pasa ni
+ * siquiera para su propio documento, porque esto es una pantalla del agente.
+ */
+export async function damnificadoDeAgente(
+  ctx: QueryCtx,
+  damnificadoId: Id<"damnificados">,
+) {
+  const resolved = await resolveRole(ctx);
+  if (!resolved || resolved.rol !== "agente") return null;
+
+  const dam = await ctx.db.get(damnificadoId);
+  if (!dam) return null;
+
+  const todos = await ctx.db
+    .query("casos")
+    .withIndex("by_damnificado", (q) => q.eq("damnificadoId", damnificadoId))
+    .collect();
+  const casos = todos.filter((c) => c.agenteId === resolved.agente._id);
+  if (casos.length === 0) return null;
+
+  return { agente: resolved.agente, dam, casos };
+}
+
+/** Versión que LANZA. Mismo mensaje para inexistente y ajeno. */
+export async function exigirDamnificadoDeAgente(
+  ctx: QueryCtx,
+  damnificadoId: Id<"damnificados">,
+) {
+  const autorizado = await damnificadoDeAgente(ctx, damnificadoId);
+  if (!autorizado) {
+    throw new Error("No autorizado: el cliente no existe o no es tuyo.");
+  }
+  return autorizado;
+}
