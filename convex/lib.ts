@@ -293,3 +293,54 @@ export function agruparClientes(
   }
   return porCliente;
 }
+
+// ── Usuarios y roles (REC-91) ────────────────────────────────────
+// Los dos campos que estos helpers leen (`rol`, `activo`) son OPCIONALES en el
+// schema y lo van a seguir siendo: Convex valida el schema contra los datos
+// existentes al hacer push, así que un campo requerido en `agentes` —que ya
+// tiene filas en prod y en staging— falla el push. El default no se rellena por
+// migración: se DERIVA acá, y por eso estas tres funciones son la única forma
+// legítima de leer esos campos. Leerlos a mano es cómo se pierde el default.
+//
+// Tipado estructural en vez de `Doc<"agentes">` (mismo truco que `emailDeAvisos`):
+// así este módulo sigue sin importar nada y se puede testear desde `scripts/`.
+
+export type RolAgente = "admin" | "agente";
+
+/**
+ * El rol de un agente. **Ausente ⇒ `"agente"`**: el rol nació con REC-91 y
+ * ninguna de las filas que ya existían lo tiene, así que el default tiene que
+ * ser el rol sin privilegios. Al revés —ausente ⇒ admin— la administración del
+ * estudio quedaría abierta para todos el día que se publique el campo, sin un
+ * solo error que lo delate.
+ */
+export function rolDeAgente(agente: { rol?: RolAgente }): RolAgente {
+  return agente.rol ?? "agente";
+}
+
+/**
+ * Si el agente administra usuarios. Es la ÚNICA diferencia entre los dos roles:
+ * un admin no ve más casos ni escribe más cosas que cualquier otro agente.
+ */
+export function esAdmin(agente: { rol?: RolAgente }): boolean {
+  return rolDeAgente(agente) === "admin";
+}
+
+/**
+ * Si el agente puede usar la app. **Ausente ⇒ `true` (fail-OPEN)**.
+ *
+ * ⚠️ Es la única excepción a la cultura fail-closed del repo, y es deliberada:
+ * el push que agrega `activo` no puede rellenar las filas que ya existen, así
+ * que un default `false` le cerraría la app —en el mismo instante del deploy y
+ * sin aviso— al único agente de producción. El fail-closed de verdad vive un
+ * escalón más arriba: `resolveRole` sigue devolviendo `null` ante CUALQUIER
+ * identidad que no resuelva a exactamente una persona.
+ *
+ * Por eso la comparación es `!== false` y no `!!agente.activo`: sólo el `false`
+ * EXPLÍCITO —el que escribe una desactivación real— cierra la puerta. Si alguien
+ * lo "corrige" a fail-closed de buena fe, `scripts/roles.test.mjs` es lo único
+ * que lo dice antes de que el deploy lo demuestre.
+ */
+export function esAgenteActivo(agente: { activo?: boolean }): boolean {
+  return agente.activo !== false;
+}
