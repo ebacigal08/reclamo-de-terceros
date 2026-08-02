@@ -11,55 +11,12 @@ import { EmptyState } from "@/components/ui";
  * (misma convención que los componentes de `src/components/ui`).
  */
 
-/** Card con encabezado y un slot de acción a la derecha (`right`). */
-export function SectionCard({
-  title,
-  right,
-  children,
-  pad,
-}: {
-  title: string;
-  right?: ReactNode;
-  children: ReactNode;
-  pad?: string;
-}) {
-  return (
-    <div
-      style={{
-        background: "var(--bg-surface)",
-        border: "1px solid var(--border)",
-        borderRadius: "var(--radius-lg)",
-        boxShadow: "var(--shadow-sm)",
-        overflow: "hidden",
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 12,
-          padding: "13px 18px",
-          borderBottom: "1px solid var(--divider)",
-        }}
-      >
-        <h3
-          style={{
-            margin: 0,
-            fontFamily: "var(--font-sans)",
-            fontSize: "var(--text-h4-size)",
-            fontWeight: 700,
-            color: "var(--text-primary)",
-          }}
-        >
-          {title}
-        </h3>
-        {right}
-      </div>
-      <div style={{ padding: pad ?? "16px 18px" }}>{children}</div>
-    </div>
-  );
-}
+/**
+ * `SectionCard` se mudó al design system (`@/components/ui`) cuando la ficha de
+ * cliente (REC-90) pasó a componerse con la misma card. Se re-exporta desde acá
+ * para no tocar los diez archivos de la ficha que ya la importaban de este módulo.
+ */
+export { SectionCard } from "@/components/ui";
 
 /**
  * Estado vacío centrado dentro de una `SectionCard`.

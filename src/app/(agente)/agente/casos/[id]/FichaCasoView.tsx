@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
-import { Alert, Badge, Button, EmptyState, PrioritySelector, Skeleton, Stepper } from "@/components/ui";
+import { Alert, Badge, Button, DataRow, EmptyState, PrioritySelector, Skeleton, Stepper } from "@/components/ui";
 import { ETAPAS, PRIORIDADES, type Prioridad, RESULTADOS_CIERRE, RUTAS, TIPOS_SINIESTRO } from "@/lib/constants";
 import { diasHasta, estadoPlazo, formatFecha } from "@/lib/format";
 import { SectionCard, fechaLocal } from "./fichaUi";
@@ -555,47 +555,8 @@ function alertaContextual(caso: Ficha): ReactNode {
 // ── Sub-componentes de presentación (portados del prototipo) ─────
 // `SectionCard`, `CenteredEmpty` y `fechaLocal` viven en ./fichaUi: las usa
 // también RespuestasAseguradoraCard, y tenerlas acá crearía un ciclo de imports.
-function DataRow({
-  icon,
-  label,
-  value,
-  mono,
-  last,
-}: {
-  icon: ReactNode;
-  label: string;
-  value: string;
-  mono?: boolean;
-  last?: boolean;
-}) {
-  return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 12,
-        padding: "10px 0",
-        borderBottom: last ? "none" : "1px solid var(--divider)",
-      }}
-    >
-      <span style={{ color: "var(--text-tertiary)", display: "flex", flexShrink: 0 }}>{icon}</span>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={captionStyle}>{label}</div>
-        <div
-          style={{
-            fontSize: "var(--text-body-sm-size)",
-            color: "var(--text-primary)",
-            fontFamily: mono ? "var(--font-mono)" : "var(--font-sans)",
-            marginTop: 2,
-            wordBreak: "break-word",
-          }}
-        >
-          {value}
-        </div>
-      </div>
-    </div>
-  );
-}
+// `DataRow` se mudó a `@/components/ui`: la ficha de cliente (REC-90) muestra los
+// mismos tres datos de contacto y tenían que verse igual en las dos pantallas.
 
 // ── Estados de carga / no-encontrado / error ─────────────────────
 function CardSkeleton() {

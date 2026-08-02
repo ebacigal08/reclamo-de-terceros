@@ -1,7 +1,7 @@
 /**
  * Barrel de componentes UI del design system Amparo.
  * A medida que se porten desde el prototipo (Design/nuevo-prototipo-reclamos),
- * exportar acá. Pendientes: Card, RadioGroup,
+ * exportar acá. Pendientes: RadioGroup,
  * FileUpload, DatePicker, Modal, Drawer, Toast, Tabs, ProgressBar,
  * Breadcrumb, Header.
  */
@@ -17,3 +17,5 @@ export { Alert } from "./Alert";
 export { Badge } from "./Badge";
 export { EmptyState } from "./EmptyState";
 export { Skeleton } from "./Skeleton";
+export { SectionCard } from "./SectionCard";
+export { DataRow } from "./DataRow";

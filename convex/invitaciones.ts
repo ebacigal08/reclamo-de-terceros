@@ -404,17 +404,30 @@ export const contarPorEmail = internalQuery({
   },
 });
 
+/**
+ * ¿Ya existe una cuenta de acceso (provider `password`) para este email?
+ *
+ * Se extrajo de la `internalQuery` de abajo para que también la pueda usar una
+ * MUTATION —`clientes.editar`, REC-90—, que no puede hacer `ctx.runQuery`. Lo que
+ * se comparte es la función, no la Convex function; la internalQuery la delega y
+ * conserva su firma para la action `activar`.
+ */
+export async function tieneCuentaAuth(
+  ctx: QueryCtx,
+  email: string,
+): Promise<boolean> {
+  const cuenta = await ctx.db
+    .query("authAccounts")
+    .withIndex("providerAndAccountId", (q) =>
+      q.eq("provider", "password").eq("providerAccountId", email),
+    )
+    .first();
+  return cuenta !== null;
+}
+
 export const authAccountExiste = internalQuery({
   args: { email: v.string() },
-  handler: async (ctx, { email }) => {
-    const cuenta = await ctx.db
-      .query("authAccounts")
-      .withIndex("providerAndAccountId", (q) =>
-        q.eq("provider", "password").eq("providerAccountId", email),
-      )
-      .first();
-    return cuenta !== null;
-  },
+  handler: async (ctx, { email }) => tieneCuentaAuth(ctx, email),
 });
 
 export const marcarActivado = internalMutation({
