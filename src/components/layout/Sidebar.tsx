@@ -12,15 +12,17 @@ import { iniciales } from "@/lib/format";
 
 /**
  * Botonera / navegación del Agente (design system Amparo · registro denso).
- * Los datos (nombre, casos activos) los provee el layout server desde `me`.
+ * Los casos activos los provee el layout server desde `me`.
+ *
+ * El pie NO muestra el nombre de quien entró: hoy la plataforma la usa una sola
+ * persona, así que un nombre propio identifica a alguien en un sistema donde no
+ * hay a quién distinguir. Es deliberadamente una constante y no un dato de `me`
+ * —sirve igual en local, staging y prod, sin depender de qué diga la base—, y se
+ * revierte a `me.nombre` el día que exista la sección Usuarios (REC-94).
  */
-export function Sidebar({
-  nombre,
-  casosActivos,
-}: {
-  nombre: string;
-  casosActivos: number;
-}) {
+const ETIQUETA_USUARIO = "Administrador";
+
+export function Sidebar({ casosActivos }: { casosActivos: number }) {
   const pathname = usePathname();
   const { signOut } = useAuthActions();
   // "Histórico" es un sub-path de "/agente/casos", así que se resuelve primero y
@@ -138,7 +140,7 @@ export function Sidebar({
             fontWeight: 700,
           }}
         >
-          {iniciales(nombre)}
+          {iniciales(ETIQUETA_USUARIO)}
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div
@@ -151,9 +153,8 @@ export function Sidebar({
               textOverflow: "ellipsis",
             }}
           >
-            {nombre}
+            {ETIQUETA_USUARIO}
           </div>
-          <div style={{ fontSize: 11, color: "var(--sidebar-text)" }}>Agente</div>
         </div>
         <button
           onClick={cerrarSesion}
