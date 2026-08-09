@@ -29,7 +29,7 @@ export default async function AgenteLayout({
   return (
     <ShellErrorBoundary>
       <div style={{ display: "flex", minHeight: "100vh" }}>
-        <Sidebar nombre={me.nombre} casosActivos={me.casosActivos} />
+        <Sidebar casosActivos={me.casosActivos} />
         <main style={{ flex: 1, background: "var(--bg-page)", minWidth: 0 }}>{children}</main>
       </div>
     </ShellErrorBoundary>
