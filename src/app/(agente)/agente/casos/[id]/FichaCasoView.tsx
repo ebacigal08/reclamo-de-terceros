@@ -26,7 +26,6 @@ import { SectionCard, fechaLocal } from "./fichaUi";
 import { RespuestasAseguradoraCard } from "./RespuestasAseguradoraCard";
 import { GestionesCard } from "./GestionesCard";
 import { NotasInternasCard } from "./NotasInternasCard";
-import { HistorialEtapasCard } from "./HistorialEtapasCard";
 import { AccesoDamnificado } from "./AccesoDamnificado";
 import { DocumentosCard } from "./DocumentosCard";
 import { RelatoCard } from "./RelatoCard";
@@ -463,10 +462,6 @@ function FichaDetalle({ caso }: { caso: Ficha }) {
           {/* Notas internas (REC-33) — SÓLO AGENTE. El damnificado no las ve bajo
               ninguna circunstancia; la card lo marca en pantalla. */}
           <NotasInternasCard casoId={caso._id} cerrado={caso.cerrado} />
-
-          {/* Historial de etapas (REC-82) — SÓLO AGENTE. Audit log read-only de
-              avances/retrocesos/cierre; trae su propia query acotada. */}
-          <HistorialEtapasCard casoId={caso._id} />
         </div>
 
         {/* Columna derecha */}
