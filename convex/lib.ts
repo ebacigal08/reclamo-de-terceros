@@ -344,3 +344,44 @@ export function esAdmin(agente: { rol?: RolAgente }): boolean {
 export function esAgenteActivo(agente: { activo?: boolean }): boolean {
   return agente.activo !== false;
 }
+
+// ── Correlativo de `numeroCaso` (REC-99) ─────────────────────────────
+/** Un correlativo emitido por el sistema son 5 dígitos, siempre. */
+export const RE_CORRELATIVO = /^\d{5}$/;
+
+/**
+ * REC-99 · De una tanda de `numeroCaso` del MISMO año **ordenada descendente**,
+ * devuelve el mayor correlativo VÁLIDO, o `null` si ninguno lo es.
+ *
+ * Vive acá, separado de `generarNumeroCaso`, porque es la única parte de la
+ * numeración que puede fallar en silencio y `convex/lib.ts` es el módulo sin
+ * imports que `node --test` puede cargar (mismo motivo que `esAgenteActivo`).
+ *
+ * **Por qué alcanza con el PRIMERO que matchee:** la lista viene de mayor a menor,
+ * así que el primer elemento bien formado es, por definición, el mayor bien
+ * formado. Dónde caigan los malformados es indistinto.
+ *
+ * **Qué malformados existen de verdad.** La query que alimenta esto acota el rango
+ * a `< SIN-AAAA-999999`, así que un sufijo que arranca con letra (`SIN-2026-zzz`)
+ * ni siquiera llega hasta acá: queda fuera del rango. Los que sí entran son los
+ * que arrancan con dígito y traen basura después (`SIN-2026-00012abc`,
+ * `SIN-2026-0001A`) y el sufijo vacío (`SIN-2026-`) — los tres daban `NaN` o `0`
+ * en la versión anterior. El helper igual no asume nada del rango: filtra por
+ * formato exacto.
+ *
+ * **Por qué devuelve `null` y no `0`:** un `0` se convertiría en `00001`, que es
+ * un número YA EMITIDO, y Convex no tiene índices únicos que frenen el duplicado.
+ * Distinguir "no hay ninguno válido" de "el máximo es 0" es lo que le permite al
+ * llamador fallar cerrado en vez de adivinar. `scripts/numero-caso.test.mjs` es
+ * lo único que lo dice antes de que lo demuestre un identificador duplicado.
+ */
+export function maximoCorrelativo(
+  numerosCasoDesc: string[],
+  prefijo: string,
+): number | null {
+  for (const numeroCaso of numerosCasoDesc) {
+    const sufijo = numeroCaso.slice(prefijo.length);
+    if (RE_CORRELATIVO.test(sufijo)) return Number(sufijo);
+  }
+  return null;
+}

@@ -10,7 +10,12 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { ConvexError, v } from "convex/values";
 import { internal } from "./_generated/api";
 import { resolveRole } from "./users";
-import { esEmailValido, estadoInvitacion, normalizeEmail } from "./lib";
+import {
+  esEmailValido,
+  estadoInvitacion,
+  maximoCorrelativo,
+  normalizeEmail,
+} from "./lib";
 import { urlDeDocumento } from "./documentos";
 import { crearNotificacion } from "./notificaciones";
 import { registrarCambioEtapa } from "./historialEtapas";
@@ -534,23 +539,62 @@ export const miCaso = query({
   },
 });
 
+/** Cuántas filas del final del rango se miran buscando un correlativo válido.
+ *  Acotado a propósito: la alternativa (iterar hasta encontrarlo) haría que una
+ *  tabla con basura escale la lectura sin techo. */
+const VENTANA_CORRELATIVO = 10;
+
 /**
  * Genera el numeroCaso legible `SIN-AAAA-NNNNN` (correlativo del año).
  * Helper compartido por el alta (REC-19) y el seed. Para producción conviene
- * un contador atómico dedicado.
+ * un contador atómico dedicado (REC-93), que además resuelve la contención OCC.
+ *
+ * El correlativo sale del MÁXIMO ya usado, no de CONTAR las filas. Contar es lo
+ * que hacía antes y tiene un modo de falla silencioso: si se borra un caso, el
+ * conteo baja y el próximo alta REUSA un número ya emitido. Convex no tiene
+ * índices únicos, así que el duplicado entra sin que nada lo frene, y quedan dos
+ * casos distintos con el mismo `SIN-…` (uno de ellos, encima, ya archivado en la
+ * cabeza del cliente). Se activó al limpiar los datos de prueba de producción.
+ *
+ * `by_numeroCaso` está ordenado lexicográficamente y el correlativo va
+ * zero-padded a 5 dígitos, así que dentro del rango de un año el orden
+ * lexicográfico ES el orden numérico. Cuál es el máximo lo decide
+ * `maximoCorrelativo` (`lib.ts`), que saltea los malformados en vez de dejar que
+ * uno solo tape a los válidos — ver ahí por qué eso importa.
  */
 export async function generarNumeroCaso(
   ctx: MutationCtx,
   anio: number,
 ): Promise<string> {
-  const delAnio = await ctx.db
+  const prefijo = `SIN-${anio}-`;
+  const ultimos = await ctx.db
     .query("casos")
     .withIndex("by_numeroCaso", (q) =>
-      q.gte("numeroCaso", `SIN-${anio}-`).lt("numeroCaso", `SIN-${anio}-999999`),
+      q.gte("numeroCaso", prefijo).lt("numeroCaso", `SIN-${anio}-999999`),
     )
-    .collect();
-  const correlativo = String(delAnio.length + 1).padStart(5, "0");
-  return `SIN-${anio}-${correlativo}`;
+    .order("desc")
+    .take(VENTANA_CORRELATIVO);
+
+  // Rango vacío: no hay ningún correlativo emitido este año.
+  if (ultimos.length === 0) return `${prefijo}00001`;
+
+  const maximo = maximoCorrelativo(
+    ultimos.map((c) => c.numeroCaso),
+    prefijo,
+  );
+
+  // Fail-closed. Antes acá había un fallback a 0 que emitía `00001`, y eso es
+  // justo el duplicado silencioso que esta función viene a evitar: un solo
+  // `SIN-AAAA-00012abc` (o el sufijo vacío) daba `NaN`/`0` y hacía reemitir un
+  // número ya usado. Un correlativo corrupto es un dato a corregir, no algo que
+  // se adivina.
+  if (maximo === null) {
+    throw new ConvexError(
+      `No se pudo generar el número de caso: los últimos ${VENTANA_CORRELATIVO} de ${anio} tienen un correlativo con formato inválido. Hay que corregir esos datos antes de dar de alta un caso nuevo.`,
+    );
+  }
+
+  return `${prefijo}${String(maximo + 1).padStart(5, "0")}`;
 }
 
 /**
