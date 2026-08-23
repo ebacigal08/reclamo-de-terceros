@@ -8,6 +8,7 @@ import { normalizeEmail } from "./lib";
 import {
   avisoAlDamnificadoActivo,
   baseUrl,
+  damnificadoPuedeRecibir,
   direccionCopia,
   emailsAlDamnificadoActivos,
   emailTexto,
@@ -368,18 +369,32 @@ export const enviar = internalAction({
     // lista de motivos exceptuados. Con la lista ausente se comporta exactamente como
     // `emailsAlDamnificadoActivos`, que es lo que había acá antes.
     //
+    // REC-150 · La allowlist de casillas se evalúa PRIMERO, y el orden no es estético:
+    // decide qué dice el log. "BLOQUEADO" (esta persona no recibe NADA mientras dure el
+    // modo pruebas) y "SILENCIADO" (este motivo está apagado para todos) son diagnósticos
+    // distintos, y el más fuerte tiene que ganar — si no, el día que algo no llegue vas a
+    // buscar el problema en la variable equivocada.
+    //
     // Sólo se suprime el EMAIL: la fila de `notificaciones` ya se insertó en la
     // mutation (antes del runAfter), así que el feed in-app sigue intacto.
     //
     // REC-84 · Dejó de ser un `return` temprano y pasó a ser un `if/else`: la COPIA
     // sale igual cuando el aviso al damnificado está silenciado (decisión del
     // usuario). Por eso no puede haber una salida anticipada antes de `enviarCopia`.
-    const silenciado = dest === "DAMNIFICADO" && !avisoAlDamnificadoActivo(datos.motivo);
+    const corte =
+      dest !== "DAMNIFICADO"
+        ? null
+        : !damnificadoPuedeRecibir(email)
+          ? "BLOQUEADO"
+          : !avisoAlDamnificadoActivo(datos.motivo)
+            ? "SILENCIADO"
+            : null;
+    const silenciado = corte !== null;
     if (silenciado) {
       // Ruidoso a propósito: un email que desaparece en silencio es imposible de
       // depurar. Sin la dirección, igual que el resto del módulo (PII).
       console.log(
-        `[email][SILENCIADO] motivo=${datos.motivo} destinatario=DAMNIFICADO caso=${casoId}`,
+        `[email][${corte}] motivo=${datos.motivo} destinatario=DAMNIFICADO caso=${casoId}`,
       );
     } else {
       const resendId = await sendEmail({ to: email, subject, text, html, motivo: datos.motivo });
