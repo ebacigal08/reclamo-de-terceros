@@ -20,7 +20,8 @@
  * Acá viven además los INTERRUPTORES por env var que gobiernan los avisos automáticos,
  * todos con default seguro (ausente = comportamiento histórico):
  * `emailsAlDamnificadoActivos` (REC-71, silencia los 4 avisos al damnificado),
- * `avisoAlDamnificadoActivo` (REC-149, exceptúa motivos de ese silencio) y
+ * `avisoAlDamnificadoActivo` (REC-149, exceptúa motivos de ese silencio),
+ * `damnificadoPuedeRecibir` (REC-150, allowlist de casillas para el modo pruebas) y
  * `direccionCopia` (REC-84, manda una copia a una segunda casilla). Los lee todos
  * `notificaciones.enviar` y ninguno puede tocar la invitación ni el reset, que salen
  * por `sendEmailOrThrow`.
@@ -132,6 +133,54 @@ function motivosExceptuados(): Set<string> {
  */
 export function avisoAlDamnificadoActivo(motivo: string): boolean {
   return emailsAlDamnificadoActivos() || motivosExceptuados().has(motivo.toUpperCase());
+}
+
+// ── Modo pruebas: allowlist de casillas del damnificado (REC-150) ───────────
+/** Env var con las ÚNICAS casillas del damnificado que pueden recibir avisos. */
+export const VAR_SOLO_A = "EMAILS_DAMNIFICADO_SOLO_A";
+
+/**
+ * Casillas habilitadas, normalizadas. Lista separada por comas.
+ *
+ * Set vacío ⇒ SIN restricción (no "nadie recibe"). Esa asimetría es a propósito: la
+ * variable ausente tiene que dejar el sistema como estaba, no apagarlo entero.
+ */
+function casillasPermitidas(): Set<string> {
+  const raw = process.env[VAR_SOLO_A];
+  if (raw === undefined) return new Set();
+  return new Set(
+    raw
+      .split(",")
+      .map((e) => e.trim().toLowerCase())
+      .filter((e) => e !== ""),
+  );
+}
+
+/**
+ * ¿Esta casilla de damnificado puede recibir avisos automáticos? (REC-150)
+ *
+ * Existe porque producción está EN PRUEBAS con un cliente real adentro: `Way Maker`
+ * (SIN-2026-00010) convive con el damnificado que se usa para probar. Encender un aviso
+ * sin esto le escribiría al cliente de verdad, y un email mandado no se puede deshacer.
+ *
+ * Es una ALLOWLIST y no una blocklist, y esa es la decisión importante: acá el error
+ * caro es que reciba alguien que no debía, no que deje de recibir alguien que sí. Con
+ * una allowlist, un typo en la dirección deja a esa persona SIN aviso —molesto y
+ * evidente—; con una blocklist, el mismo typo se lo manda al cliente real —silencioso
+ * e irreversible—. La dirección de falla es todo el diseño.
+ *
+ * No puede alcanzar la invitación ni el reset: salen por `sendEmailOrThrow`, que no pasa
+ * por `notificaciones.enviar`. Es la misma garantía POR CONSTRUCCIÓN que la de los otros
+ * dos interruptores. ⚠️ Como consecuencia, durante las pruebas un reenvío EXPLÍCITO de
+ * invitación desde la ficha sí le llega a un damnificado fuera de la lista.
+ *
+ * Se normaliza a minúsculas de los dos lados (mismo criterio que `normalizeEmail` de
+ * `lib.ts`, replicado a mano: este módulo no importa nada, y esa propiedad es la que lo
+ * mantiene cargable desde los tests de `scripts/`).
+ */
+export function damnificadoPuedeRecibir(email: string): boolean {
+  const permitidas = casillasPermitidas();
+  return permitidas.size === 0 || permitidas.has(email.trim().toLowerCase());
 }
 
 // ── Casilla de copia de los avisos (REC-84) ─────────────────────────────────
