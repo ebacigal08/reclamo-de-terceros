@@ -68,11 +68,14 @@ export const crear = mutation({
     });
 
     // 6) Notificación + email al damnificado (registro + envío en un paso).
+    //    `pedidoId` va en el payload para que el email linkee DIRECTO a la pantalla de
+    //    responder en vez de a "Mi caso" (REC-149). Es también lo que distingue este
+    //    carril del checklist tipado, que emite el mismo motivo sin fila de pedido.
     await crearNotificacion(ctx, {
       casoId,
       destinatario: "DAMNIFICADO",
       email: damnificado.email,
-      datos: { motivo: "NUEVO_PEDIDO", descripcion: texto },
+      datos: { motivo: "NUEVO_PEDIDO", descripcion: texto, pedidoId },
     });
 
     return { pedidoId };

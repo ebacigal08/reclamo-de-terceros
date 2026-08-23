@@ -6,6 +6,7 @@ import { internal } from "./_generated/api";
 import { resolveRole } from "./users";
 import { normalizeEmail } from "./lib";
 import {
+  avisoAlDamnificadoActivo,
   baseUrl,
   direccionCopia,
   emailsAlDamnificadoActivos,
@@ -75,7 +76,22 @@ const destinatario = v.union(v.literal("AGENTE"), v.literal("DAMNIFICADO"));
 export const datosNotificacion = v.union(
   v.object({ motivo: v.literal("CASO_ABIERTO") }),
   v.object({ motivo: v.literal("AVANCE_ETAPA"), etapa }),
-  v.object({ motivo: v.literal("NUEVO_PEDIDO"), descripcion: v.string() }),
+  // `pedidoId` es OPCIONAL porque discrimina los DOS carriles que emiten este motivo:
+  // el pedido de texto libre (REC-24) tiene su fila en `pedidosDocumentacion` y se
+  // responde en su propia pantalla; el checklist tipado (REC-77) no tiene fila de
+  // pedido y se responde subiendo por ítem desde "Mi caso". Su PRESENCIA decide, en el
+  // email, tanto la redacción como el link (ver el `case` en `plantilla`).
+  //
+  // Es un discriminante de CARRIL, no de autorización: llevar el id en el email no
+  // amplía ningún permiso. `/damnificado/pedido/[id]` se sirve con `pedidos.get`, que
+  // deriva la identidad de la sesión con `resolveRole` y valida la pertenencia vía
+  // pedido → caso → `caso.damnificadoId` — un id ajeno devuelve `null` igual que uno
+  // inexistente. El link no es una credencial (a diferencia del de invitación).
+  v.object({
+    motivo: v.literal("NUEVO_PEDIDO"),
+    descripcion: v.string(),
+    pedidoId: v.optional(v.id("pedidosDocumentacion")),
+  }),
   v.object({ motivo: v.literal("CASO_CERRADO"), resultadoCierre }),
   v.object({ motivo: v.literal("PEDIDO_RESPONDIDO"), descripcion: v.string() }),
   // REC-83 · sin campos a propósito: el aviso AGRUPA una tanda de subidas, así que
@@ -227,13 +243,32 @@ function plantilla(datos: DatosEmail, dest: Destinatario, casoId: Id<"casos">): 
         "Ver mi caso",
       );
     case "NUEVO_PEDIDO":
-      return armar(
-        ASUNTO_DAMNIFICADO,
-        "Tu agente te pidió algo",
-        `Tu agente necesita que le acerques: ${datos.descripcion}. Entrá para responder.`,
-        url,
-        "Responder el pedido",
-      );
+      // Dos carriles, un solo motivo (ver el comentario de `datosNotificacion`). La
+      // presencia de `pedidoId` es el discriminante, y de ahí salen las dos diferencias:
+      //
+      //  - CON `pedidoId` (texto libre): se responde en `/damnificado/pedido/[id]`, así
+      //    que el botón entra DIRECTO ahí. Es el único aviso del damnificado que no cae
+      //    en "Mi caso" —por eso arma su URL acá en vez de usar `linkPara`.
+      //  - SIN `pedidoId` (checklist): no hay pantalla de pedido; se sube por ítem desde
+      //    "Mi caso", que es adonde apunta `url`.
+      //
+      // La `descripcion` llega PELADA de los dos call-sites (el checklist manda la lista
+      // de documentos, sin prefijo): la muletilla la pone la plantilla, una sola vez.
+      return datos.pedidoId
+        ? armar(
+            ASUNTO_DAMNIFICADO,
+            "Tu agente te pidió algo",
+            `Tu agente necesita que le acerques: ${datos.descripcion}. Entrá para responder.`,
+            `${baseUrl()}/damnificado/pedido/${datos.pedidoId}`,
+            "Responder el pedido",
+          )
+        : armar(
+            ASUNTO_DAMNIFICADO,
+            "Tu agente te pidió documentación",
+            `Tu agente necesita que le acerques: ${datos.descripcion}. Entrá para subirla.`,
+            url,
+            "Ver qué me piden",
+          );
     case "CASO_CERRADO":
       return armar(
         ASUNTO_DAMNIFICADO,
@@ -322,10 +357,16 @@ export const enviar = internalAction({
     // encola `crearNotificacion` como el encolado directo del chat, así que un
     // solo guard los cubre a los dos (y a cualquiera que se agregue después).
     //
-    // Corta por DESTINATARIO, no por motivo: el motivo no alcanza para deducir a
-    // quién va (NUEVO_MENSAJE va a los dos roles). Y por lo mismo, la invitación y
-    // el reset quedan intactos POR CONSTRUCCIÓN: salen por `sendEmailOrThrow`, que
-    // no pasa por acá — no dependen de que alguien se acuerde de no romperlos.
+    // Corta por DESTINATARIO y RECIÉN AHÍ mira el motivo. El orden importa: el motivo
+    // solo no alcanza para deducir a quién va (NUEVO_MENSAJE va a los dos roles), así
+    // que el destinatario sigue siendo la primera condición y nada de esto puede
+    // alcanzar a un aviso del agente. Y por lo mismo, la invitación y el reset quedan
+    // intactos POR CONSTRUCCIÓN: salen por `sendEmailOrThrow`, que no pasa por acá —
+    // no dependen de que alguien se acuerde de no romperlos.
+    //
+    // REC-149 · `avisoAlDamnificadoActivo` = el interruptor maestro (REC-71) MÁS la
+    // lista de motivos exceptuados. Con la lista ausente se comporta exactamente como
+    // `emailsAlDamnificadoActivos`, que es lo que había acá antes.
     //
     // Sólo se suprime el EMAIL: la fila de `notificaciones` ya se insertó en la
     // mutation (antes del runAfter), así que el feed in-app sigue intacto.
@@ -333,7 +374,7 @@ export const enviar = internalAction({
     // REC-84 · Dejó de ser un `return` temprano y pasó a ser un `if/else`: la COPIA
     // sale igual cuando el aviso al damnificado está silenciado (decisión del
     // usuario). Por eso no puede haber una salida anticipada antes de `enviarCopia`.
-    const silenciado = dest === "DAMNIFICADO" && !emailsAlDamnificadoActivos();
+    const silenciado = dest === "DAMNIFICADO" && !avisoAlDamnificadoActivo(datos.motivo);
     if (silenciado) {
       // Ruidoso a propósito: un email que desaparece en silencio es imposible de
       // depurar. Sin la dirección, igual que el resto del módulo (PII).

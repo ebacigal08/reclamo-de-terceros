@@ -124,11 +124,16 @@ export const agregar = mutation({
         it.tipoDocumento === "OTROS" ? it.etiqueta! : TIPO_DOCUMENTO_LABEL[it.tipoDocumento],
       );
       const lista = labels.length <= 3 ? labels.join(", ") : `${labels.length} documentos`;
+      // La lista va PELADA, sin prefijo: la plantilla del email ya dice "necesita que le
+      // acerques:" y el "Documentación solicitada:" que había acá se leía dos veces
+      // (REC-149). SIN `pedidoId`, a propósito —este carril no crea fila en
+      // `pedidosDocumentacion`—: esa ausencia es la que hace que el email hable de
+      // documentación y mande a "Mi caso", donde se sube por ítem.
       await crearNotificacion(ctx, {
         casoId,
         destinatario: "DAMNIFICADO",
         email: damnificado.email,
-        datos: { motivo: "NUEVO_PEDIDO", descripcion: `Documentación solicitada: ${lista}` },
+        datos: { motivo: "NUEVO_PEDIDO", descripcion: lista },
       });
     }
 

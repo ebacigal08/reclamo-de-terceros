@@ -17,11 +17,13 @@
  * OTP de reset o la descripción de un pedido); el log/el error de fallo llevan
  * sólo destinatario, motivo y el detalle acotado de Resend.
  *
- * Acá viven además los dos INTERRUPTORES por env var que gobiernan los avisos
- * automáticos, los dos con default seguro (ausente = comportamiento histórico):
- * `emailsAlDamnificadoActivos` (REC-71, silencia) y `direccionCopia` (REC-84, manda
- * una copia a una segunda casilla). Los dos los lee `notificaciones.enviar` y ninguno
- * puede tocar la invitación ni el reset, que salen por `sendEmailOrThrow`.
+ * Acá viven además los INTERRUPTORES por env var que gobiernan los avisos automáticos,
+ * todos con default seguro (ausente = comportamiento histórico):
+ * `emailsAlDamnificadoActivos` (REC-71, silencia los 4 avisos al damnificado),
+ * `avisoAlDamnificadoActivo` (REC-149, exceptúa motivos de ese silencio) y
+ * `direccionCopia` (REC-84, manda una copia a una segunda casilla). Los lee todos
+ * `notificaciones.enviar` y ninguno puede tocar la invitación ni el reset, que salen
+ * por `sendEmailOrThrow`.
  *
  * Las plantillas de marca (`renderEmailHtml`, `emailTexto`, `esc`) también viven
  * acá para que notificaciones, reset e invitación compartan un solo look.
@@ -81,6 +83,55 @@ export function emailsAlDamnificadoActivos(): boolean {
   if (valor === "false" || valor === "0") return true;
   console.warn(`[email] ${VAR_SILENCIO}="${raw}" no reconocido → asumo ACTIVOS`);
   return true;
+}
+
+// ── Excepciones al interruptor, por motivo (REC-149) ────────────────────────
+/** Env var con los motivos que se le mandan al damnificado A PESAR del silencio. */
+export const VAR_EXCEPCIONES = "SILENCIAR_EMAILS_DAMNIFICADO_EXCEPTO";
+
+/**
+ * Motivos exceptuados del silencio, en mayúsculas. Lista separada por comas.
+ *
+ * Nació porque `SILENCIAR_EMAILS_DAMNIFICADO` es de grano grueso: apaga los 4 avisos
+ * al damnificado de una sola vez, así que encender el de "pedido nuevo" —el único que
+ * el damnificado necesita para poder RESPONDER algo— obligaba a encender también
+ * "caso abierto", "avance de etapa" y "caso cerrado". Esto separa los cuatro.
+ *
+ * Ausente, vacía o sin ningún nombre válido ⇒ set vacío ⇒ feature INERTE: cero
+ * excepciones y cero cambios respecto del comportamiento histórico.
+ */
+function motivosExceptuados(): Set<string> {
+  const raw = process.env[VAR_EXCEPCIONES];
+  if (raw === undefined) return new Set();
+  return new Set(
+    raw
+      .split(",")
+      .map((m) => m.trim().toUpperCase())
+      .filter((m) => m !== ""),
+  );
+}
+
+/**
+ * ¿Se le manda al damnificado ESTE aviso concreto? Es lo que consulta el gate de
+ * `notificaciones.enviar`, y reemplaza ahí —y SÓLO ahí— a `emailsAlDamnificadoActivos`.
+ *
+ * Dos propiedades que son el diseño entero, y conviene no perderlas:
+ *
+ *  1. **Sólo suma, nunca resta.** Es un `||`: con el interruptor maestro apagado (o
+ *     ausente) todos los avisos salen igual y la lista no puede silenciar ninguno.
+ *     Evita el malentendido de "puse la lista y se me apagaron los otros tres".
+ *
+ *  2. **Un typo silencia, no destapa.** Un motivo mal escrito sencillamente no está en
+ *     el set, así que ese aviso sigue apagado. Es la dirección de falla CONTRARIA a la
+ *     de `emailsAlDamnificadoActivos` —que ante un valor irreconocible asume ACTIVOS—
+ *     y es a propósito: ahí el default seguro es el comportamiento histórico; acá el
+ *     default seguro es no escribirle a un cliente real por un dedazo.
+ *
+ * No afecta el default del checkbox de invitación (`casos.crear`), que sigue leyendo
+ * el interruptor maestro: exceptuar un aviso no es levantar el modo de trabajo manual.
+ */
+export function avisoAlDamnificadoActivo(motivo: string): boolean {
+  return emailsAlDamnificadoActivos() || motivosExceptuados().has(motivo.toUpperCase());
 }
 
 // ── Casilla de copia de los avisos (REC-84) ─────────────────────────────────
