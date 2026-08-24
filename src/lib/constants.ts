@@ -162,6 +162,17 @@ export const ARCHIVOS_ACEPTADOS = ["image/jpeg", "image/png", "image/heic", "app
 export const EXTENSIONES_ACEPTADAS = [".jpg", ".jpeg", ".png", ".heic", ".pdf"];
 export const ARCHIVO_MAX_BYTES = 10 * 1024 * 1024; // 10 MB
 
+// ── Consulta de la landing (REC-154) ─────────────────────────────
+// REC-154 · Espejo de MIN_NOMBRE/MAX_NOMBRE/MAX_TELEFONO/MAX_MENSAJE en
+// `convex/leads.ts` (el server valida igual, y es el que manda). Se copian en vez
+// de importarse porque `convex/leads.ts` define funciones Convex: importarlo desde
+// el browser arrastraría el módulo entero al bundle. Mismo trato que
+// `RELATO_MAX_RESPUESTA` acá arriba. Si cambia allá, cambia acá.
+export const LEAD_MIN_NOMBRE = 2;
+export const LEAD_MAX_NOMBRE = 120;
+export const LEAD_MAX_TELEFONO = 40;
+export const LEAD_MAX_MENSAJE = 1000;
+
 // ── Rutas ────────────────────────────────────────────────────────
 export const RUTAS = {
   // REC-153 · `raiz` ya NO existe, a propósito. Era un nombre solo para dos
