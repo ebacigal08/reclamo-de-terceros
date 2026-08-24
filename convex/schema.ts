@@ -2,6 +2,7 @@ import { defineSchema, defineTable } from "convex/server";
 import { authTables } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import { tipoDocumentoValidator } from "./tiposDocumento";
+import { tipoSiniestroValidator } from "./tiposSiniestro";
 
 /**
  * Esquema de la base de datos — Amparo CRM (MVP).
@@ -12,6 +13,8 @@ import { tipoDocumentoValidator } from "./tiposDocumento";
  *
  * Enums del dominio (ver src/lib/constants.ts para labels legibles):
  *  - tipoSiniestro: ACCIDENTE | ROBO | INCENDIO | INUNDACION | OTRO
+ *                   (la lista de verdad es `./tiposSiniestro`, fuente única
+ *                    compartida con `casos.ts` y con el front — REC-151)
  *  - etapa:         NUEVO | EXPEDIENTE_EN_ARMADO | EXPEDIENTE_COMPLETO |
  *                   PRESENTADO_A_ASEGURADORA | EN_NEGOCIACION | CERRADO
  *  - prioridad:     ALTA | MEDIA | BAJA
@@ -25,12 +28,12 @@ import { tipoDocumentoValidator } from "./tiposDocumento";
  *                     esta copia se venía quedando atrás en cada motivo nuevo)
  */
 
-const tipoSiniestro = v.union(
-  v.literal("ACCIDENTE"),
-  v.literal("ROBO"),
-  v.literal("INCENDIO"),
-  v.literal("INUNDACION"),
-  v.literal("OTRO"),
+// REC-151 · Ciclo de vida de una consulta de la web pública. Lo consume la
+// bandeja del agente (REC-156); hasta entonces todo lead nace y se queda en NUEVO.
+const leadEstado = v.union(
+  v.literal("NUEVO"),
+  v.literal("CONTACTADO"),
+  v.literal("DESCARTADO"),
 );
 
 const etapa = v.union(
@@ -226,7 +229,7 @@ export default defineSchema({
     numeroCaso: v.string(), // SIN-AAAA-NNNNN, legible
     damnificadoId: v.id("damnificados"),
     agenteId: v.id("agentes"),
-    tipoSiniestro,
+    tipoSiniestro: tipoSiniestroValidator,
     aseguradora: v.string(),
     etapa,
     prioridad,
@@ -619,4 +622,67 @@ export default defineSchema({
   })
     .index("by_svix_id", ["svixId"])
     .index("by_resend_id", ["resendId"]),
+
+  // ── REC-151 · Consultas de la web pública (leads) ─────────────────
+  // La primera tabla del sistema que escribe alguien SIN sesión. Todo lo que
+  // llega acá lo tipeó un desconocido en un formulario anónimo, así que el
+  // validador es la frontera real: `tipoSiniestro` va como unión cerrada —el
+  // mismo `v.union` que `casos`, desde `./tiposSiniestro`— y no como `v.string()`,
+  // para que la basura la rechace Convex en el borde y no un `if` que alguien se
+  // olvide de escribir.
+  //
+  // Esta fila es el REGISTRO DE VERDAD de una consulta, y el email al estudio es
+  // sólo una notificación. La distinción manda sobre el diseño del limiter en
+  // `leads.ts`: bajo inundación se deja de mandar mails ANTES que de guardar
+  // filas, porque un mail no entregado se puede volver a mandar mirando la tabla
+  // y un lead que nunca se guardó no se puede recuperar de ningún lado.
+  //
+  // ⚠️ Guarda datos personales de gente que NO es cliente —nombre, teléfono y el
+  // relato de un siniestro de alguien que quizá nunca vuelva a aparecer— y hoy
+  // no hay ninguna purga. Es deuda anotada a conciencia, no un olvido: REC-157.
+  leads: defineTable({
+    nombre: v.string(),
+    email: v.string(), // normalizado con normalizeEmail, igual que el resto
+    telefono: v.optional(v.string()),
+    tipoSiniestro: tipoSiniestroValidator,
+    mensaje: v.optional(v.string()),
+    // De dónde entró. Hoy siempre "landing"; existe para que un segundo origen
+    // (una campaña, un QR) no pida migrar la tabla.
+    origen: v.string(),
+    // El consentimiento del formulario (Ley 25.326), NO el de cookies. Se guarda
+    // el instante, no un booleano: "aceptó" sin cuándo no prueba nada.
+    consentimientoEn: v.number(),
+    estado: leadEstado,
+    // Espejo reducido del triplete `invitacionIntentoEn/EnviadaEn/FalloEn`:
+    // responde "¿el estudio se enteró?" sin tocar `entregasEmail`, que exige un
+    // `casoId` que un lead no tiene. La contracara es que un aviso que REBOTA es
+    // silencioso — de ahí que el registro de verdad sea la fila.
+    avisoEnviadoEn: v.optional(v.number()),
+    avisoFalloEn: v.optional(v.number()),
+  })
+    .index("by_email", ["email"])
+    // `estado` y este índice viajan desde el día uno aunque todavía no exista la
+    // bandeja del agente (REC-156). Mismo precedente que `esAdmin` en `users.me`:
+    // el campo es aditivo hoy y gratis, y el día que exista la pantalla no hay que
+    // volver a tocar el schema — que es lo caro. El orden por `_creationTime` viene
+    // implícito en todo índice de Convex, así que no hace falta un campo de fecha.
+    .index("by_estado", ["estado"]),
+
+  // ── REC-151 · Rate-limit del formulario público ───────────────────
+  // Gemela de `resetEnvios` y con exactamente las mismas trampas: leer SIEMPRE por
+  // el índice ANTES de escribir y en la MISMA mutation (el rango entra al read-set
+  // y dos concurrentes conflictúan en el OCC serializable), y consolidar con
+  // `.collect()` en vez de `.unique()` (que ROMPERÍA el limiter si alguna vez
+  // hubiera filas duplicadas, en vez de auto-curarse).
+  //
+  // La diferencia con `resetEnvios` es `clave` en lugar de `email`, y es lo único
+  // que hacía falta para meter dos limiters distintos en una tabla: `email:<x>`
+  // acota a una persona, `global` acota al formulario entero. **En una mutation de
+  // Convex no hay IP disponible** —`GenericMutationCtx` expone db/auth/storage/
+  // scheduler/run*, y nada de la request—, así que el límite por email es
+  // bypasseable cambiando el email y el techo global es el único freno duro real.
+  leadsEnvios: defineTable({
+    clave: v.string(), // "email:<normalizado>" | "global"
+    envios: v.array(v.number()),
+  }).index("by_clave", ["clave"]),
 });

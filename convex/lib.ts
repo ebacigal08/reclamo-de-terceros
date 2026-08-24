@@ -385,3 +385,61 @@ export function maximoCorrelativo(
   }
   return null;
 }
+
+// ── Ventana deslizante de rate-limit (REC-151) ───────────────────────
+// La mecánica que `passwordReset.registrarEnvio` venía haciendo inline, extraída
+// acá cuando apareció el SEGUNDO limiter (el del formulario público). Vive en este
+// módulo por el mismo motivo que `maximoCorrelativo` y `esAgenteActivo`: es la
+// parte que puede fallar EN SILENCIO —un limiter roto no tira ninguna excepción,
+// simplemente deja pasar todo— y `convex/lib.ts` no importa nada, que es lo único
+// que permite ejercitarlo desde `scripts/` con `node --test`.
+//
+// Un limiter "que anda" y un limiter que no frena nada se ven exactamente igual
+// desde afuera hasta el día que alguien te inunda la casilla.
+
+/** Un techo: `max` eventos dentro de los últimos `ventanaMs`. */
+export type UmbralEnvios = { max: number; ventanaMs: number };
+
+/**
+ * Descarta los timestamps que ya salieron de la ventana más larga y devuelve el
+ * resto ORDENADO ASCENDENTE.
+ *
+ * Es lo que hace que la ventana sea deslizante de verdad y sin cron de reseteo: la
+ * poda corre en cada intento, así que la lista queda acotada por el propio límite
+ * en vez de crecer para siempre.
+ *
+ * ⚠️ `>` y no `>=`: un timestamp exactamente en el borde de la ventana ya cumplió
+ * su condena. Con `>=` un evento seguiría contando un instante de más — invisible
+ * en producción y visible en el test de borde, que es justamente para eso.
+ */
+export function podarEnvios(
+  envios: readonly number[],
+  ahora: number,
+  ventanaMaxMs: number,
+): number[] {
+  const desde = ahora - ventanaMaxMs;
+  return envios.filter((t) => t > desde).sort((a, b) => a - b);
+}
+
+/**
+ * ¿Alguno de los umbrales YA está alcanzado? Se evalúa ANTES de registrar el
+ * intento en curso, así que la comparación es `>=` y no `>`: con `max` eventos ya
+ * hechos, el que viene sería el `max + 1`.
+ *
+ * Es el mismo `>=` que usa `passwordReset.registrarEnvio`, y la razón de que sea
+ * fácil equivocarse: `>` deja pasar uno de más por cada ventana, para siempre, sin
+ * ningún síntoma.
+ *
+ * `envios` tiene que venir de `podarEnvios` (la ventana más larga de `umbrales`):
+ * las ventanas más cortas se filtran acá, la más larga se asume ya aplicada.
+ */
+export function superaUmbral(
+  enviosPodados: readonly number[],
+  ahora: number,
+  umbrales: readonly UmbralEnvios[],
+): boolean {
+  return umbrales.some(
+    ({ max, ventanaMs }) =>
+      enviosPodados.filter((t) => t > ahora - ventanaMs).length >= max,
+  );
+}
