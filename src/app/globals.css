@@ -77,3 +77,224 @@ button[data-amparo-hover]:not(:disabled):active {
     display: flex;
   }
 }
+
+/* ══════════════════════════════════════════════════════════════════
+   REC-154 · Landing pública — bloque `.mkt-*`
+   Mobile-first, mismo criterio que `.login-hero` de arriba: el estilo
+   inline resuelve todo el resto de la app, pero NO expresa media
+   queries, y la landing sí las necesita (2 col → 1 col, escala del
+   hero, nav colapsado). Tailwind está instalado pero sin uso real en
+   el repo: estrenarlo en una sola página crearía dos sistemas.
+   Los `scroll-margin-top` compensan el header sticky de 64 px.
+   ══════════════════════════════════════════════════════════════════ */
+
+.mkt-shell {
+  width: 100%;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding-left: 20px;
+  padding-right: 20px;
+}
+@media (min-width: 760px) {
+  .mkt-shell {
+    padding-left: 28px;
+    padding-right: 28px;
+  }
+}
+
+/* ── Header ─────────────────────────────────────────────────────── */
+/* REC-6 · En mobile las anclas de sección desaparecen y quedan marca +
+   "Ingresar". Sin menú desplegable: pediría "use client" en el header
+   para esconder tres enlaces en una página que se recorre scrolleando. */
+.mkt-nav-links {
+  display: none;
+}
+@media (min-width: 760px) {
+  .mkt-nav-links {
+    display: inline-flex;
+    align-items: center;
+  }
+}
+.mkt-navlink {
+  transition: color 0.12s;
+}
+.mkt-navlink:hover {
+  color: var(--text-primary);
+}
+
+.mkt-linkbtn {
+  transition: filter 0.12s;
+}
+.mkt-linkbtn:hover {
+  filter: brightness(0.96);
+}
+.mkt-linkbtn:active {
+  transform: translateY(0.5px);
+}
+
+/* ── Hero ───────────────────────────────────────────────────────── */
+.mkt-hero {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 34px;
+  padding-top: 40px;
+  padding-bottom: 48px;
+  scroll-margin-top: 64px;
+}
+@media (min-width: 980px) {
+  .mkt-hero {
+    grid-template-columns: 1.05fr 420px;
+    align-items: center;
+    gap: 56px;
+    padding-top: 68px;
+    padding-bottom: 76px;
+  }
+}
+.mkt-hero-title {
+  font-size: clamp(29px, 5.2vw, 44px);
+}
+
+/* ── Secciones ──────────────────────────────────────────────────── */
+.mkt-seccion {
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+  padding-top: 54px;
+  padding-bottom: 54px;
+  scroll-margin-top: 64px;
+}
+@media (min-width: 760px) {
+  .mkt-seccion {
+    gap: 32px;
+    padding-top: 68px;
+    padding-bottom: 68px;
+  }
+}
+.mkt-h2 {
+  margin: 0;
+  font-size: clamp(23px, 3.4vw, 30px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  color: var(--text-primary);
+}
+.mkt-lead {
+  margin: 0;
+  font-size: var(--text-body-lg-size);
+  line-height: 1.65;
+  color: var(--text-secondary);
+}
+
+/* Banda de color para cortar el ritmo entre secciones sobre el lienzo. */
+.mkt-banda {
+  background: var(--bg-subtle);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+/* ── Grillas de cards ───────────────────────────────────────────── */
+.mkt-cards {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+@media (min-width: 620px) {
+  .mkt-cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (min-width: 940px) {
+  .mkt-cards {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+/* Cuatro claims: 2×2 se lee mejor que 3+1. */
+@media (min-width: 940px) {
+  .mkt-cards-2 {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 26px 40px;
+  }
+}
+
+.mkt-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 20px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xs);
+}
+
+/* ── Pasos (Cómo funciona) ──────────────────────────────────────── */
+.mkt-pasos {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 22px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+@media (min-width: 760px) {
+  .mkt-pasos {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 26px 40px;
+  }
+}
+
+/* ── FAQ · <details> nativo ─────────────────────────────────────── */
+.mkt-faq {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px 18px;
+}
+.mkt-faq > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  cursor: pointer;
+  list-style: none;
+  font-size: var(--text-body-lg-size);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+}
+/* El triángulo por defecto se saca en los dos motores. */
+.mkt-faq > summary::-webkit-details-marker {
+  display: none;
+}
+.mkt-faq > summary::marker {
+  content: "";
+}
+.mkt-faq > summary:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 3px;
+  border-radius: var(--radius-sm);
+}
+.mkt-faq-chevron {
+  flex-shrink: 0;
+  color: var(--text-tertiary);
+  transition: transform 0.15s;
+}
+.mkt-faq[open] .mkt-faq-chevron {
+  transform: rotate(180deg);
+}
+
+/* ── Footer ─────────────────────────────────────────────────────── */
+.mkt-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  padding-top: 44px;
+  padding-bottom: 28px;
+}
+@media (min-width: 760px) {
+  .mkt-footer {
+    flex-direction: row;
+    justify-content: space-between;
+    gap: 48px;
+  }
+}
