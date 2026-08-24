@@ -123,18 +123,23 @@ function MiCasoHub({ data }: { data: Hub }) {
   }, [novedades, marcarVistas]);
 
   async function cerrarSesion() {
-    // Cerrar sesión no debe poder "fallar" hacia el usuario. Navegación DURA a la
-    // raíz `/` (window.location, NO router.replace): un document load re-evalúa
-    // middleware + resolver con la cookie httpOnly ya borrada por signOut → al estar
-    // deslogueado, `/` redirige a /login. La soft-nav rebotaba porque la sesión todavía
-    // se leía autenticada durante la transición cliente. Va en finally: si signOut
-    // rechaza, salimos igual.
+    // Cerrar sesión no debe poder "fallar" hacia el usuario. Navegación DURA
+    // (window.location, NO router.replace): la soft-nav rebotaba porque durante
+    // la transición cliente la sesión todavía se lee autenticada; un document
+    // load re-evalúa el middleware con la cookie httpOnly ya borrada por
+    // signOut. Va en finally: si signOut rechaza, salimos igual.
+    //
+    // REC-153 · El destino es /login DIRECTO. Antes era `/` y se llegaba a
+    // /login por rebote del resolver; con la landing pública en la raíz
+    // (REC-154) ese rebote desaparece y el que cierra sesión caería en la
+    // página de venta. Además la audiencia es la equivocada: quien acaba de
+    // desloguearse ya es cliente, no prospecto.
     try {
       await signOut();
     } catch {
       // best-effort: se traga el fallo; el redirect del finally corre igual.
     } finally {
-      window.location.replace(RUTAS.raiz);
+      window.location.replace(RUTAS.login);
     }
   }
 
@@ -395,15 +400,16 @@ function MiCasoSinCaso() {
   const { signOut } = useAuthActions();
 
   async function cerrarSesion() {
-    // Navegación DURA a la raíz `/` (igual que el hub / el shell del agente): tras
-    // signOut, un document load re-evalúa middleware + resolver con la cookie httpOnly
-    // ya borrada → deslogueado, `/` redirige a /login. Evita el rebote de la soft-nav.
+    // Navegación DURA (igual que el hub / el shell del agente): tras signOut, un
+    // document load re-evalúa el middleware con la cookie httpOnly ya borrada.
+    // Evita el rebote de la soft-nav. REC-153 · El destino es /login directo, no
+    // la raíz: ver el comentario largo del otro `cerrarSesion` de este archivo.
     try {
       await signOut();
     } catch {
       // best-effort: se traga el fallo; el redirect del finally corre igual.
     } finally {
-      window.location.replace(RUTAS.raiz);
+      window.location.replace(RUTAS.login);
     }
   }
 

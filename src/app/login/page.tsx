@@ -28,9 +28,10 @@ export default function LoginPage() {
         password,
         flow: "signIn",
       });
-      // Redirección por rol: el resolver "/" (server) lee la sesión y manda
-      // a la pantalla correcta. Evita la carrera de leer `me` en cliente.
-      router.replace("/");
+      // Redirección por rol: el resolver (server, en /inicio desde REC-153) lee
+      // la sesión y manda a la pantalla correcta. Evita la carrera de leer `me`
+      // en cliente.
+      router.replace(RUTAS.inicio);
     } catch {
       setError("Email o contraseña incorrectos");
       setLoading(false);

@@ -15,8 +15,9 @@ import { RUTAS } from "@/lib/constants";
  * Sin ella hay un bucle real. Un agente al que le desactivaron la cuenta
  * conserva su cookie de sesión (la baja no toca las credenciales, para poder
  * reactivarlo sin re-invitarlo), así que sigue estando AUTENTICADO: el
- * middleware lo saca de `/login` y lo manda a `/`, y `/` —donde `me` ya no
- * resuelve— lo mandaría de vuelta a `/login`. Para siempre.
+ * middleware lo saca de `/login` y lo manda al resolver de rol (`/inicio`
+ * desde REC-153), y el resolver —donde `me` ya no resuelve— lo mandaría de
+ * vuelta a `/login`. Para siempre.
  *
  * Una página que consulta `me` y decide podría loopear igual; una que nunca
  * redirige, no puede. Por eso el mensaje es fijo y el único camino de salida es

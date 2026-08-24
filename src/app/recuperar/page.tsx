@@ -67,8 +67,8 @@ export default function RecuperarPage() {
         newPassword,
         flow: "reset-verification",
       });
-      // reset-verification deja la sesión iniciada: "/" enruta según rol.
-      router.replace("/");
+      // reset-verification deja la sesión iniciada: /inicio enruta según rol.
+      router.replace(RUTAS.inicio);
     } catch {
       setError("El código es incorrecto o venció. Pedí uno nuevo.");
       setLoading(false);

@@ -134,7 +134,7 @@ export function DocumentosView() {
       return;
     }
     if (me.rol !== "damnificado") {
-      router.replace("/");
+      router.replace(RUTAS.inicio);
       return;
     }
     if (data.caso === null) {

@@ -164,7 +164,13 @@ export const ARCHIVO_MAX_BYTES = 10 * 1024 * 1024; // 10 MB
 
 // ── Rutas ────────────────────────────────────────────────────────
 export const RUTAS = {
-  raiz: "/",
+  // REC-153 · `raiz` ya NO existe, a propósito. Era un nombre solo para dos
+  // cosas que dejaron de ser la misma: la puerta pública y el resolver de rol.
+  // Borrarlo —en vez de reapuntarlo a `/`— rompió el typecheck en cada
+  // consumidor y obligó a elegir destino de a uno, en vez de arrastrar en
+  // silencio a la landing a gente que venía de cerrar sesión.
+  landing: "/", // web pública (REC-154). Ninguna pantalla de la app navega acá.
+  inicio: "/inicio", // resolver de rol post-login: lee la sesión y reubica.
   login: "/login",
   recuperar: "/recuperar",
   activar: (token: string) => `/activar/${token}`,

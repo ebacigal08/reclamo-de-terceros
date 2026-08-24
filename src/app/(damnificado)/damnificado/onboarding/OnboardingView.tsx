@@ -71,7 +71,10 @@ export function OnboardingView() {
       return;
     }
     if (me.rol !== "damnificado") {
-      router.replace("/"); // el resolver reubica por rol
+      // Al resolver, NO a la landing: éste es el punto donde un destino público
+      // convertiría el bucle que documenta el resolver en un callejón sin salida
+      // silencioso (un agente acá quedaría expulsado de la app). Ver REC-91.
+      router.replace(RUTAS.inicio); // el resolver reubica por rol
       return;
     }
     if (me.onboardingCompletado) {

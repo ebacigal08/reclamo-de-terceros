@@ -19,8 +19,16 @@ export default convexAuthNextjsMiddleware(async (request, { convexAuth }) => {
     return nextjsMiddlewareRedirect(request, "/login");
   }
   // Ya logueado en el login → al resolver de rol.
+  //
+  // ⚠️ REC-153 · El destino tiene que ser el RESOLVER, nunca la landing pública
+  // de `/`. El agente desactivado sigue AUTENTICADO (la baja no toca sus
+  // credenciales), así que rebota por acá cada vez: hoy sale /login → /inicio →
+  // el resolver ve `sin_acceso` → /sin-acceso, el callejón sin salida que corta
+  // el bucle de REC-91. Con la landing de destino sería /login → landing →
+  // "Ingresar" → /login → landing, para siempre, y /sin-acceso dejaría de ser
+  // alcanzable: exactamente el modo de falla que esa pantalla existe para evitar.
   if (esLogin(request) && autenticado) {
-    return nextjsMiddlewareRedirect(request, "/");
+    return nextjsMiddlewareRedirect(request, "/inicio");
   }
 });
 

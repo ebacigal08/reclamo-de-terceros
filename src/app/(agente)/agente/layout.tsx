@@ -21,8 +21,8 @@ export default async function AgenteLayout({
   const me = await fetchQuery(api.users.me, {}, { token }).catch(() => null);
   // REC-91 · La rama del desactivado va ANTES del fail-closed a /login, y no
   // después: por /login terminaría igual en /sin-acceso (vía el middleware y el
-  // resolver `/`), pero con dos saltos de más y explicándole "ingresá de nuevo"
-  // a alguien cuyo problema no se arregla ingresando de nuevo.
+  // resolver `/inicio`), pero con dos saltos de más y explicándole "ingresá de
+  // nuevo" a alguien cuyo problema no se arregla ingresando de nuevo.
   if (me?.rol === "sin_acceso") redirect(RUTAS.sinAcceso);
   if (!me || me.rol !== "agente") redirect(RUTAS.login);
 

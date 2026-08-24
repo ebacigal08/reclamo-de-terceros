@@ -124,7 +124,7 @@ export function ResponderPedidoView({ pedidoId }: { pedidoId: string }) {
       return;
     }
     if (me.rol !== "damnificado") {
-      router.replace("/");
+      router.replace(RUTAS.inicio);
       return;
     }
     if (data === null) {
