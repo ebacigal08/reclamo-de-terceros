@@ -39,11 +39,22 @@ import {
  * avisos automáticos al damnificado— NO puede afectarlos. Quedan a salvo POR
  * CONSTRUCCIÓN, no porque alguien se acuerde de no romperlos.
  *
- * Que `enviar` sea el ÚNICO consumidor de `sendEmail` es, a esta altura, la propiedad
- * más rentable del módulo: es también donde se engancha la COPIA a la segunda casilla
- * (REC-84, `enviarCopia`). Un solo lugar cubre los 8 avisos automáticos y los que
- * vengan después — y por el mismo motivo de arriba, la copia tampoco puede alcanzar a
- * la invitación ni al reset, cuyo OTP es una credencial que no debe duplicarse.
+ * Que `enviar` sea el único consumidor de `sendEmail` DENTRO DEL CAMINO DE LOS AVISOS
+ * AUTOMÁTICOS es, a esta altura, la propiedad más rentable del módulo: es también donde
+ * se engancha la COPIA a la segunda casilla (REC-84, `enviarCopia`). Un solo lugar cubre
+ * los 8 avisos automáticos y los que vengan después — y por el mismo motivo de arriba, la
+ * copia tampoco puede alcanzar a la invitación ni al reset, cuyo OTP es una credencial
+ * que no debe duplicarse.
+ *
+ * ⚠️ REC-151 · Ese "único consumidor" era literal hasta que apareció `convex/leads.ts`,
+ * el aviso al ESTUDIO cuando entra una consulta de la web pública, que también llama
+ * `sendEmail` directo. La propiedad de arriba sigue en pie —ningún aviso al damnificado
+ * escapa a `enviar`— y el lead no la debilita, porque su destino es siempre la env var
+ * `EMAIL_LEADS` y no una dirección de nadie. Pero la frase, tal como estaba, ya no era
+ * cierta, y de eso justamente dependía el argumento de por qué alcanza con un solo
+ * guard. Si algún día aparece un TERCER consumidor de `sendEmail` cuyo destinatario sí
+ * salga de la base, esta nota es la que tiene que hacer sonar la alarma: ése sí hay que
+ * meterlo por `enviar` o darle su propio guard.
  */
 
 // ── Validators (mirror local; MANTENER SINCRONIZADO con schema.ts) ──
@@ -353,10 +364,25 @@ export const enviar = internalAction({
     // que salió—, y sólo se le antepone un prefijo al asunto.
     const { subject, text, html } = plantilla(datos, dest, casoId);
 
-    // Interruptor de avisos al damnificado (REC-71). El corte va ACÁ porque es
-    // el ÚNICO consumidor de `sendEmail`: pasan por este action tanto lo que
-    // encola `crearNotificacion` como el encolado directo del chat, así que un
-    // solo guard los cubre a los dos (y a cualquiera que se agregue después).
+    // Interruptor de avisos al damnificado (REC-71). El corte va ACÁ porque es el
+    // único consumidor de `sendEmail` EN EL CAMINO DE LOS AVISOS AL DAMNIFICADO:
+    // pasan por este action tanto lo que encola `crearNotificacion` como el
+    // encolado directo del chat, así que un solo guard los cubre a los dos (y a
+    // cualquier aviso al damnificado que se agregue después).
+    //
+    // ⚠️ REC-151 · Antes esta línea decía "el ÚNICO consumidor de `sendEmail`", a
+    // secas, y desde `convex/leads.ts` dejó de ser cierto. La corrección no es
+    // cosmética: esa frase era el argumento de COMPLETITUD de este guard, o sea
+    // la razón por la que alcanza con cortar acá. Dejarla como estaba convertía
+    // una invariante de seguridad en una afirmación falsa, que es peor que no
+    // tener el comentario.
+    //
+    // Por qué `leads.avisarEstudio` puede quedar afuera sin abrir un agujero: su
+    // destino es SIEMPRE la env var `EMAIL_LEADS` —una constante de entorno, nunca
+    // una dirección derivada de datos de nadie—, así que no existe forma de que
+    // ese email termine en la casilla de un damnificado. Es inmunidad por
+    // construcción, igual que la invitación y el reset, que salen por
+    // `sendEmailOrThrow` y tampoco pasan por acá.
     //
     // Corta por DESTINATARIO y RECIÉN AHÍ mira el motivo. El orden importa: el motivo
     // solo no alcanza para deducir a quién va (NUEVO_MENSAJE va a los dos roles), así

@@ -22,6 +22,7 @@ import type * as historialEtapas from "../historialEtapas.js";
 import type * as http from "../http.js";
 import type * as invitaciones from "../invitaciones.js";
 import type * as itemsDocumentacion from "../itemsDocumentacion.js";
+import type * as leads from "../leads.js";
 import type * as lib from "../lib.js";
 import type * as limpieza from "../limpieza.js";
 import type * as mensajes from "../mensajes.js";
@@ -35,6 +36,7 @@ import type * as resendWebhook from "../resendWebhook.js";
 import type * as respuestasAseguradora from "../respuestasAseguradora.js";
 import type * as seed from "../seed.js";
 import type * as tiposDocumento from "../tiposDocumento.js";
+import type * as tiposSiniestro from "../tiposSiniestro.js";
 import type * as users from "../users.js";
 
 import type {
@@ -58,6 +60,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   invitaciones: typeof invitaciones;
   itemsDocumentacion: typeof itemsDocumentacion;
+  leads: typeof leads;
   lib: typeof lib;
   limpieza: typeof limpieza;
   mensajes: typeof mensajes;
@@ -71,6 +74,7 @@ declare const fullApi: ApiFromModules<{
   respuestasAseguradora: typeof respuestasAseguradora;
   seed: typeof seed;
   tiposDocumento: typeof tiposDocumento;
+  tiposSiniestro: typeof tiposSiniestro;
   users: typeof users;
 }>;
 

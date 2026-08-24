@@ -16,6 +16,7 @@ import {
   maximoCorrelativo,
   normalizeEmail,
 } from "./lib";
+import { tipoSiniestroValidator } from "./tiposSiniestro";
 import { urlDeDocumento } from "./documentos";
 import { crearNotificacion } from "./notificaciones";
 import { registrarCambioEtapa } from "./historialEtapas";
@@ -29,14 +30,6 @@ import { entregarYRegistrar } from "./invitaciones";
  * sesión con `resolveRole`. Ninguna función pública acepta `agenteId` /
  * `damnificadoId` desde el cliente como identidad o autorización.
  */
-
-const tipoSiniestro = v.union(
-  v.literal("ACCIDENTE"),
-  v.literal("ROBO"),
-  v.literal("INCENDIO"),
-  v.literal("INUNDACION"),
-  v.literal("OTRO"),
-);
 
 const prioridad = v.union(
   v.literal("ALTA"),
@@ -55,7 +48,7 @@ const ORDEN_PRIORIDAD: Record<"ALTA" | "MEDIA" | "BAJA", number> = {
 const TOPE_BADGE_MENSAJES = 9;
 
 // Validador de la etapa (mirror de la union `etapa` de `convex/schema.ts`;
-// mismo criterio que `tipoSiniestro`/`prioridad` arriba). Valida el arg
+// mismo criterio que `prioridad` arriba). Valida el arg
 // `etapaActual` de la concurrencia optimista en `avanzarEtapa`.
 const etapa = v.union(
   v.literal("NUEVO"),
@@ -724,7 +717,7 @@ export const crearRegistro = internalMutation({
     nombre: v.string(),
     email: v.string(),
     telefono: v.string(),
-    tipoSiniestro,
+    tipoSiniestro: tipoSiniestroValidator,
     aseguradora: v.string(),
     prioridad: v.optional(prioridad),
     // Ya resuelto por la action (checkbox del agente, o el default de la env var).
@@ -975,7 +968,7 @@ export const crear = action({
     nombre: v.string(),
     email: v.string(),
     telefono: v.string(),
-    tipoSiniestro,
+    tipoSiniestro: tipoSiniestroValidator,
     aseguradora: v.string(),
     prioridad: v.optional(prioridad),
     // Override explícito del agente (el checkbox). Si NO viene, decide la env var:
@@ -1040,7 +1033,7 @@ export const crearInterno = internalMutation({
   args: {
     damnificadoId: v.id("damnificados"),
     agenteId: v.id("agentes"),
-    tipoSiniestro,
+    tipoSiniestro: tipoSiniestroValidator,
     aseguradora: v.string(),
     prioridad: v.optional(prioridad),
   },

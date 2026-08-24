@@ -2,17 +2,23 @@
  * Constantes del dominio — Amparo CRM.
  * Fuente: PRD (Notion) + tareas de Linear. Mantener sincronizado con
  * convex/schema.ts (los valores deben coincidir con los v.literal del enum).
+ *
+ * La excepción es `TIPOS_SINIESTRO`, que ya no se sincroniza a mano: se
+ * re-exporta de `convex/tiposSiniestro.ts`, donde el mismo módulo define la lista
+ * con labels Y el validador, atados por un check de sincronía en compilación.
  */
 
 // ── Tipo de siniestro ────────────────────────────────────────────
-export const TIPOS_SINIESTRO = [
-  { value: "ACCIDENTE", label: "Accidente" },
-  { value: "ROBO", label: "Robo" },
-  { value: "INCENDIO", label: "Incendio" },
-  { value: "INUNDACION", label: "Inundación" },
-  { value: "OTRO", label: "Otro" },
-] as const;
-export type TipoSiniestro = (typeof TIPOS_SINIESTRO)[number]["value"];
+// REC-151 · Re-export, NO una copia. La taxonomía vive en `convex/tiposSiniestro.ts`
+// —módulo plano y browser-safe, igual que `tiposDocumento`— porque el backend
+// necesita el `v.union` y el front necesita los labels, y hasta acá eso eran TRES
+// listas distintas (schema.ts, casos.ts y esta). El re-export mantiene el import
+// `@/lib/constants` que ya usan las ~7 pantallas del agente: nadie tuvo que cambiar.
+export {
+  TIPOS_SINIESTRO,
+  TIPO_SINIESTRO_LABEL,
+  type TipoSiniestro,
+} from "@convex/tiposSiniestro";
 
 // ── Etapas del pipeline (en orden) ───────────────────────────────
 // labelAgente = texto denso para el agente
