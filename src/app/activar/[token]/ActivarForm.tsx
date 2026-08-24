@@ -8,6 +8,7 @@ import { ConvexError } from "convex/values";
 import { Eye, EyeOff } from "lucide-react";
 import { api } from "@convex/_generated/api";
 import { Alert, Button, Input } from "@/components/ui";
+import { RUTAS } from "@/lib/constants";
 
 /** Extrae el mensaje legible de un error de Convex (o un fallback). */
 function mensajeError(err: unknown, fallback: string): string {
@@ -49,13 +50,13 @@ export function ActivarForm({
     try {
       // 1) Crea la cuenta Password y marca la cuenta como activada (server).
       const res = await activar({ token, password });
-      // 2) Inicia sesión y deja que el resolver de "/" mande a onboarding.
+      // 2) Inicia sesión y deja que el resolver (/inicio) mande a onboarding.
       await signIn("password", {
         email: res.email,
         password,
         flow: "signIn",
       });
-      router.replace("/");
+      router.replace(RUTAS.inicio);
     } catch (err) {
       setError(mensajeError(err, "No pudimos activar tu cuenta. Intentá de nuevo."));
       setLoading(false);

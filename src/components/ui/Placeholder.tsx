@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { RUTAS } from "@/lib/constants";
+
 type Registro = "agente" | "damnificado" | "compartida";
 
 /**
@@ -58,7 +60,7 @@ export function Placeholder({
         Pantalla pendiente de construir. La ruta y la estructura ya están listas.
       </div>
       <Link
-        href="/"
+        href={RUTAS.inicio}
         style={{
           display: "inline-block",
           marginTop: 24,
