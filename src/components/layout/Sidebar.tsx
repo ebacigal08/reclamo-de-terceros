@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useQuery } from "convex/react";
-import { Archive, Bell, FolderKanban, LogOut, Users } from "lucide-react";
+import { Archive, Bell, BriefcaseBusiness, FolderKanban, LogOut, Users } from "lucide-react";
 import { api } from "@convex/_generated/api";
 import { RUTAS } from "@/lib/constants";
 import { iniciales } from "@/lib/format";
@@ -34,6 +34,10 @@ export function Sidebar({ casosActivos }: { casosActivos: number }) {
   // "Clientes" cuelga de su propia raíz, no de /agente/casos, así que no entra en
   // la exclusión de arriba: cubre la lista y la ficha de cliente.
   const enClientes = pathname?.startsWith("/agente/clientes") ?? false;
+  // REC-163 · "Cartera" son los clientes de SEGUROS del estudio, otro dominio que
+  // los damnificados de "Clientes". Raíz propia, así que no necesita exclusión:
+  // `/agente/cartera` y `/agente/clientes` no son prefijo uno del otro.
+  const enCartera = pathname?.startsWith("/agente/cartera") ?? false;
 
   // El contador vive acá, y no en el header de la lista de casos, porque el sidebar
   // es lo único GLOBAL del shell del agente: así se ve mientras trabaja en una ficha,
@@ -102,6 +106,15 @@ export function Sidebar({ casosActivos }: { casosActivos: number }) {
           // del server. Un contador de clientes pediría una query nueva en el shell
           // para un número que nadie pidió, y no es ni un dato que el agente
           // persiga ni algo que reclame atención.
+        />
+        <NavItem
+          href={RUTAS.agente.cartera}
+          icon={<BriefcaseBusiness size={18} strokeWidth={1.5} />}
+          label="Cartera"
+          active={enCartera}
+          // Sin `count` por el mismo motivo que Clientes, más uno propio: el
+          // número de la cartera no es trabajo pendiente, es el tamaño de un
+          // padrón. Un contador ahí sugeriría que hay algo que atender.
         />
         <NavItem
           href={RUTAS.agente.novedades}

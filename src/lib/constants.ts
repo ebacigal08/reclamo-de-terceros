@@ -200,6 +200,13 @@ export const RUTAS = {
     cerrar: (id: string) => `/agente/casos/${id}/cerrar`,
     clientes: "/agente/clientes",
     cliente: (id: string) => `/agente/clientes/${id}`,
+    // REC-163 · Cartera de FedPat. OJO con la vecindad: `clientes` son los
+    // damnificados de los reclamos y `cartera` son los clientes de seguros del
+    // estudio. Son dos dominios distintos con nombres parecidos, y cuelgan de
+    // raíces distintas a propósito — `Sidebar.tsx` resuelve el item activo con
+    // `startsWith`, así que si `cartera` viviera bajo `/agente/clientes/...`
+    // los dos items se marcarían activos a la vez.
+    cartera: "/agente/cartera",
   },
   damnificado: {
     onboarding: "/damnificado/onboarding",

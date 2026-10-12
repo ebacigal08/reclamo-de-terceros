@@ -44,3 +44,11 @@ yarn-error.log*
 
 # archivos comprimidos de diseño (ya descomprimidos en Design/)
 *.zip
+
+# REC-163 · Exports de la cartera de FedPat. Son DATOS PERSONALES de ~1.500
+# personas reales (nombre, DNI, CUIT, domicilio, teléfono, email) que no son
+# usuarias de Amparo: no entran al repo ni una vez, porque de git no se borran.
+# El spec `openapi*.json` de la misma carpeta SÍ puede versionarse: es
+# documentación y no tiene datos. Nada del código lee estos CSV en runtime —
+# los lee `scripts/importar-cartera.mjs`, a mano y desde el disco local.
+/API_FEDPAT/*.csv
