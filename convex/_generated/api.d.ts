@@ -11,6 +11,7 @@
 import type * as agentes from "../agentes.js";
 import type * as auth from "../auth.js";
 import type * as autorizacion from "../autorizacion.js";
+import type * as cartera from "../cartera.js";
 import type * as casos from "../casos.js";
 import type * as clientes from "../clientes.js";
 import type * as crons from "../crons.js";
@@ -49,6 +50,7 @@ declare const fullApi: ApiFromModules<{
   agentes: typeof agentes;
   auth: typeof auth;
   autorizacion: typeof autorizacion;
+  cartera: typeof cartera;
   casos: typeof casos;
   clientes: typeof clientes;
   crons: typeof crons;

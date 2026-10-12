@@ -685,4 +685,124 @@ export default defineSchema({
     clave: v.string(), // "email:<normalizado>" | "global"
     envios: v.array(v.number()),
   }).index("by_clave", ["clave"]),
+
+  // ── REC-163 · Cartera de FedPat ───────────────────────────────────
+  // Segundo dominio de la app: clientes de SEGUROS, no damnificados de un
+  // reclamo. Vive aislado a propósito —tabla propia, sección propia, sin una
+  // sola referencia a `casos`— porque son dos negocios distintos del mismo
+  // estudio. Vincular un cliente de cartera con un caso es REC-162, y cuando
+  // pase va a ser un campo acá, no un merge de tablas.
+  //
+  // La fuente de HOY es un export CSV; la de mañana es la API (REC-159). El
+  // esquema es el mismo para las dos a propósito: el cambio de fuente no
+  // debería tocar la tabla ni la pantalla.
+  carteraClientes: defineTable({
+    // `Matrícula` del export (`M-1234567`). Clave natural y clave del upsert:
+    // verificado sobre el archivo real, 1.471 valores distintos en 1.471 filas,
+    // ninguno vacío. Es lo que la API llama `codigo`.
+    matricula: v.string(),
+    nombre: v.string(),
+
+    // Todo lo demás es opcional porque el export REAL tiene huecos (una
+    // dirección vacía, 14 filas sin email válido, 30 Personas Jurídicas sin
+    // documento). Un `v.string()` acá haría fallar el import por filas que el
+    // estudio igual necesita ver.
+    tipoPersona: v.optional(v.string()), // "Persona Física" | "Persona Jurídica"
+    iva: v.optional(v.string()),
+    direccion: v.optional(v.string()),
+
+    // ⚠️ `cp` Y `cpa` son dos campos, y los dos se guardan. No es redundancia:
+    // el CPA es el código alfanumérico del Correo Argentino (`C1425DJE`) y el
+    // CP es el viejo de 4 dígitos. Medido sobre el export: de 1.467 CPA, 719
+    // (49%) tienen el formato alfanumérico real y 748 son el CP repetido — y en
+    // 113 filas el número del CPA NO coincide con el CP de al lado, así que no
+    // se puede derivar uno del otro ni quedarse con uno solo.
+    //
+    // Los dos son `string` y nunca números. Un `int32` —que es exactamente lo
+    // que declara la API en `codigo_postal`— no puede contener `C1425DJE` ni
+    // conservar un cero a la izquierda. Ese es el campo que REC-159 va a
+    // PERDER al cambiar de fuente, para la mitad de la cartera.
+    cp: v.optional(v.string()),
+    cpa: v.optional(v.string()),
+
+    // El export da el NOMBRE de la localidad; la API da `codigo_localidad_p`,
+    // un número que hay que traducir con `/cartera/ciudades`. Se guarda el
+    // nombre, que es lo que la pantalla muestra, y REC-159 traduce al entrar.
+    localidad: v.optional(v.string()),
+
+    // El export los trae pegados en un solo campo (`DNI 12345678`); la API los
+    // trae separados. Se guardan separados DESDE EL PRIMER IMPORT para que el
+    // cambio de fuente no pida una migración. Tipos vistos en el archivo real:
+    // DNI 1427, LE 9, LC 4, CI 1 (30 Personas Jurídicas sin documento).
+    tipoDocumento: v.optional(v.string()),
+    // `string`, no número: un documento con ceros a la izquierda o un
+    // pasaporte alfanumérico no son enteros. La API lo declara `int32`; nosotros
+    // no copiamos ese error.
+    numeroDocumento: v.optional(v.string()),
+
+    telefono: v.optional(v.string()),
+    cuit: v.optional(v.string()),
+    // ⚠️ NO es clave de nada. En el export hay 41 emails repetidos (uno 8
+    // veces) y 14 filas sin email válido. Importa porque en el resto de Amparo el
+    // email SÍ es la identidad (`agentes.by_email`, `damnificados.by_email`):
+    // acá no lo es, y nada debe buscar un cliente de cartera por email
+    // esperando un único resultado.
+    email: v.optional(v.string()),
+    cobrador: v.optional(v.string()),
+
+    // De qué corrida salió esta fila. Es lo que permite que la pantalla diga la
+    // verdad sobre la procedencia de lo que está mostrando.
+    importId: v.id("carteraImports"),
+  })
+    .index("by_matricula", ["matricula"])
+    .index("by_documento", ["numeroDocumento"])
+    .index("by_cuit", ["cuit"]),
+
+  // Una fila por corrida de import. No es telemetría: es lo que sostiene el
+  // cartel de procedencia de la pantalla, y la razón por la que una corrida a
+  // medias no puede presentarse como una cartera completa.
+  carteraImports: defineTable({
+    fuente: v.union(v.literal("csv"), v.literal("api")),
+
+    // ⚠️ El `modo` almacenado es la AUTORIDAD sobre si se escribe o no, por
+    // encima del flag `dryRun` que recibe cada lote. Un flag puede pasarse mal
+    // en el llamado 5 de 15; el modo lo fijó `abrirImport` una sola vez.
+    modo: v.union(v.literal("REAL"), v.literal("SIMULACION")),
+
+    archivo: v.string(),
+    iniciadoEn: v.number(),
+
+    // Contra qué se valida el cierre. Lo fija `abrirImport` con el total de
+    // filas ya parseadas y validadas, ANTES de escribir la primera.
+    filasEsperadas: v.number(),
+
+    // ⚠️ AUSENTE ⇒ la corrida NO terminó (se interrumpió, falló, o procesó
+    // menos filas de las esperadas). Es el mismo problema que el triplete de
+    // invitaciones de `damnificados` (REC-71): sin un campo que separe "en
+    // curso" de "terminó", los dos estados son indistinguibles y hay que
+    // tratarlos AL REVÉS. Lo escribe SÓLO `cerrarImport`, y sólo si los
+    // contadores cuadran: su presencia significa terminación VALIDADA, no
+    // "alguien llamó a cerrar".
+    completadoEn: v.optional(v.number()),
+
+    // Se acumulan en CADA lote, no al cerrar. Si se consolidaran al final, una
+    // corrida interrumpida mostraría cero habiendo escrito 400 filas: la
+    // mentira exacta que este diseño viene a evitar.
+    creadas: v.number(),
+    actualizadas: v.number(),
+
+    // Por qué no se pudo completar, cuando no se pudo. Sin esto, un import
+    // incompleto no dice si se interrumpió o si le faltaron filas.
+    desvioAlCerrar: v.optional(v.string()),
+
+    // Lo que el archivo traía mal y se importó igual. Se cuentan para poder
+    // mirarlas, no para frenar el import: que una fila no tenga email no es
+    // razón para no cargar las otras 1.470.
+    anomalias: v.object({
+      sinEmail: v.number(),
+      emailDuplicado: v.number(),
+      sinDireccion: v.number(),
+      sinDocumento: v.number(),
+    }),
+  }).index("by_modo", ["modo"]),
 });
