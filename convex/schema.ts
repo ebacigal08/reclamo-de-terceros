@@ -805,4 +805,123 @@ export default defineSchema({
       sinDocumento: v.number(),
     }),
   }).index("by_modo", ["modo"]),
+
+  // REC-164 · Contactos: PROSPECTOS a contactar, importados del Excel de
+  // asegurados de dos productores (`scripts/importar-contactos.mjs`). No son
+  // clientes del estudio: cruzados contra `carteraClientes` no coincide ninguno,
+  // ni por CUIT ni por documento. Por eso es una tabla propia y no una marca en
+  // la cartera.
+  //
+  // Una fila por PERSONA, no por fila del Excel: la misma persona con dos
+  // domicilios es un solo contacto con `alternativos`, para que no se la pueda
+  // marcar distinto dos veces ni llamarla dos veces.
+  contactos: defineTable({
+    // Clave del upsert, calculada por el script (`claveDe` en
+    // `scripts/contactos-xlsx.mjs`): `C:<cuit>|<NOMBRE>`, `D:<doc>|<NOMBRE>`
+    // o `N:<NOMBRE>`. Es lo que hace que un re-import encuentre a la persona y
+    // le conserve el `estado`.
+    clave: v.string(),
+    nombre: v.string(),
+    // Del título de la hoja ("Productor 21533 – Sole Leandro Hugo").
+    productor: v.string(),
+    productorNombre: v.string(),
+
+    // Todo como viene del Excel, sin interpretar. `condicionIva` queda en
+    // código (CF/MO/IN/NC/EA): `NC` y `EA` no son obvios, y traducirlos sería
+    // inventar. `codigoPostal` mezcla CP y CPA en la misma columna del archivo.
+    cuit: v.optional(v.string()),
+    condicionIva: v.optional(v.string()),
+    direccion: v.optional(v.string()),
+    localidad: v.optional(v.string()),
+    codigoPostal: v.optional(v.string()),
+    tipoDocumento: v.optional(v.string()),
+    numeroDocumento: v.optional(v.string()),
+    telefono: v.optional(v.string()),
+    email: v.optional(v.string()),
+    observacion: v.optional(v.string()),
+    faltanDatosObligatorios: v.boolean(),
+
+    // Marcas automáticas del import: SIN_CUIT, SIN_IDENTIFICADOR,
+    // CUIT_COMPARTIDO.
+    marcas: v.array(v.string()),
+    // ⚠️ El OR de TODAS las filas de la persona, alternativos incluidos (C2):
+    // una observación que viene sólo en la segunda fila no puede quedar
+    // escondida. Lo calcula el script, así el filtro de la pantalla y el
+    // conteo del import dicen lo mismo.
+    aVerificar: v.boolean(),
+
+    // Las demás filas de la misma persona, enteras. Ausente cuando no hay.
+    alternativos: v.optional(
+      v.array(
+        v.object({
+          condicionIva: v.optional(v.string()),
+          direccion: v.optional(v.string()),
+          localidad: v.optional(v.string()),
+          codigoPostal: v.optional(v.string()),
+          tipoDocumento: v.optional(v.string()),
+          numeroDocumento: v.optional(v.string()),
+          telefono: v.optional(v.string()),
+          email: v.optional(v.string()),
+          observacion: v.optional(v.string()),
+          faltanDatosObligatorios: v.boolean(),
+        }),
+      ),
+    ),
+
+    // ⚠️ Lo escribe SÓLO `contactos.cambiarEstado` (el agente). El import lo
+    // pone en "pendiente" al crear y NUNCA lo toca al actualizar.
+    estado: v.union(
+      v.literal("pendiente"),
+      v.literal("contactado"),
+      v.literal("interesado"),
+      v.literal("descartado"),
+    ),
+    estadoActualizadoEn: v.optional(v.number()),
+
+    importId: v.id("contactosImports"),
+  })
+    .index("by_clave", ["clave"])
+    .index("by_estado", ["estado"])
+    .index("by_cuit", ["cuit"]),
+
+  // Una fila por corrida del import de contactos. Copia de `carteraImports`, y
+  // separada a propósito: `estadoCartera` lee `carteraImports` por `by_modo`, y
+  // una corrida de contactos ahí le cambiaría el cartel a Cartera.
+  contactosImports: defineTable({
+    fuente: v.literal("xlsx"),
+    // La AUTORIDAD sobre si se escribe, igual que en `carteraImports`.
+    modo: v.union(v.literal("REAL"), v.literal("SIMULACION")),
+    archivo: v.string(),
+    iniciadoEn: v.number(),
+    // Contactos (no filas del Excel) que el script validó antes del primer lote.
+    filasEsperadas: v.number(),
+    // AUSENTE ⇒ la corrida no terminó. Lo escribe sólo `cerrarImport`, y sólo
+    // si los contadores cuadran.
+    completadoEn: v.optional(v.number()),
+    creadas: v.number(),
+    actualizadas: v.number(),
+    desvioAlCerrar: v.optional(v.string()),
+
+    // Las cuenta el script sobre el archivo validado y las fija
+    // `abrirImport`. Filas y contactos por separado: ver `contarAnomalias` en
+    // `scripts/contactos-xlsx.mjs`.
+    anomalias: v.object({
+      filas: v.number(),
+      filasFaltanDatos: v.number(),
+      filasConObservacion: v.number(),
+      contactos: v.number(),
+      fusionados: v.number(),
+      sinCuit: v.number(),
+      sinIdentificador: v.number(),
+      cuitCompartido: v.number(),
+      aVerificar: v.number(),
+    }),
+
+    // Contactos de la base cuya clave NO vino en este archivo (C3). Se calcula
+    // contra el conjunto COMPLETO de claves del archivo, nunca por `importId`:
+    // en una simulación no se actualiza ningún contacto, así que todos
+    // tendrían un `importId` viejo. Sólo se escribe cuando la corrida cierra
+    // COMPLETA: en una corrida interrumpida no es un número definitivo.
+    noVinieron: v.optional(v.number()),
+  }).index("by_modo", ["modo"]),
 });
