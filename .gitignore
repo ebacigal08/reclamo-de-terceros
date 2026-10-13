@@ -52,3 +52,9 @@ yarn-error.log*
 # documentación y no tiene datos. Nada del código lee estos CSV en runtime —
 # los lee `scripts/importar-cartera.mjs`, a mano y desde el disco local.
 /API_FEDPAT/*.csv
+
+# REC-164 · Los Excel de contactos (prospectos) de los productores 21533 y
+# 24315. Mismo motivo que los CSV de arriba: ~1.500 personas reales que ni
+# siquiera son clientes del estudio. Los lee `scripts/importar-contactos.mjs`
+# desde el disco local.
+/API_FEDPAT/*.xlsx

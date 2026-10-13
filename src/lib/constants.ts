@@ -207,6 +207,9 @@ export const RUTAS = {
     // `startsWith`, así que si `cartera` viviera bajo `/agente/clientes/...`
     // los dos items se marcarían activos a la vez.
     cartera: "/agente/cartera",
+    // REC-164 · Prospectos a contactar, importados del Excel de los
+    // productores. Otra raíz más: no es prefijo de `clientes` ni de `cartera`.
+    contactos: "/agente/contactos",
   },
   damnificado: {
     onboarding: "/damnificado/onboarding",

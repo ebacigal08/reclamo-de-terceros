@@ -14,6 +14,7 @@ import type * as autorizacion from "../autorizacion.js";
 import type * as cartera from "../cartera.js";
 import type * as casos from "../casos.js";
 import type * as clientes from "../clientes.js";
+import type * as contactos from "../contactos.js";
 import type * as crons from "../crons.js";
 import type * as documentos from "../documentos.js";
 import type * as email from "../email.js";
@@ -53,6 +54,7 @@ declare const fullApi: ApiFromModules<{
   cartera: typeof cartera;
   casos: typeof casos;
   clientes: typeof clientes;
+  contactos: typeof contactos;
   crons: typeof crons;
   documentos: typeof documentos;
   email: typeof email;
