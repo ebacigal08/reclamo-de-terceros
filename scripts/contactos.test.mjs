@@ -24,7 +24,7 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { deflateRawSync } from "node:zlib";
 
-import { normalizeEmail } from "../convex/lib.ts";
+import { normalizeEmail, esNombreNoVisible, compararNombresContacto } from "../convex/lib.ts";
 import { leerXlsx, decodificarEntidades, ErrorXlsx } from "./xlsx-mini.mjs";
 import {
   ENCABEZADOS,
@@ -353,6 +353,39 @@ test("contarAnomalias separa conteos de filas y de contactos", () => {
 
 test("claveDe: CUIT gana sobre documento", () => {
   assert.equal(claveDe({ cuit: "20000000001", numeroDocumento: "1", nombre: "a" }), "C:20000000001|A");
+});
+
+// ── 3b. Orden: los "(nombre no visible)" al final ──────────────────────────
+
+test("esNombreNoVisible: las formas del archivo sí, un nombre normal no", () => {
+  for (const n of ["(nombre no visible)", "… (nombre no visible)", "PEREZ … (nombre no visible)", "GOMEZ G… (Nombre No Visible)"]) {
+    assert.equal(esNombreNoVisible(n), true, n);
+  }
+  // CONTROL: un nombre real, y uno que dice "no visible" sin el marcador.
+  for (const n of ["PRUEBA INVENTADA UNO", "NOMBRE NO VISIBLE SRL"]) {
+    assert.equal(esNombreNoVisible(n), false, n);
+  }
+});
+
+test("los '(nombre no visible)' van AL FINAL; el resto, alfabético", () => {
+  const nombres = ["ZETA", "(nombre no visible)", "ALFA", "… (nombre no visible)", "BETA … (nombre no visible)", "MEDIO"];
+  assert.deepEqual([...nombres].sort(compararNombresContacto), [
+    "ALFA",
+    "MEDIO",
+    "ZETA",
+    "(nombre no visible)",
+    "BETA … (nombre no visible)",
+    "… (nombre no visible)",
+  ]);
+  // CONTROL: el orden alfabético puro los pone PRIMERO (el bug que se arregla).
+  assert.equal([...nombres].sort()[0], "(nombre no visible)");
+});
+
+test("listar ordena con compararNombresContacto, no con un sort propio", () => {
+  const fuente = readFileSync(join(RAIZ, "convex/contactos.ts"), "utf8");
+  const ini = fuente.indexOf("export const listar = ");
+  const cuerpo = fuente.slice(ini, fuente.indexOf("\n});", ini));
+  assert.match(cuerpo, /contactos\.sort\(\(a, b\) => compararNombresContacto\(a\.nombre, b\.nombre\)\)/);
 });
 
 // ── 4. Guards estáticos sobre convex/contactos.ts ──────────────────────────

@@ -4,6 +4,7 @@ import type { Id } from "./_generated/dataModel";
 import { v } from "convex/values";
 import type { Infer } from "convex/values";
 import { resolveRole } from "./users";
+import { compararNombresContacto } from "./lib";
 
 /**
  * Contactos: prospectos a contactar (REC-164).
@@ -329,8 +330,9 @@ export const listar = query({
       estadoActualizadoEn: c.estadoActualizadoEn,
     }));
 
-    // `<`/`>` y no `localeCompare`: determinístico en el runtime de Convex.
-    contactos.sort((a, b) => (a.nombre < b.nombre ? -1 : a.nombre > b.nombre ? 1 : 0));
+    // Alfabético, con los "(nombre no visible)" al final: ver
+    // `compararNombresContacto` en lib.ts.
+    contactos.sort((a, b) => compararNombresContacto(a.nombre, b.nombre));
     return contactos;
   },
 });

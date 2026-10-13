@@ -443,3 +443,33 @@ export function superaUmbral(
       enviosPodados.filter((t) => t > ahora - ventanaMs).length >= max,
   );
 }
+
+// ── Contactos sin nombre (REC-164) ───────────────────────────────
+
+/**
+ * ¿El nombre de un contacto es el marcador `(nombre no visible)` del Excel?
+ *
+ * Son 59 filas transcriptas de capturas en las que el nombre no se veía; la
+ * celda dice `(nombre no visible)`, a veces con un pedazo de apellido delante.
+ * Se importan igual (decisión del usuario), pero `contactos.listar` las manda
+ * al FINAL: el `(` va antes que cualquier letra, y en orden alfabético puro
+ * ocupaban las primeras filas de la lista.
+ */
+export function esNombreNoVisible(nombre: string): boolean {
+  return /\(nombre no visible\)/i.test(nombre);
+}
+
+/**
+ * Orden de la lista de contactos: alfabético, con los `(nombre no visible)`
+ * al FINAL. Se dejan en la lista (decisión del usuario); sólo cambia dónde
+ * aparecen.
+ *
+ * `<`/`>` y no `localeCompare`: determinístico en el runtime de Convex, igual
+ * que el resto de los listados.
+ */
+export function compararNombresContacto(a: string, b: string): number {
+  const sa = esNombreNoVisible(a);
+  const sb = esNombreNoVisible(b);
+  if (sa !== sb) return sa ? 1 : -1;
+  return a < b ? -1 : a > b ? 1 : 0;
+}
