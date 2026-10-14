@@ -194,9 +194,11 @@ type Resumen = {
 
 /**
  * Cartel de procedencia, con los mismos cuatro estados que Cartera (ver el
- * comentario de `Procedencia` en `cartera/page.tsx`). Suma una cosa: si el
- * último import completo dejó contactos de la base que no venían en el archivo,
- * lo dice, porque esos contactos siguen en la lista.
+ * comentario de `Procedencia` en `cartera/page.tsx`). Suma una cosa: los
+ * contactos de la base que no venían en el último archivo. Se dice como dato y
+ * no como aviso, porque lo normal es importar un Excel parcial (sólo los
+ * nuevos de un productor): esos contactos vienen de archivos anteriores y
+ * siguen en la lista con su estado.
  */
 function Procedencia({ estado }: { estado: Estado }) {
   if (estado === undefined) return null;
@@ -225,15 +227,19 @@ function Procedencia({ estado }: { estado: Estado }) {
     return (
       <div style={{ marginBottom: 16, display: "flex", flexDirection: "column", gap: 10, alignItems: "flex-start" }}>
         <span style={pillStyle}>
-          Datos del Excel {archivo(ultimoCompleto)}
-          {" · importados el "}
+          Último Excel importado: {archivo(ultimoCompleto)}
+          {" · el "}
           {formatFecha(ultimoCompleto.completadoEn ?? ultimoCompleto.iniciadoEn)}
+          {" · "}
+          {ultimoCompleto.procesadas.toLocaleString("es-AR")}{" "}
+          {ultimoCompleto.procesadas === 1 ? "contacto" : "contactos"}
         </span>
         {noVinieron > 0 ? (
-          <Alert variant="info" title={`${noVinieron} ${noVinieron === 1 ? "contacto no vino" : "contactos no vinieron"} en el último archivo`}>
-            Siguen en la lista con su estado: el import no borra a nadie. Si se corrigió un nombre en
-            el Excel, la persona puede figurar dos veces.
-          </Alert>
+          <span style={{ color: "var(--text-tertiary)", fontSize: 12 }}>
+            Los otros {noVinieron.toLocaleString("es-AR")}{" "}
+            {noVinieron === 1 ? "contacto viene" : "contactos vienen"} de archivos anteriores y
+            conservan su estado.
+          </span>
         ) : null}
       </div>
     );
